@@ -1,0 +1,4 @@
+# Normalise line endings so a card looks the same on every platform.
+# Cards are compared, diffed and checked by tooling — CRLF sneaking in makes a rule about
+# whitespace impossible to state precisely.
+* text=auto eol=lf
