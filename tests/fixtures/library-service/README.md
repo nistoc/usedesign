@@ -52,6 +52,20 @@ runs, and the skipped one is a decision somebody made deliberately six weeks ago
 invisible to a test report read by a human, and all three mean a card is claiming a proof it does
 not have.
 
+## And check 3 catches the most ordinary decay of all
+
+`src/` holds stubs for the handlers the cards name. Five of the six are where the cards say. The
+sixth moved:
+
+```
+card:       maturity_evidence.implemented: src/admin/ApiKeyHandler.ts
+repository: src/security/ApiKeyHandler.ts
+```
+
+Nobody did anything wrong. The file was moved during a refactor in June, every test still passes,
+and the card has been quietly false ever since. This is the failure mode the whole format exists
+for, and it takes a checker one line to report.
+
 ## What passing looks like
 
 Add cards for the two routes — or delete the routes. Both are real answers, and the check does not

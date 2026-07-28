@@ -104,10 +104,29 @@ Legend: ⬛ required · ⬜ optional · 🔶 conditionally required
 | Field | | Meaning |
 |---|:--:|---|
 | `maturity` | ⬛ | `conceived` · `designed` · `implemented` · `tested` · `in_production` · `deprecated` |
-| `maturity_evidence` | 🔶 | `{ implemented: <path>, tested: <n tests>, deployed: <env> }`. Required from `implemented` upward — **a level may not be claimed without its evidence**. A `conceived` or `designed` operation has nothing to prove yet |
+| `maturity_evidence` | 🔶 | Required from `implemented` upward — **a level may not be claimed without its evidence**. A `conceived` or `designed` operation has nothing to prove yet. The three keys are not the same kind of claim; see below |
 | `data_transition` | ⬜ | `{ from, to }` — axis C. `null` for read-only operations and for writes that do not change state |
 | `mutates` | 🔶 | Fields changed, when `data_transition` is null but the operation still writes |
 | `since` | ⬜ | `{ migration, note }` — axis D. The one place where migrations stop being orphans |
+
+```yaml
+maturity_evidence:
+  implemented: src/loans/CheckoutHandler.ts        # or a list, for an operation spanning files
+  tested: 7 tests                                  # advisory prose — not the enforced evidence
+  deployed: { env: production, since: 2026-07-12 }  # or a bare env name, which never expires
+```
+
+**The three keys differ in what a checker can do with them, and the format should not pretend
+otherwise:**
+
+- `implemented` names code and **can be verified** — the file must exist. A trailing `:line` is
+  discarded (§5.7). One operation may span an endpoint and a worker, so a list is permitted.
+- `tested` is **advisory prose**. The enforced rule is not this text but the report: a card
+  claiming `tested` or above must name a test that exists and passes. Counting in prose what
+  `tests[]` already lists exactly is a second, unchecked copy of a known fact.
+- `deployed` **cannot be verified by any checker** worth building. Give it a `since` date and it
+  can go stale — a bare environment name never can, and a claim that never asks to be re-examined
+  is how a catalogue becomes a museum. Staleness is a warning, never a build failure.
 
 ### 5.3 Steps (axis B)
 
@@ -357,6 +376,12 @@ The format only pays for itself with an automated checker. Three invariants:
    on the report that job just produced. No checker can enforce this, which is exactly why it is
    written down. Reasoning: [`design/step-coverage.md`](design/step-coverage.md).
 3. **No inflated maturity** — the claimed level is backed by the evidence it requires.
+   Three claims of different natures (§5.2), checked differently: the `implemented` path must
+   exist in the repository; `tested` and above must have a named test that passes in the report;
+   `deployed` cannot be verified at all, so it **expires** — dated, it goes stale after a horizon;
+   undated, it is reported as a claim that can never be re-examined. Both are warnings: a checker
+   that fails a build for a claim being *old* is a checker somebody switches off.
+   Reasoning: [`design/maturity-evidence.md`](design/maturity-evidence.md).
 
 Without check 3 in particular, cards drift into aspiration within a couple of months.
 

@@ -82,6 +82,16 @@ how a fork begins.
 | `report_empty` | error | A report with zero cases — a failed run, not a suite without tests |
 | `report_malformed` | error | The report is not parseable XML |
 
+### Check 3 — comparing a maturity claim against its evidence
+
+| Code | | Meaning |
+|---|:--:|---|
+| `evidence_path_missing` | error | `implemented` names a file that is not in the repository |
+| `maturity_without_passing_test` | error | `tested` or above with no named test passing in the report |
+| `evidence_undated` | warning | An unverifiable claim with no date — it can never go stale |
+| `evidence_stale` | warning | A dated claim past the horizon. Reports silence, not absence |
+| `maturity_understated` | warning | A card below `implemented` whose tests pass. Advisory, and narrowed once already |
+
 ## What the corpus deliberately does not test
 
 **Meaning.** `tested: "soon"` satisfies the rule that a tested note exists, and the card corpus
