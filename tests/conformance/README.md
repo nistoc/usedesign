@@ -21,10 +21,16 @@ different mental models of the format.
 manifest.yaml          the list of cases with expected verdicts and codes
 cases/valid/*.op.md    cards that must be accepted
 cases/invalid/*.op.md  cards that must be rejected, each with its codes
+
+checks/manifest.yaml   the same idea for check 1 — no wild endpoints
+checks/cases/<name>/   a config and a route inventory per case
 ```
 
-Every case is a real card, and its Markdown body explains what it is probing — read the case
+Every card case is a real card, and its Markdown body explains what it is probing — read the case
 before arguing with it.
+
+The `checks/` cases all point at the same five example cards, so what varies between them is only
+what the code is said to serve — which is the axis check 1 is about.
 
 ## Diagnostic codes
 
@@ -46,18 +52,37 @@ An implementation may report **additional** codes beyond these, and may cover on
 corpus — but whatever it does report must agree with the table above. Silently renaming a code is
 how a fork begins.
 
+### Check 1 — comparing cards against the code
+
+| Code | | Meaning |
+|---|:--:|---|
+| `wild_endpoint` | error | A route is served and declared by no card |
+| `phantom_route` | error | A card declares a route the code does not serve |
+| `inventory_empty` | error | An inventory with no routes — almost always a failed dump |
+| `inventory_malformed` | error | Missing `usedesign_inventory: 1`, missing `produced_by`, or an unknown method |
+| `inventory_missing` | error | No inventory at all. Check 1 is then reported as **not run**, never as passed |
+| `no_cards_found` | error | The card patterns matched nothing — a run with nothing to disagree with is not a passing run |
+| `incomplete_rest_interface` | error | A card declares `http_rest` without a method or a path |
+| `dead_exclusion` | warning | An exclusion that hid nothing |
+| `ambiguous_shape` | warning | Two cards declare routes that normalise to the same shape; the checker cannot tell them apart |
+
 ## What the corpus deliberately does not test
 
-**Meaning.** `tested: "soon"` satisfies the rule that a tested note exists, and the corpus accepts
-that, because a schema validates form. Confirming that the listed tests exist and pass, and that
-the declared routes are the routes the code registers, is the checker's job against a real
-repository — see check number three in [SPEC.md](../../SPEC.md#7-the-three-checks). The corpus
-draws that boundary on purpose rather than pretending it is not there.
+**Meaning.** `tested: "soon"` satisfies the rule that a tested note exists, and the card corpus
+accepts that, because a schema validates form. Confirming that the listed tests exist and pass is
+the checker's job against a real repository — see
+[SPEC §7](../../SPEC.md#7-the-three-checks). The corpus draws that boundary on purpose rather than
+pretending it is not there.
+
+The `checks/` cases are the first crossing of that boundary: they compare cards against a stated
+route inventory. They still do not run anything — the inventory is a fixture, not a live
+application — but the disagreement they detect is with the code, not within the card.
 
 ## Running it
 
 ```
 python impl/python/validate.py --conformance
+python impl/python/check.py    --conformance
 ```
 
 The prototype implementation runs the corpus and compares its verdicts and codes against

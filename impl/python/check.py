@@ -9,6 +9,7 @@ This is a prototype, not a package.
 
 Usage:
     python check.py <path to usedesign.config.yaml>
+    python check.py --conformance          run the check-1 conformance corpus
 """
 from __future__ import annotations
 
@@ -26,6 +27,10 @@ except ImportError:  # pragma: no cover
     sys.exit("PyYAML is required: pip install pyyaml")
 
 from validate import front_matter
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
+CORPUS = os.path.join(REPO, "tests", "conformance", "checks")
 
 METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
 
@@ -177,7 +182,11 @@ def check(config: dict, base: str) -> tuple[list[Finding], dict]:
 
     # An exclusion that hides nothing is dead; one that starts hiding more than it did is worth
     # seeing. Silence is what makes exclusion lists dangerous — see design note §5.
-    for index, rule in enumerate(config.get("exclude") or []):
+    # With no routes at all every exclusion is trivially dead; saying so adds noise to a run that
+    # already reported the real problem, and cascading noise is how a checker teaches people to
+    # stop reading it.
+    rules = (config.get("exclude") or []) if routes else []
+    for index, rule in enumerate(rules):
         if index not in hidden:
             findings.append(Finding(
                 "dead_exclusion",
@@ -195,10 +204,59 @@ def check(config: dict, base: str) -> tuple[list[Finding], dict]:
     return findings, summary
 
 
+def run_conformance() -> int:
+    with open(os.path.join(CORPUS, "manifest.yaml"), encoding="utf-8") as handle:
+        manifest = yaml.safe_load(handle)
+    passed = failed = 0
+
+    for case in manifest["cases"]:
+        config, base = load_config(
+            os.path.join(CORPUS, "cases", case["dir"], "usedesign.config.yaml"))
+        findings, _ = check(config, base)
+        errors = [f for f in findings if f.severity == "error"]
+        verdict = "fail" if errors else "pass"
+        codes = sorted({f.code for f in errors})
+        warnings = sorted({f.code for f in findings if f.severity == "warning"})
+
+        problems = []
+        if verdict != case["expect"]:
+            problems.append(f"expected {case['expect']}, got {verdict}")
+        for code in case.get("codes", []):
+            if code not in codes:
+                problems.append(f"missing code `{code}`")
+        for code in case.get("warnings", []):
+            if code not in warnings:
+                problems.append(f"missing warning `{code}`")
+
+        if problems:
+            failed += 1
+            print(f"  FAIL  {case['dir']}")
+            for problem in problems:
+                print(f"          {problem}")
+            if codes or warnings:
+                print(f"          reported: {', '.join(codes + warnings)}")
+        else:
+            failed += 0
+            passed += 1
+            reported = ", ".join(codes + warnings)
+            print(f"  ok    {case['dir']}" + (f"  [{reported}]" if reported else ""))
+
+    print(f"\ncheck-1 conformance: {passed} passed, {failed} failed")
+    return 1 if failed else 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="check 1 — no wild endpoints")
-    parser.add_argument("config", help="path to usedesign.config.yaml")
+    parser.add_argument("config", nargs="?", help="path to usedesign.config.yaml")
+    parser.add_argument("--conformance", action="store_true",
+                        help="run the check-1 conformance corpus")
     args = parser.parse_args()
+
+    if args.conformance:
+        return run_conformance()
+    if not args.config:
+        parser.print_help()
+        return 2
 
     config, base = load_config(args.config)
     findings, summary = check(config, base)

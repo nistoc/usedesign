@@ -1,0 +1,56 @@
+version: 1
+
+# Conformance corpus for check 1 — no wild endpoints.
+#
+# Every case is a directory holding a usedesign.config.yaml and a route inventory. All of them
+# point at the same five example cards, so what varies between cases is only what the code is
+# said to serve — which is exactly the axis the check is about.
+#
+# An implementation passes when, for each case, it reaches the same verdict AND reports the same
+# diagnostic codes. Agreeing that something is wrong while disagreeing on what is wrong is how
+# dialects start.
+
+cases:
+  - dir: clean
+    expect: pass
+    codes: []
+    note: >-
+      The five declared routes, written in three different parameter syntaxes (:copyId,
+      {member_id}, <id>), plus two excluded infrastructure routes. Passing requires the
+      normalisation rules of SPEC 5.7 — a checker comparing strings fails here.
+
+  - dir: wild-endpoint
+    expect: fail
+    codes: [wild_endpoint]
+    note: >-
+      POST /v1/admin/members and DELETE /v1/admin/api-keys/{} are served and claimed by nobody.
+      Both are the kind of route a template loop produces without anyone writing them down.
+
+  - dir: phantom-route
+    expect: fail
+    codes: [phantom_route]
+    note: >-
+      A card declares POST /v1/imports; the inventory does not have it. The opposite defect to a
+      wild endpoint, and a separate code: the catalogue describes something that is gone.
+
+  - dir: dead-exclusion
+    expect: pass
+    codes: []
+    warnings: [dead_exclusion]
+    note: >-
+      An exclusion that hid nothing. Not an error — but never reporting it is what lets exclusion
+      lists quietly grow into holes.
+
+  - dir: empty-inventory
+    expect: fail
+    codes: [inventory_empty]
+    note: >-
+      Zero routes. Almost always a failed dump rather than an application without routes, and
+      silently passing check 1 on a failed dump is the worst outcome the check can produce.
+
+  - dir: no-produced-by
+    expect: fail
+    codes: [inventory_malformed]
+    note: >-
+      An inventory that does not say how it was produced. A runtime dump and a hand-written list
+      deserve different trust, and check 1 is only as good as its input.

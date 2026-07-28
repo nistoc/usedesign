@@ -1,0 +1,42 @@
+{
+  "usedesign_inventory": 1,
+  "produced_by": "runtime dump, express 4.19",
+  "routes": [
+    {
+      "method": "POST",
+      "path": "/v1/copies/:copyId/checkout"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/imports"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/members/{member_id}/settlement"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/members/<id>"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/api-keys"
+    },
+    {
+      "method": "GET",
+      "path": "/health"
+    },
+    {
+      "method": "GET",
+      "path": "/metrics"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/admin/members"
+    },
+    {
+      "method": "DELETE",
+      "path": "/v1/admin/api-keys/:id"
+    }
+  ]
+}

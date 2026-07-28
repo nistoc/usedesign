@@ -1,0 +1,11 @@
+usedesign_config: 1
+cards:
+  - ../../../../../examples/library/*.op.md
+inventory: route-inventory.json
+exclude:
+  - path: /health
+    reason: Liveness probe.
+  - path: /metrics
+    reason: Scrape target for monitoring.
+  - path: /internal/**
+    reason: Никогда не существовало.
