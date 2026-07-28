@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="corpus" tests="25">
+  <testsuite name="corpus">
+    <testcase classname="ImportTests" name="retry_joins_existing_job"/>
+    <testcase classname="ImportTests" name="derives_identity_from_content"/>
+    <testcase classname="ImportTests" name="returns_202_with_job_id"/>
+    <testcase classname="ImportWorkerTests" name="enrichment_failure_yields_partial"/>
+    <testcase classname="RpcImportTests" name="write_quota_is_stricter_than_rest"/>
+    <testcase classname="CheckoutTests" name="rejects_copy_already_on_loan"/>
+    <testcase classname="CheckoutTests" name="rejects_stale_revision"/>
+    <testcase classname="CheckoutTests" name="blocked_member_cannot_borrow"/>
+    <testcase classname="CheckoutTests" name="limit_is_per_tier"/>
+    <testcase classname="CheckoutTests" name="due_date_follows_tier_period"/>
+    <testcase classname="web/src/CirculationDesk.test.tsx" name="shows_reason_when_blocked"/>
+    <testcase classname="CheckoutTests" name="own_hold_is_closed_and_reported_as_notice"/>
+    <testcase classname="PurgeTests" name="non_admin_is_refused"/>
+    <testcase classname="PurgeTests" name="refuses_active_member"/>
+    <testcase classname="PurgeTests" name="refuses_member_with_open_loan"/>
+    <testcase classname="PurgeTests" name="history_survives_as_anonymous_counters"/>
+    <testcase classname="PurgeTests" name="receipt_carries_no_personal_data"/>
+    <testcase classname="web/src/AdminMemberDetail.test.tsx" name="requires_typed_confirmation"/>
+    <testcase classname="SettlementTests" name="unknown_member_is_404"/>
+    <testcase classname="SettlementTests" name="counters_accompany_the_verdict"/>
+    <testcase classname="SettlementTests" name="closed_loans_do_not_count"/>
+    <testcase classname="ApiKeyTests" name="non_admin_is_refused"/>
+    <testcase classname="ApiKeyTests" name="cannot_delegate_scopes_it_lacks"/>
+    <testcase classname="ApiKeyTests" name="only_hash_is_persisted"/>
+    <testcase classname="web/src/AdminApiKeys.test.tsx" name="secret_is_shown_once_and_not_refetched"/>
+  </testsuite>
+</testsuites>

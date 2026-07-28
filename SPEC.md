@@ -293,6 +293,25 @@ coverage_gaps:
 `coverage_gaps` starts as a human judgement and later becomes automatic: a step with no entry in
 `tests[]` becomes a gap line.
 
+**What a gap means.** A gap names a *specific* missing proof, not the absence of all proof. A step
+may legitimately carry both a passing test and a gap — "there is a UI test, but nothing asserts the
+secret stays out of the logs" is one sentence describing both. A checker therefore cannot decide
+whether a gap is still true; the text is prose, and prose is for the reader.
+
+**Two shapes of `tests[].id` are permitted**, because test runners disagree about what identifies
+a test:
+
+```
+CheckoutTests.blocked_member_cannot_borrow          class-and-method
+CirculationDesk.test.tsx:shows_reason_when_blocked  file-and-name
+```
+
+A checker resolves an id against a test report by matching, in order: `classname.name` exactly;
+then the bare name; then, for the file-and-name shape, the name with the file part used only to
+disambiguate. Matching is always on the whole id, never a substring — a checker that guesses is a
+checker that lies. **An id matching several report entries — a parametrised family — is satisfied
+only if every one of them passes.** One green case out of five is how coverage becomes decorative.
+
 ---
 
 ## 6. Keeping cards honest
@@ -324,8 +343,19 @@ The format only pays for itself with an automated checker. Three invariants:
    Routes that are deliberately not operations — health probes, metrics, generated documentation —
    are excluded in [`usedesign.config.yaml`](schema/config.schema.json), and every exclusion states
    a reason and reports what it hid. An exclusion nobody had to justify is one nobody revisits.
-2. **No unproven steps** — every step is covered by at least one test, or appears in
-   `coverage_gaps`.
+2. **No unproven steps** — every step is covered by at least one test that **exists, ran, passed
+   and was not skipped**, or appears in `coverage_gaps`.
+   A card naming a test proves nothing on its own: the test may have been renamed last spring, or
+   skipped since it started flaking. The checker consumes a **JUnit XML report** from the run being
+   checked — the format already exists, so unlike the route inventory nothing new is invented, and
+   nothing is executed by the checker itself. A skipped test is an error and a *louder* one than an
+   absent test: it keeps its name in every report, so name-matching alone would confirm a step
+   nobody has exercised in months. Without a report, this check is reported as **not run**, never
+   as passed, and the step-level finding degrades to a warning.
+   ⚠️ **Freshness is procedural, not mechanical.** A report from three commits ago will happily
+   confirm a step whose code changed this morning. Run the check in the same CI job as the suite,
+   on the report that job just produced. No checker can enforce this, which is exactly why it is
+   written down. Reasoning: [`design/step-coverage.md`](design/step-coverage.md).
 3. **No inflated maturity** — the claimed level is backed by the evidence it requires.
 
 Without check 3 in particular, cards drift into aspiration within a couple of months.

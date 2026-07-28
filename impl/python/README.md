@@ -15,15 +15,18 @@ python validate.py --conformance      # run the conformance corpus
 python validate.py ../../examples     # validate real cards
 ```
 
-`check.py` implements **check 1 — no wild endpoints**: it compares the routes the cards declare
-against a [route inventory](../../schema/route-inventory.schema.json) produced by the checked
-repository.
+`check.py` implements the two checks that compare cards against a repository:
+
+- **check 1 — no wild endpoints**, against a
+  [route inventory](../../schema/route-inventory.schema.json) the repository produces;
+- **check 2 — no unproven steps**, against a JUnit XML report from the run being checked.
 
 ```bash
 python check.py ../../tests/fixtures/library-service/usedesign.config.yaml
+python check.py --conformance
 ```
 
-The fixture is expected to fail with two wild endpoints; [why that is the
+The fixture is expected to fail — two wild endpoints and three broken proofs; [why that is the
 deliverable](../../tests/fixtures/library-service/README.md).
 
 Requires only PyYAML.
@@ -36,11 +39,12 @@ Requires only PyYAML.
 - **Does not produce route inventories.** By design — see
   [`design/route-conformance.md`](../../design/route-conformance.md) §3. The inventory comes from
   the repository being checked.
-- **Does not confirm that tests exist or pass.** Check 2 is reported as a `step_unproven` warning
-  from the cards alone; nothing here runs a test suite or looks for the named tests in a
-  repository.
+- **Does not run tests.** Check 2 consumes a report; producing it is the suite's job. A checker
+  that must run the code cannot check somebody else's repository.
+- **Cannot judge report freshness.** A report from an older commit will confirm a step whose code
+  changed since. The rule is procedural: run the check in the same CI job as the suite.
 - **No maturity evidence verification (check 3) beyond form.** That a card claiming `tested` names
-  tests is enforced; that those tests are real is not.
+  tests is enforced; that the deployment it claims happened is not.
 
 ## Errors and warnings
 
@@ -57,8 +61,10 @@ Running it over the example cards yields three `undescribed_counterpart` warning
 the counterpart operations are deliberately outside the example set.
 
 `check.py` adds `wild_endpoint`, `phantom_route`, `inventory_missing`, `inventory_empty`,
-`inventory_malformed`, `incomplete_rest_interface` and `no_cards_found` as errors, and
-`dead_exclusion` and `ambiguous_shape` as warnings.
+`inventory_malformed`, `incomplete_rest_interface`, `no_cards_found`, `test_not_found`,
+`test_failing`, `test_skipped`, `report_missing`, `report_empty` and `report_malformed` as errors,
+and `dead_exclusion` and `ambiguous_shape` as warnings. `step_unproven` is an error when a test
+report is available and a warning when it is not.
 
 > **Removed:** `source_without_line`, which warned when a `source` reference carried no line
 > number. It pushed authors toward exactly the kind of reference that rots silently — see

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="corpus" tests="2">
+  <testsuite name="corpus">
+    <testcase classname="ReshelveTests" name="refuses_copy_not_returned"/>
+    <testcase classname="ReshelveTests" name="marks_copy_as_shelved"/>
+  </testsuite>
+</testsuites>

@@ -126,6 +126,8 @@ the one thing this format refuses to let a card do.
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))
+- [x] Check 2 designed and prototyped — a test a card names must exist, run, pass and not be
+      skipped ([design note](design/step-coverage.md))
 - [ ] `usedesign validate` — check cards against the schema and the cross-card rules
 - [ ] `usedesign gen openapi` — derive an API contract from the cards
 - [ ] `usedesign check` — the three invariants: no undeclared routes, no unproven steps, no

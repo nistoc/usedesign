@@ -1,0 +1,4 @@
+usedesign_config: 1
+cards:
+  - cards/*.op.md
+test_report: test-report.xml

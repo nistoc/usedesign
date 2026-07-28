@@ -1,10 +1,14 @@
 version: 1
 
-# Conformance corpus for check 1 — no wild endpoints.
+# Conformance corpus for the checks that compare cards against a repository.
 #
-# Every case is a directory holding a usedesign.config.yaml and a route inventory. All of them
-# point at the same five example cards, so what varies between cases is only what the code is
-# said to serve — which is exactly the axis the check is about.
+# Every case is a directory holding a usedesign.config.yaml plus whatever the check consumes: a
+# route inventory for check 1, a JUnit XML report for check 2. Nearly all of them point at the
+# same five example cards, so what varies between cases is only what the repository is said to
+# contain — which is exactly the axis these checks are about.
+#
+# `check:` says which invariant the case exercises, and the case is run through that one only —
+# so a missing inventory is not held against a coverage case, or the other way round.
 #
 # An implementation passes when, for each case, it reaches the same verdict AND reports the same
 # diagnostic codes. Agreeing that something is wrong while disagreeing on what is wrong is how
@@ -12,6 +16,7 @@ version: 1
 
 cases:
   - dir: clean
+    check: 1
     expect: pass
     codes: []
     note: >-
@@ -20,6 +25,7 @@ cases:
       normalisation rules of SPEC 5.7 — a checker comparing strings fails here.
 
   - dir: wild-endpoint
+    check: 1
     expect: fail
     codes: [wild_endpoint]
     note: >-
@@ -27,6 +33,7 @@ cases:
       Both are the kind of route a template loop produces without anyone writing them down.
 
   - dir: phantom-route
+    check: 1
     expect: fail
     codes: [phantom_route]
     note: >-
@@ -34,6 +41,7 @@ cases:
       wild endpoint, and a separate code: the catalogue describes something that is gone.
 
   - dir: dead-exclusion
+    check: 1
     expect: pass
     codes: []
     warnings: [dead_exclusion]
@@ -42,6 +50,7 @@ cases:
       lists quietly grow into holes.
 
   - dir: empty-inventory
+    check: 1
     expect: fail
     codes: [inventory_empty]
     note: >-
@@ -49,8 +58,73 @@ cases:
       silently passing check 1 on a failed dump is the worst outcome the check can produce.
 
   - dir: no-produced-by
+    check: 1
     expect: fail
     codes: [inventory_malformed]
     note: >-
       An inventory that does not say how it was produced. A runtime dump and a hand-written list
       deserve different trust, and check 1 is only as good as its input.
+
+  # ── check 2 — no unproven steps ──────────────────────────────────────────────────────────────
+
+  - dir: coverage-clean
+    check: 2
+    expect: pass
+    codes: []
+    note: >-
+      Every test the five cards name is present and green, including the UI ones whose report
+      entries carry a file path as `classname`. Passing requires the matching rules of the design
+      note; comparing `classname.name` alone fails here.
+
+  - dir: test-not-found
+    check: 2
+    expect: fail
+    codes: [test_not_found]
+    note: >-
+      A test was renamed in the suite and the card still names the old one. Nothing in the code
+      broke, and the card now proves nothing.
+
+  - dir: test-failing
+    check: 2
+    expect: fail
+    codes: [test_failing]
+    note: The named test ran and failed. The step is not proven, whatever the card says.
+
+  - dir: test-skipped
+    check: 2
+    expect: fail
+    codes: [test_skipped]
+    note: >-
+      The named test is present in the report and was skipped. This must be an error, not a pass —
+      a skipped test keeps its name, so name-matching alone would confirm a step nobody has
+      exercised in months.
+
+  - dir: parametrised-partial
+    check: 2
+    expect: fail
+    codes: [test_failing]
+    note: >-
+      One card id matches two report entries and one of them fails. Proven-if-any-case-passed is
+      how coverage numbers become decorative, so the whole family must pass.
+
+  - dir: step-unproven
+    check: 2
+    expect: fail
+    codes: [step_unproven]
+    note: >-
+      A card of its own, with a step that has neither a test nor a declared gap. Uses its own card
+      because the example set deliberately has no such hole.
+
+  - dir: report-empty
+    check: 2
+    expect: fail
+    codes: [report_empty]
+    note: A report with zero test cases — a failed run, not a suite without tests.
+
+  - dir: no-report
+    check: 2
+    expect: fail
+    codes: [report_missing]
+    note: >-
+      No report at all. Check 2 is then reported as not run — never as passed, which is the whole
+      difference between a checker and a rubber stamp.

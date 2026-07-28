@@ -221,7 +221,8 @@ def run_conformance() -> int:
     for case in manifest["cases"]:
         config, base = load_config(
             os.path.join(CORPUS, "cases", case["dir"], "usedesign.config.yaml"))
-        findings, _ = check(config, base)
+        runner = check if case.get("check", 1) == 1 else check_coverage
+        findings, _ = runner(config, base)
         errors = [f for f in findings if f.severity == "error"]
         verdict = "fail" if errors else "pass"
         codes = sorted({f.code for f in errors})
@@ -250,7 +251,7 @@ def run_conformance() -> int:
             reported = ", ".join(codes + warnings)
             print(f"  ok    {case['dir']}" + (f"  [{reported}]" if reported else ""))
 
-    print(f"\ncheck-1 conformance: {passed} passed, {failed} failed")
+    print(f"\nchecks conformance: {passed} passed, {failed} failed")
     return 1 if failed else 0
 
 
@@ -417,7 +418,7 @@ def main() -> int:
         description="checks 1 and 2 — no wild endpoints, no unproven steps")
     parser.add_argument("config", nargs="?", help="path to usedesign.config.yaml")
     parser.add_argument("--conformance", action="store_true",
-                        help="run the check-1 conformance corpus")
+                        help="run the conformance corpus for checks 1 and 2")
     args = parser.parse_args()
 
     if args.conformance:

@@ -22,9 +22,13 @@ manifest.yaml          the list of cases with expected verdicts and codes
 cases/valid/*.op.md    cards that must be accepted
 cases/invalid/*.op.md  cards that must be rejected, each with its codes
 
-checks/manifest.yaml   the same idea for check 1 — no wild endpoints
-checks/cases/<name>/   a config and a route inventory per case
+checks/manifest.yaml   the same idea for the checks against a repository
+checks/cases/<name>/   a config plus what the check consumes: a route
+                       inventory for check 1, a JUnit XML report for check 2
 ```
+
+Each case says which invariant it exercises (`check: 1` or `check: 2`) and is run through that one
+only, so a missing inventory is not held against a coverage case.
 
 Every card case is a real card, and its Markdown body explains what it is probing — read the case
 before arguing with it.
@@ -65,6 +69,18 @@ how a fork begins.
 | `incomplete_rest_interface` | error | A card declares `http_rest` without a method or a path |
 | `dead_exclusion` | warning | An exclusion that hid nothing |
 | `ambiguous_shape` | warning | Two cards declare routes that normalise to the same shape; the checker cannot tell them apart |
+
+### Check 2 — comparing cards against a test run
+
+| Code | | Meaning |
+|---|:--:|---|
+| `test_not_found` | error | A card names a test no report entry matches — renamed, moved, or never written |
+| `test_failing` | error | The named test ran and failed. For a parametrised family, one failing case is enough |
+| `test_skipped` | error | The named test was skipped. Louder than absent on purpose: a skipped test keeps its name |
+| `step_unproven` | error | A step with neither a test nor a declared gap. A warning when no report is available, an error when one is |
+| `report_missing` | error | No report. Check 2 is then **not run**, never passed |
+| `report_empty` | error | A report with zero cases — a failed run, not a suite without tests |
+| `report_malformed` | error | The report is not parseable XML |
 
 ## What the corpus deliberately does not test
 

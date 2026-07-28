@@ -7,6 +7,7 @@ exist so the check has something real-shaped to work against.
 |---|---|
 | `src/routes.ts` | Illustrative source. Shows where the inventory entries come from. |
 | `route-inventory.json` | What a runtime dump of the framework's route table produces. **This is the checker's input** — see [`design/route-conformance.md`](../../../design/route-conformance.md) §3. |
+| `test-report.xml` | A JUnit XML report from a run of the suite. **The input for check 2.** |
 | `usedesign.config.yaml` | Card locations and the exclusions for routes that are deliberately not operations. |
 
 The cards it is checked against are the five in [`examples/library/`](../../../examples/library/).
@@ -34,6 +35,22 @@ That is the whole argument for this design in one fixture:
 
 The failing case is the deliverable. A fixture that passed would demonstrate only that a checker
 can agree with itself.
+
+## Check 2 fails here too, in three different ways
+
+The test report contains 28 cases. Three of them break a card's proof, and each breaks it
+differently:
+
+| What the report says | What the card says | Code |
+|---|---|---|
+| `CheckoutTests.limit_is_per_membership_tier` passes | it names `CheckoutTests.limit_is_per_tier` | `test_not_found` |
+| `PurgeTests.receipt_carries_no_personal_data` is skipped, "flaky since 2026-05" | the step is proven | `test_skipped` |
+| `closed_loans_do_not_count[open_loan]` passes, `[closed_loan]` fails | the step is proven | `test_failing` |
+
+None of these is a broken build. The suite is green apart from one case, the renamed test still
+runs, and the skipped one is a decision somebody made deliberately six weeks ago. All three are
+invisible to a test report read by a human, and all three mean a card is claiming a proof it does
+not have.
 
 ## What passing looks like
 
