@@ -8,8 +8,8 @@ directory and must earn the name by passing the same corpus:
 
 | Directory | Status |
 |---|---|
-| `typescript/` | Reference implementation — planned, not yet written |
-| `python/` | Prototype — validates the cross-card rules; not a package |
+| `typescript/` | Reference implementation — validate and all three checks; **14/14 and 20/20**; not yet published to npm |
+| `python/` | Prototype — the same rules on a second runtime, kept so the corpus is never agreed with by only one tool |
 
 ## The one rule
 
@@ -36,6 +36,17 @@ Chosen for reasons, not by default:
 
 The honest counter-argument: Go or Rust would produce a single binary with no runtime at all,
 which is better *distribution*. That advantage matters once there are users to distribute to.
+
+**What the ajv argument turned out to be worth**, now that it has been built: the schema catches
+7 of the 10 invalid corpus cases, and the 3 it misses are all the same shape — a name pointing at
+a step that does not exist. So the schema does the bulk of the work, and the cross-card rules do
+the part that matters most. Both halves were needed; neither would have been enough.
+
+And a result that could only appear once two implementations existed: **the schema had never been
+run against the corpus** before the TypeScript port. It agreed with it completely — every case
+the corpus calls valid passes the schema, and no case is called invalid by the schema alone. Two
+artifacts written separately from the same specification, neither derived from the other,
+agreeing on first contact — that is the strongest evidence the format has produced so far.
 
 ## Adding an implementation
 

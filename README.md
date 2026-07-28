@@ -113,10 +113,14 @@ becomes "a card the validator you happen to have installed accepts" — the same
 up. The corpus was written before any implementation, so that it describes the format rather than
 enshrining one tool's bugs.
 
-TypeScript is to be the reference implementation, chosen for reasons set out in [impl/](impl/)
-rather than by default. **It is not written yet** — today the repository ships a Python prototype
-that keeps the corpus honest. Saying otherwise would be a claim ahead of its evidence, which is
-the one thing this format refuses to let a card do.
+The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
+[impl/](impl/) rather than by default. It validates cards against the schema and the cross-card
+rules, runs all three checks, and passes both corpora — **14 / 14 and 20 / 20**. It is not
+published to npm yet, so `npx usedesign` does not work today; everything below runs from a clone.
+
+The Python prototype stays. A corpus that only one implementation agrees with has stopped
+describing the format and started describing that tool, so CI runs both and diffs what they
+report about the same repository.
 
 ## Roadmap
 
@@ -130,17 +134,16 @@ the one thing this format refuses to let a card do.
       skipped ([design note](design/step-coverage.md))
 - [x] Check 3 designed and prototyped — the implementation path must exist, and the one claim
       nobody can verify expires instead ([design note](design/maturity-evidence.md))
-- [~] `usedesign validate` — the cross-card rules run in [`impl/python/validate.py`](impl/python/validate.py);
-      what is missing is a tool a stranger can run
-- [~] `usedesign check` — all three invariants run in [`impl/python/check.py`](impl/python/check.py)
-      and hold the 20-case repository corpus; same caveat
+- [x] `usedesign validate` — cards against the schema **and** the cross-card rules
+- [x] `usedesign check` — the three invariants, holding the 20-case repository corpus
+- [x] A reference implementation in TypeScript, both corpora run in CI on three Node versions,
+      plus a job that insists the deliberately rotten fixture still fails
+- [~] Published to npm, so `npx usedesign` needs no clone
 - [ ] `usedesign gen openapi` — derive an API contract from the cards. Not started
-- [ ] A reference implementation — `npx usedesign` in TypeScript, the corpus run in CI. This is
-      what the two half-marks above are missing
 
-The checker is the point: a catalogue without one becomes aspiration within months. Its logic
-exists and the corpus holds it — but a prototype only its author can run is not a delivered tool,
-and a full tick here would be exactly the claim check 3 refuses on a card.
+The checker is the point: a catalogue without one becomes aspiration within months. It exists
+now, on two runtimes, and CI compares what they say about the same repository — because two tools
+agreeing that something is broken while disagreeing about *what* is broken is how dialects start.
 
 ## Licence
 
