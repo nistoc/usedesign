@@ -2,6 +2,8 @@
 
 **Одно описание на операцию. Каждый экран, контракт, тест и миграция ссылаются на него.**
 
+[![conformance](https://github.com/nistoc/usedesign/actions/workflows/conformance.yml/badge.svg)](https://github.com/nistoc/usedesign/actions/workflows/conformance.yml)
+
 *[English version](README.md)*
 
 ---

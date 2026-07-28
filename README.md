@@ -2,6 +2,8 @@
 
 **One description per operation. Every screen, contract, test and migration points back to it.**
 
+[![conformance](https://github.com/nistoc/usedesign/actions/workflows/conformance.yml/badge.svg)](https://github.com/nistoc/usedesign/actions/workflows/conformance.yml)
+
 *[Русская версия](README.ru.md)*
 
 ---
