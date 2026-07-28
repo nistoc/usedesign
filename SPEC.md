@@ -220,6 +220,33 @@ for protocols whose errors are numeric RPC codes.
 `ui.covers_steps` is the mechanism that makes UI/API drift visible: if a screen claims to cover a
 step that does not exist, the checker fails.
 
+**`source` is a human aid and must never be load-bearing.** It may carry a line number — a reader
+opening the file is glad of one — but no checker may rely on it. A line number is invalidated by
+any insertion above it, and it fails *silently*: the reference keeps resolving, to the wrong line.
+This is the same failure as renumbering steps (§5.3), one field over. Where a durable reference is
+wanted, name a file and a symbol rather than a position.
+
+#### Comparing paths
+
+Two lists of routes that describe identical behaviour will not match textually, so a checker
+normalises before comparing. These rules are specified rather than left to each implementation —
+otherwise a card that passes one checker fails another, which is the disease the conformance
+corpus exists to prevent.
+
+| Difference | Rule |
+|---|---|
+| Parameter syntax — `{copyId}` · `:copyId` · `<copy_id>` | every parameter becomes a positional placeholder: `/copies/{}` |
+| Parameter naming — card says `{copyId}`, code says `{id}` | compare **shape**, not names; names are documentation, not identity |
+| Trailing slash | stripped |
+| Method case | upper-cased |
+| Mount prefix | the compared path is the final one, as served |
+| One handler, several methods | one entry per method |
+
+⚠️ Shape comparison has a cost, stated here rather than discovered during a debugging session:
+two genuinely different routes can share a shape — `/exports/{}` for a report and `/exports/{}`
+for a job. Where that happens the checker cannot tell them apart, and the card must disambiguate
+by method or by carrying the literal segment. This is a limit of the mechanism, not a defect in it.
+
 **Per-transport overrides.** When an operation is reachable through more than one transport, the
 rules may differ — the same write may be unthrottled over REST and rate-limited over RPC.
 `quota`, `concurrency` and `actors` may be overridden inside a specific interface; the top-level
@@ -287,6 +314,16 @@ coverage_gaps:
 The format only pays for itself with an automated checker. Three invariants:
 
 1. **No wild endpoints** — every route in the code is declared by some card.
+   The checker does not read the code to learn this. The checked repository states what it
+   registers, in a **route inventory** ([`schema/route-inventory.schema.json`](schema/route-inventory.schema.json)),
+   and the checker compares sets. A runtime dump of the framework's own route table is the honest
+   way to produce one: it cannot disagree with what the application serves, and it is immune to
+   routes generated from a template — which is where the two obvious designs, a marker in the code
+   and a static parser, both fail. The reasoning is in
+   [`design/route-conformance.md`](design/route-conformance.md).
+   Routes that are deliberately not operations — health probes, metrics, generated documentation —
+   are excluded in [`usedesign.config.yaml`](schema/config.schema.json), and every exclusion states
+   a reason and reports what it hid. An exclusion nobody had to justify is one nobody revisits.
 2. **No unproven steps** — every step is covered by at least one test, or appears in
    `coverage_gaps`.
 3. **No inflated maturity** — the claimed level is backed by the evidence it requires.

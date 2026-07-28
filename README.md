@@ -97,6 +97,7 @@ specification is a description like any other, and descriptions drift from what 
 | [schema/](schema/operation-card.schema.json) | JSON Schema for the front matter |
 | [examples/](examples/) | Five cards over a fictional library system |
 | [tests/conformance/](tests/conformance/) | Shared corpus every implementation must pass |
+| [design/](design/) | Design notes — questions worked out before they are specified |
 | [impl/](impl/) | Implementations, one directory each |
 | [docs/](docs/) | An animated walkthrough of all of the above |
 
@@ -112,20 +113,25 @@ becomes "a card the validator you happen to have installed accepts" — the same
 up. The corpus was written before any implementation, so that it describes the format rather than
 enshrining one tool's bugs.
 
-TypeScript is the reference implementation, chosen for reasons set out in [impl/](impl/) rather
-than by default.
+TypeScript is to be the reference implementation, chosen for reasons set out in [impl/](impl/)
+rather than by default. **It is not written yet** — today the repository ships a Python prototype
+that keeps the corpus honest. Saying otherwise would be a claim ahead of its evidence, which is
+the one thing this format refuses to let a card do.
 
 ## Roadmap
 
 - [x] Specification and schema
 - [x] Worked examples
 - [x] Conformance corpus — 14 cases, verdicts and codes
+- [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
+      path normalisation, exclusions that report what they hid
+      ([design note](design/route-conformance.md))
 - [ ] `usedesign validate` — check cards against the schema and the cross-card rules
 - [ ] `usedesign gen openapi` — derive an API contract from the cards
 - [ ] `usedesign check` — the three invariants: no undeclared routes, no unproven steps, no
       maturity beyond its evidence
 
-The third one is the point. A catalogue without a checker becomes aspiration within months.
+The last one is the point. A catalogue without a checker becomes aspiration within months.
 
 ## Licence
 

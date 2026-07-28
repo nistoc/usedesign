@@ -38,7 +38,6 @@ TEST_LEVELS = ["unit", "integration", "ui", "contract"]
 
 OPERATION_ID = re.compile(r"^[a-z0-9]+(\.[a-z0-9-]+){2,}$")
 STEP_ID = re.compile(r"^s[0-9]+-[a-z0-9-]+$")
-SOURCE_REF = re.compile(r".+:[0-9]+$")
 
 EVIDENCE_FOR = {  # maturity level -> evidence key it must carry
     "implemented": "implemented",
@@ -105,9 +104,6 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         elif sid in step_ids:
             err("duplicate_step_id", f"`{sid}` appears more than once")
         step_ids.add(sid)
-        src = step.get("source")
-        if src and not SOURCE_REF.match(str(src)):
-            warn("source_without_line", f"step `{sid}`: `{src}` has no line number")
 
     # ── maturity vs evidence ─────────────────────────────────────────────────
     evidence = fm.get("maturity_evidence") or {}
