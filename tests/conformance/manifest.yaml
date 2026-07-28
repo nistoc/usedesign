@@ -1,0 +1,52 @@
+# Conformance corpus for the Operation Card format.
+# Every implementation must reproduce these verdicts, including the diagnostic codes.
+# See README.md for what each code means.
+
+version: 1
+cases:
+  - file: valid/minimal.op.md
+    expect: valid
+    note: >-
+      The lower bound of the format: nothing may be required beyond this.
+  - file: valid/read-only-helper.op.md
+    expect: valid
+    note: >-
+      serves_step satisfies the ownership rule; provenance: none is legal for reads.
+  - file: valid/out-of-order-step-ids.op.md
+    expect: valid
+    note: >-
+      Ids must never be treated as an ordering key.
+  - file: valid/async-per-transport-quota.op.md
+    expect: valid
+    note: >-
+      Per-transport overrides must not be flattened into the top-level rule.
+  - file: invalid/no-owner.op.md
+    expect: invalid
+    codes: [no_owner]
+  - file: invalid/in-production-without-deployed.op.md
+    expect: invalid
+    codes: [maturity_without_evidence]
+  - file: invalid/tested-without-tests.op.md
+    expect: invalid
+    codes: [maturity_without_tests]
+  - file: invalid/relaxed-concurrency-without-rationale.op.md
+    expect: invalid
+    codes: [relaxation_without_rationale]
+  - file: invalid/test-covers-unknown-step.op.md
+    expect: invalid
+    codes: [unknown_step_reference]
+  - file: invalid/ui-covers-unknown-step.op.md
+    expect: invalid
+    codes: [unknown_step_reference]
+  - file: invalid/malformed-step-id.op.md
+    expect: invalid
+    codes: [malformed_step_id]
+  - file: invalid/duplicate-step-id.op.md
+    expect: invalid
+    codes: [duplicate_step_id]
+  - file: invalid/interface-without-transport.op.md
+    expect: invalid
+    codes: [missing_transport]
+  - file: invalid/write-without-declared-effect.op.md
+    expect: invalid
+    codes: [write_without_effect]
