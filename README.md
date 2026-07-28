@@ -130,12 +130,17 @@ the one thing this format refuses to let a card do.
       skipped ([design note](design/step-coverage.md))
 - [x] Check 3 designed and prototyped — the implementation path must exist, and the one claim
       nobody can verify expires instead ([design note](design/maturity-evidence.md))
-- [ ] `usedesign validate` — check cards against the schema and the cross-card rules
-- [ ] `usedesign gen openapi` — derive an API contract from the cards
-- [ ] `usedesign check` — the three invariants: no undeclared routes, no unproven steps, no
-      maturity beyond its evidence
+- [~] `usedesign validate` — the cross-card rules run in [`impl/python/validate.py`](impl/python/validate.py);
+      what is missing is a tool a stranger can run
+- [~] `usedesign check` — all three invariants run in [`impl/python/check.py`](impl/python/check.py)
+      and hold the 20-case repository corpus; same caveat
+- [ ] `usedesign gen openapi` — derive an API contract from the cards. Not started
+- [ ] A reference implementation — `npx usedesign` in TypeScript, the corpus run in CI. This is
+      what the two half-marks above are missing
 
-The last one is the point. A catalogue without a checker becomes aspiration within months.
+The checker is the point: a catalogue without one becomes aspiration within months. Its logic
+exists and the corpus holds it — but a prototype only its author can run is not a delivered tool,
+and a full tick here would be exactly the claim check 3 refuses on a card.
 
 ## Licence
 

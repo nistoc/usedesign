@@ -331,6 +331,7 @@ pre code{ white-space:pre; }
   display:grid; place-items:center; font-size:.72rem; margin-top:2px; color:var(--muted);
 }
 .roadmap .done .box{ background:color-mix(in srgb, var(--accent-3) 18%, var(--panel)); border-color:var(--accent-3); color:var(--accent-3); }
+.roadmap .part .box{ background:color-mix(in srgb, var(--accent-2) 15%, var(--panel)); border-color:var(--accent-2); color:var(--accent-2); }
 .roadmap code{ color:var(--text); font-size:.86rem; }
 
 .cta{
@@ -1233,15 +1234,16 @@ svg.diagram{ width:100%; height:auto; display:block; }
             <li data-i18n="s20-03" class="done anim"><span class="box">✓</span><span><strong>Specification and schema</strong><br><span class="sub small">SPEC v0.2 and the JSON Schema for the front matter</span></span></li>
             <li data-i18n="s20-04" class="done anim"><span class="box">✓</span><span><strong>Worked examples</strong><br><span class="sub small">Five cards over a fictional library system</span></span></li>
             <li data-i18n="s20-04b" class="done anim"><span class="box">✓</span><span><strong>Conformance corpus; all three checks designed</strong><br><span class="sub small">14 card cases and 20 repository cases; a route inventory, a JUnit report, and one claim that expires because nobody can verify it</span></span></li>
-            <li data-i18n="s20-05" class="anim"><span class="box"></span><span><code>usedesign validate</code><br><span class="sub small">Check cards against the schema and the cross-card rules</span></span></li>
-            <li data-i18n="s20-06" class="anim"><span class="box"></span><span><code>usedesign gen openapi</code><br><span class="sub small">Derive an API contract from the cards</span></span></li>
-            <li data-i18n="s20-07" class="anim"><span class="box"></span><span><code>usedesign check</code><br><span class="sub small">The three invariants: no undeclared routes, no unproven steps, no maturity beyond its evidence</span></span></li>
+            <li data-i18n="s20-05" class="part anim"><span class="box">◐</span><span><code>usedesign validate</code><br><span class="sub small">Cards against the schema and the cross-card rules. Working in the Python prototype; not yet a tool a stranger can run</span></span></li>
+            <li data-i18n="s20-07" class="part anim"><span class="box">◐</span><span><code>usedesign check</code><br><span class="sub small">All three invariants implemented and holding the 20-case corpus — same caveat: prototype, not package</span></span></li>
+            <li data-i18n="s20-06" class="anim"><span class="box"></span><span><code>usedesign gen openapi</code><br><span class="sub small">Derive an API contract from the cards. Not started</span></span></li>
+            <li data-i18n="s20-07b" class="anim"><span class="box"></span><span><strong>A reference implementation</strong><br><span class="sub small"><code>npx usedesign</code> in TypeScript, the corpus run in CI. This is what the two half-marks are missing</span></span></li>
           </ul>
 
           <div class="stack">
             <div class="card accent anim">
-              <h3 data-i18n="s20-08">The last one is the point</h3>
-              <p data-i18n="s20-09" class="sub mt-s">A catalogue without a checker becomes aspiration within months. Documentation rots quietly; these cards are meant to be checked, and to fail loudly.</p>
+              <h3 data-i18n="s20-08">Why two half-marks and not two ticks</h3>
+              <p data-i18n="s20-09" class="sub mt-s">The checker is the point: a catalogue without one becomes aspiration within months. Its logic exists and the corpus holds it. But a prototype only its author can run is not a delivered tool — and a full tick here would be exactly the claim check 3 refuses on a card.</p>
             </div>
             <div class="cta anim">
               <p data-i18n="s20-10" class="kicker" style="margin-bottom:6px">Read it, break it, tell us where</p>
@@ -1569,11 +1571,12 @@ window.USEDESIGN_RU = {
 's20-03': '<span class="box">✓</span><span><strong>Спецификация и схема</strong><br><span class="sub small">SPEC v0.2 и JSON Schema для шапки карточки</span></span>',
 's20-04': '<span class="box">✓</span><span><strong>Разобранные примеры</strong><br><span class="sub small">Пять карточек на выдуманной библиотечной системе</span></span>',
 's20-04b': '<span class="box">✓</span><span><strong>Корпус соответствия; все три проверки</strong><br><span class="sub small">14 случаев по карточкам и 20 по репозиторию; перечень маршрутов, отчёт о тестах и одно утверждение, которое истекает, раз проверить его нельзя</span></span>',
-'s20-05': '<span class="box"></span><span><code>usedesign validate</code><br><span class="sub small">Проверка карточек по схеме и межкарточным правилам</span></span>',
-'s20-06': '<span class="box"></span><span><code>usedesign gen openapi</code><br><span class="sub small">Вывод контракта API из карточек</span></span>',
-'s20-07': '<span class="box"></span><span><code>usedesign check</code><br><span class="sub small">Три инварианта: нет необъявленных маршрутов, нет недоказанных шагов, нет зрелости выше доказательств</span></span>',
-'s20-08': 'Последний пункт — главный',
-'s20-09': 'Каталог без проверяющего превращается в благие намерения за считанные месяцы. Документация гниёт молча; эти карточки задуманы так, чтобы их проверяли и чтобы расхождение падало громко.',
+'s20-05': '<span class="box">◐</span><span><code>usedesign validate</code><br><span class="sub small">Карточки по схеме и межкарточным правилам. Работает в прототипе на Python; инструмента, который запустит посторонний, ещё нет</span></span>',
+'s20-07': '<span class="box">◐</span><span><code>usedesign check</code><br><span class="sub small">Все три инварианта реализованы и держат корпус из 20 случаев — та же оговорка: прототип, не пакет</span></span>',
+'s20-06': '<span class="box"></span><span><code>usedesign gen openapi</code><br><span class="sub small">Вывод контракта API из карточек. Не начато</span></span>',
+'s20-07b': '<span class="box"></span><span><strong>Эталонная реализация</strong><br><span class="sub small"><code>npx usedesign</code> на TypeScript, корпус в CI. Именно этого не хватает обеим полу-галочкам</span></span>',
+'s20-08': 'Почему полу-галочки, а не галочки',
+'s20-09': 'Проверяющий и есть смысл: каталог без него превращается в благие намерения за считанные месяцы. Его логика написана, и корпус её держит. Но прототип, который запускает только автор, — ещё не сданный инструмент; полная галочка здесь была бы ровно тем заявлением, которое проверка №3 не принимает у карточки.',
 's20-10': 'Прочитайте, сломайте, расскажите где',
 's20-11': 'SPEC.md — формат и обоснование каждого поля',
 's20-12': 'schema/ — JSON Schema',
