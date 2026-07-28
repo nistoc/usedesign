@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nistoc/usedesign/schema/config.schema.json",
+  "title": "usedesign.config.yaml",
+  "description": "The one configuration file of the project. Everything else is description. Lives at the root of the checked repository.",
+  "type": "object",
+  "required": ["usedesign_config", "cards"],
+  "additionalProperties": false,
+  "properties": {
+    "usedesign_config": { "const": 1 },
+    "cards": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "Glob patterns locating the operation cards."
+    },
+    "inventory": {
+      "type": "string",
+      "description": "Path to the route inventory (schema/route-inventory.schema.json). Without it, check 1 cannot run and is reported as not run — never as passed."
+    },
+    "exclude": {
+      "type": "array",
+      "description": "Routes that are deliberately not operations: health probes, metrics, generated documentation UI, static assets.",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Glob over the normalised path, e.g. '/health' or '/docs/**'."
+          },
+          "method": {
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+            "description": "Optional. Omitted means every method."
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "$comment": "Required, for the same reason a relaxed concurrency policy requires a rationale: an exclusion is a hole in the check, and a hole nobody had to justify is a hole nobody will revisit.",
+            "description": "Why this is not an operation."
+          }
+        }
+      }
+    }
+  }
+}

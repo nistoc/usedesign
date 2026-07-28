@@ -1,0 +1,20 @@
+{
+  "usedesign_inventory": 1,
+  "produced_by": "runtime dump, express 4.19 (app._router.stack walk)",
+  "produced_at": "2026-07-28T17:10:00Z",
+  "routes": [
+    { "method": "POST", "path": "/v1/copies/:copyId/checkout", "source": "src/routes.ts" },
+    { "method": "POST", "path": "/v1/imports", "source": "src/routes.ts" },
+    { "method": "GET", "path": "/v1/members/:memberId/settlement", "source": "src/routes.ts" },
+
+    { "method": "POST", "path": "/v1/admin/members", "source": "src/routes.ts" },
+    { "method": "DELETE", "path": "/v1/admin/members/:id", "source": "src/routes.ts" },
+    { "method": "POST", "path": "/v1/admin/api-keys", "source": "src/routes.ts" },
+    { "method": "DELETE", "path": "/v1/admin/api-keys/:id", "source": "src/routes.ts" },
+
+    { "method": "GET", "path": "/health", "source": "src/routes.ts" },
+    { "method": "GET", "path": "/metrics", "source": "src/routes.ts" },
+    { "method": "GET", "path": "/docs", "source": "src/routes.ts" },
+    { "method": "GET", "path": "/docs/openapi.json", "source": "src/routes.ts" }
+  ]
+}

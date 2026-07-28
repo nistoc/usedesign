@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nistoc/usedesign/schema/route-inventory.schema.json",
+  "title": "usedesign route inventory",
+  "description": "What the code actually registers, as an explicit artifact. Produced by the checked repository — usedesign consumes this, it does not extract routes. See design/route-conformance.md §3.",
+  "type": "object",
+  "required": ["usedesign_inventory", "produced_by", "routes"],
+  "additionalProperties": false,
+  "properties": {
+    "usedesign_inventory": {
+      "const": 1,
+      "description": "Format version."
+    },
+    "produced_by": {
+      "type": "string",
+      "minLength": 1,
+      "$comment": "Required. An inventory whose origin is unknown cannot be judged: a runtime dump and a hand-written list carry very different weight, and check 1 is only as trustworthy as its input.",
+      "description": "How this list was produced — e.g. 'runtime dump, express 4.19' or 'static extraction, scripts/routes.py'."
+    },
+    "produced_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional. A stale inventory is a silent lie; recording when it was taken lets a checker warn."
+    },
+    "routes": {
+      "type": "array",
+      "minItems": 1,
+      "$comment": "An empty inventory is almost always a failed dump rather than an application with no routes — and silently passing check 1 on a failed dump is the worst outcome the check can produce.",
+      "items": {
+        "type": "object",
+        "required": ["method", "path"],
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],
+            "description": "One entry per method. A handler registered for two methods produces two entries."
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^/",
+            "description": "The final path as served, including any mount prefix. Parameter syntax is whatever the framework uses — the checker normalises it."
+          },
+          "source": {
+            "type": "string",
+            "description": "Optional, for humans reading a diff. Never used for matching."
+          }
+        }
+      }
+    }
+  }
+}

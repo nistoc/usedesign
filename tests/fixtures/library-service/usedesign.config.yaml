@@ -1,0 +1,19 @@
+usedesign_config: 1
+
+# Paths are resolved relative to this file.
+cards:
+  - ../../../examples/library/*.op.md
+
+inventory: route-inventory.json
+
+exclude:
+  - path: /health
+    reason: Liveness probe. Has no user-visible behaviour to describe.
+  - path: /metrics
+    reason: Scrape target for the monitoring system.
+  - path: /docs/**
+    method: GET
+    reason: Generated API documentation UI and its document.
+  - path: /docs
+    method: GET
+    reason: Generated API documentation UI, index route.
