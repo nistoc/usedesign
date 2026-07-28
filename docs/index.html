@@ -1109,12 +1109,12 @@ svg.diagram{ width:100%; height:auto; display:block; }
       <div class="wrap narrow">
         <p data-i18n="s17-01" class="kicker green anim">16 — enforcement</p>
         <h2 data-i18n="s17-02" class="title anim">The three checks</h2>
-        <p data-i18n="s17-03" class="lede anim">The format only pays for itself with an automated checker. Three invariants:</p>
+        <p data-i18n="s17-03" class="lede anim">The format only pays for itself with an automated checker. Three invariants, each measured against something the repository states rather than something the checker guesses:</p>
 
         <ol class="numlist mt-l">
-          <li data-i18n="s17-04" class="anim"><strong>No wild endpoints</strong>Every route in the code is declared by some card.</li>
-          <li data-i18n="s17-05" class="anim"><strong>No unproven steps</strong>Every step is covered by at least one test — or appears in <code class="mono">coverage_gaps</code>.</li>
-          <li data-i18n="s17-06" class="anim"><strong>No inflated maturity</strong>The claimed level is backed by the evidence it requires. <code class="mono">tested</code> requires a non-empty <code class="mono">tests[]</code>; <code class="mono">in_production</code> requires a recorded environment.</li>
+          <li data-i18n="s17-04" class="anim"><strong>No wild endpoints</strong>Every route the code registers is declared by some card. The repository publishes a <em class="hl">route inventory</em> — a runtime dump of its own route table — and the checker compares sets. It never parses your framework, which is why routes generated from a template are caught rather than missed.</li>
+          <li data-i18n="s17-05" class="anim"><strong>No unproven steps</strong>Every step is covered by a test that <em class="hl">exists, ran, passed and was not skipped</em> — or appears in <code class="mono">coverage_gaps</code>. Read from a JUnit report of the run being checked. A skipped test is an error, and a louder one than an absent test: it keeps its name in every report.</li>
+          <li data-i18n="s17-06" class="anim"><strong>No inflated maturity</strong>Three claims of different natures. The <code class="mono">implemented</code> path must exist; <code class="mono">tested</code> must have a named test that passes; <code class="mono">deployed</code> cannot be verified by anyone — so it <em class="hl">expires</em> instead.</li>
         </ol>
 
         <div class="card warn mt-l anim">
@@ -1148,13 +1148,18 @@ svg.diagram{ width:100%; height:auto; display:block; }
                 <td data-i18n="s18-11">RPC protocol, security administration, cross-system boundary</td>
                 <td data-i18n="s18-12"><code>transport</code>, <code>quota</code>, <code>reversibility</code>, <code>sensitivity</code>, <code>consumer_boundary</code>, <code>contract_version</code></td>
               </tr>
+              <tr>
+                <td data-i18n="s18-17">3–5</td>
+                <td data-i18n="s18-18">Building the three checks — <em class="hl">using</em> the cards instead of writing more of them</td>
+                <td data-i18n="s18-19"><strong>None.</strong> Wording, and two fields widened to accept what cards already contained</td>
+              </tr>
             </tbody>
           </table>
         </div>
 
         <div class="card warn mt-l anim">
           <h3 data-i18n="s18-15">And then the specification was checked against itself</h3>
-          <p data-i18n="s18-16" class="sub mt-s">Before publishing, this document was validated against its own schema and examples — the exercise it asks of everyone else. It failed in seven places of a different kind: a field present in the schema and in an example but described nowhere; a rule stated in prose that the schema did not enforce; one term spelled two ways across two files. All seven are fixed. <em class="hl">That is the argument for check number three.</em></p>
+          <p data-i18n="s18-16" class="sub mt-s">Before publishing, this document was validated against its own schema and examples — the exercise it asks of everyone else. It failed in seven places of a different kind: a field present in the schema and in an example but described nowhere; a rule stated in prose that the schema did not enforce; one term spelled two ways across two files. All seven are fixed. <em class="hl">That is the argument for having a checker at all.</em></p>
         </div>
 
         <div class="card accent mt anim">
@@ -1522,23 +1527,25 @@ window.USEDESIGN_RU = {
 
 's17-01': '16 — принуждение',
 's17-02': 'Три проверки',
-'s17-03': 'Формат окупается только с автоматическим проверяющим. Три инварианта:',
-'s17-04': '<strong>Нет необъявленных маршрутов</strong>Каждый маршрут в коде объявлен какой-то карточкой.',
-'s17-05': '<strong>Нет недоказанных шагов</strong>Каждый шаг покрыт хотя бы одним тестом — либо назван в <code class="mono">coverage_gaps</code>.',
-'s17-06': '<strong>Нет зрелости выше доказательств</strong>Заявленный уровень подкреплён тем, чего он требует. <code class="mono">tested</code> требует непустого <code class="mono">tests[]</code>; <code class="mono">in_production</code> — названной среды.',
+'s17-03': 'Формат окупается только с автоматическим проверяющим. Три инварианта, и каждый сверяется с тем, что репозиторий предъявляет сам, а не с тем, о чём проверяющий догадывается:',
+'s17-04': '<strong>Нет необъявленных маршрутов</strong>Каждый маршрут, который регистрирует код, объявлен какой-то карточкой. Репозиторий предъявляет <em class="hl">перечень маршрутов</em> — дамп собственной таблицы маршрутов, — а проверяющий сравнивает множества. Он не разбирает ваш фреймворк, поэтому маршруты, рождённые шаблоном, ловятся, а не теряются.',
+'s17-05': '<strong>Нет недоказанных шагов</strong>Каждый шаг покрыт тестом, который <em class="hl">существует, выполнился, прошёл и не был пропущен</em>, — либо назван в <code class="mono">coverage_gaps</code>. Читается из JUnit-отчёта того самого прогона. Пропущенный тест — ошибка, и громче отсутствующего: он сохраняет имя в каждом отчёте.',
+'s17-06': '<strong>Нет зрелости выше доказательств</strong>Три утверждения разной природы. Путь из <code class="mono">implemented</code> обязан существовать; для <code class="mono">tested</code> обязан пройти названный тест; <code class="mono">deployed</code> не может подтвердить никто — поэтому оно <em class="hl">истекает</em>.',
 's17-07': '<strong>Скажем прямо:</strong> без третьей проверки карточки за пару месяцев превращаются в благие намерения. <em class="hl2">Каталог без проверяющего превращается в благие намерения.</em>',
 's17-08': 'Карточка, расходящаяся с кодом, — дефект <em class="hl">карточки</em>, пока не доказано обратное. Даже когда работа идёт от спецификации, задуманное расхождение помечается явно.',
 
 's18-01': '17 — зрелость самой спецификации',
 's18-02': 'Как это закалялось',
-'s18-03': 'Версия 0.2 получена так: карточки писались на <strong>восемь реальных операций боевой системы</strong>, и каждое место, где формат ломался, записывалось. Сломался в семи местах, за два захода, и каждый раз достраивался.',
+'s18-03': 'Версия 0.2 получена так: карточки писались на <strong>восемь реальных операций боевой системы</strong>, и каждое место, где формат ломался, записывалось. Сломался в семи местах, за два захода, и каждый раз достраивался. Следующие три захода строили проверки — то есть <em class="hl">пользовались</em> карточками, а не писали новые, — и не потребовали ни одного нового обязательного поля.',
 's18-04': 'Заход',
 's18-05': 'Что прогоняли',
 's18-06': 'Каких полей формату не хватило',
 's18-08': 'CRUD, асинхронный ингест, интерфейс курации, помощник только на чтение',
 's18-11': 'Протокол RPC, администрирование безопасности, граница с чужой системой',
+'s18-18': 'Строились три проверки — то есть карточками <em class="hl">пользовались</em>, а не писали новые',
+'s18-19': '<strong>Ни одного.</strong> Только формулировки и два поля, расширенных под то, что в карточках уже было',
 's18-15': 'А потом спецификацию сверили с ней самой',
-'s18-16': 'Перед публикацией её проверили по её же схеме и примерам — тем упражнением, которого она требует от всех остальных. Она не прошла в семи местах уже другого рода: поле есть в схеме и в примере, но не описано нигде; правило сказано прозой, но схемой не проверяется; один термин написан двумя способами в двух файлах. Все семь исправлены. <em class="hl">Это и есть аргумент в пользу третьей проверки.</em>',
+'s18-16': 'Перед публикацией её проверили по её же схеме и примерам — тем упражнением, которого она требует от всех остальных. Она не прошла в семи местах уже другого рода: поле есть в схеме и в примере, но не описано нигде; правило сказано прозой, но схемой не проверяется; один термин написан двумя способами в двух файлах. Все семь исправлены. <em class="hl">Это и есть аргумент за то, чтобы проверяющий вообще был.</em>',
 's18-13': 'Критерий версии 1.0',
 's18-14': '<strong>Не</strong> <em class="hl2">«поломки кончились»</em> — непройденные области всегда что-нибудь сломают, — а <em class="hl">заход, который меняет только опциональные поля и не трогает обязательные.</em>',
 
