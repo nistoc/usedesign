@@ -6,6 +6,7 @@ cards:
 
 inventory: route-inventory.json
 test_report: test-report.xml
+code_root: .
 
 exclude:
   - path: /health

@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+from datetime import date
 from xml.etree import ElementTree
 
 try:
@@ -404,6 +405,111 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
     return findings, {"report_cases": len(cases), "proven": proven, "unproven": unproven}
 
 
+# ─────────────────────────── check 3 — no inflated maturity ─────────────────────────────────────
+#
+# Three claims of different natures wear one field. Only the first is verifiable against the
+# repository, the second is derived from check 2, and the third can only be made to expire.
+# See design/maturity-evidence.md.
+
+LEVELS = ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"]
+LINE_SUFFIX = re.compile(r":\d+$")
+DEFAULT_HORIZON_DAYS = 180
+
+
+def evidence_paths(value) -> list[str]:
+    """`implemented` is one path or several — one example joins two with ' + '."""
+    values = value if isinstance(value, list) else [value]
+    paths: list[str] = []
+    for item in values:
+        for part in str(item).split("+"):
+            part = LINE_SUFFIX.sub("", part.strip())
+            if part:
+                paths.append(part)
+    return paths
+
+
+def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
+    findings: list[Finding] = []
+    cases, _ = load_report(config, base)
+    have_report = bool(cases)
+    by_full, by_name = index_report(cases)
+
+    code_root = config.get("code_root")
+    root = os.path.join(base, code_root) if code_root else None
+    horizon = config.get("evidence_horizon_days", DEFAULT_HORIZON_DAYS)
+    today = date.today()
+
+    cards, card_findings = load_card_files(config, base)
+    findings += card_findings
+    checked_paths = 0
+
+    for card_id, fm in cards:
+        maturity = fm.get("maturity")
+        if maturity not in LEVELS:
+            continue
+        level = LEVELS.index(maturity)
+        evidence = fm.get("maturity_evidence") or {}
+
+        # Tier 1 — the code the card points at exists.
+        if level >= LEVELS.index("implemented") and evidence.get("implemented") and root:
+            for path in evidence_paths(evidence["implemented"]):
+                checked_paths += 1
+                if not os.path.exists(os.path.join(root, path)):
+                    findings.append(Finding(
+                        "evidence_path_missing",
+                        f"{card_id}: `{path}` is not in the repository"))
+
+        # Tier 2 — the claim is derived from the report, not from prose.
+        passing = []
+        for test in fm.get("tests") or []:
+            matched = find_cases(test.get("id", ""), by_full, by_name) if have_report else []
+            if matched and all(c.status == "passed" for c in matched):
+                passing.append(test.get("id"))
+
+        if level >= LEVELS.index("tested") and not passing:
+            findings.append(Finding(
+                "maturity_without_passing_test",
+                f"{card_id}: claims `{maturity}` with no test of its own passing in the report",
+                "error" if have_report else "warning"))
+
+        if have_report and level < LEVELS.index("tested") and passing:
+            findings.append(Finding(
+                "maturity_understated",
+                f"{card_id}: claims `{maturity}` while {len(passing)} of its tests pass",
+                "warning"))
+
+        # Tier 3 — what cannot be verified must expire.
+        if level >= LEVELS.index("in_production"):
+            deployed = evidence.get("deployed")
+            if isinstance(deployed, dict):
+                try:
+                    since = date.fromisoformat(str(deployed.get("since")))
+                except ValueError:
+                    findings.append(Finding(
+                        "evidence_undated",
+                        f"{card_id}: `deployed.since` is not a date"))
+                    continue
+                age = (today - since).days
+                if age > horizon:
+                    findings.append(Finding(
+                        "evidence_stale",
+                        f"{card_id}: `deployed` was last affirmed {age} days ago "
+                        f"(horizon {horizon}) — nobody has looked since",
+                        "warning"))
+            elif deployed:
+                findings.append(Finding(
+                    "evidence_undated",
+                    f"{card_id}: `deployed: {deployed}` carries no date, so it can never go stale",
+                    "warning"))
+
+    return findings, {
+        "cards": len(cards),
+        "paths_checked": checked_paths,
+        "code_root": code_root or "",
+        "horizon": horizon,
+    }
+
+
 def report(title: str, findings: list[Finding]) -> int:
     errors = [f for f in findings if f.severity == "error"]
     for finding in findings:
@@ -444,6 +550,13 @@ def main() -> int:
     print(f"steps:      {coverage['proven']} proven, {coverage['unproven']} not")
     print()
     errors += report("check 2 (no unproven steps)", coverage_findings)
+
+    maturity_findings, maturity = check_maturity(config, base)
+    print(f"cards:      {maturity['cards']} card(s), {maturity['paths_checked']} evidence path(s) checked"
+          + ("" if maturity["code_root"] else " — no `code_root`, path check NOT RUN"))
+    print(f"horizon:    {maturity['horizon']} days")
+    print()
+    errors += report("check 3 (no inflated maturity)", maturity_findings)
 
     return 1 if errors else 0
 

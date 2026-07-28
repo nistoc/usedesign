@@ -8,7 +8,7 @@ maturity: in_production
 maturity_evidence:
   implemented: src/admin/MemberPurgeHandler.ts
   tested: 6 tests
-  deployed: production
+  deployed: { env: production, since: 2026-05-20 }
 
 data_transition: { from: closed, to: erased }
 since: { migration: "031", note: "erasure_receipt table" }

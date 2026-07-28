@@ -14,7 +14,7 @@ maturity: in_production
 maturity_evidence:
   implemented: src/members/SettlementQuery.ts
   tested: 3 tests
-  deployed: production
+  deployed: { env: production, since: 2026-04-11 }
 
 data_transition: null
 

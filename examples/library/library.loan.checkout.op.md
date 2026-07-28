@@ -8,7 +8,7 @@ maturity: in_production
 maturity_evidence:
   implemented: src/loans/CheckoutHandler.ts
   tested: 7 tests
-  deployed: production
+  deployed: { env: production, since: 2026-07-02 }
 
 data_transition: { from: available, to: on_loan }
 since: { migration: "014", note: "due_date column added" }

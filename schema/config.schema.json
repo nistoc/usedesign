@@ -18,6 +18,16 @@
       "type": "string",
       "description": "Path to the route inventory (schema/route-inventory.schema.json). Without it, check 1 cannot run and is reported as not run — never as passed."
     },
+    "code_root": {
+      "type": "string",
+      "description": "Root the `maturity_evidence.implemented` paths are resolved against. Without it, the path part of check 3 is reported as not run — never as passed."
+    },
+    "evidence_horizon_days": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 180,
+      "description": "How long an unverifiable claim (a dated `deployed`) is accepted before it is reported as stale. Any number is wrong for somebody, which is why it is configurable."
+    },
     "test_report": {
       "type": "string",
       "description": "Path to a JUnit XML report from the run being checked. Without it, check 2 cannot confirm that the tests a card names exist and pass, and is reported as not run — never as passed. Freshness is procedural: run the check in the same CI job as the suite. See design/step-coverage.md §6."

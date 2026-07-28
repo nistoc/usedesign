@@ -60,9 +60,32 @@
       "type": "object",
       "minProperties": 1,
       "properties": {
-        "implemented": { "type": "string" },
-        "tested": { "type": "string" },
-        "deployed": { "type": "string" }
+        "implemented": {
+          "$comment": "One path or several — a card whose operation spans an endpoint and a worker names both, and that case is already in the examples. A trailing :line is a human aid and is discarded by checkers (SPEC 5.7).",
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          ]
+        },
+        "tested": {
+          "$comment": "Advisory prose. The enforced rule is not this text but check 2: a card claiming 'tested' or above must name a test that exists and passes.",
+          "type": "string"
+        },
+        "deployed": {
+          "$comment": "Not verifiable by any checker, so it is the one claim that expires: give it a date and it can go stale, leave it bare and it never asks to be looked at again. See design/maturity-evidence.md.",
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "required": ["env", "since"],
+              "additionalProperties": false,
+              "properties": {
+                "env": { "type": "string" },
+                "since": { "type": "string", "format": "date" }
+              }
+            }
+          ]
+        }
       },
       "additionalProperties": false
     },

@@ -8,7 +8,7 @@ maturity: in_production
 maturity_evidence:
   implemented: src/admin/ApiKeyHandler.ts
   tested: 4 tests
-  deployed: production
+  deployed: { env: production, since: 2026-03-02 }
 
 data_transition: { from: nonexistent, to: active }
 

@@ -8,7 +8,7 @@ maturity: in_production
 maturity_evidence:
   implemented: src/catalog/ImportEndpoint.ts + src/workers/ImportWorker.ts
   tested: 5 tests
-  deployed: production
+  deployed: { env: production, since: 2026-06-15 }
 
 data_transition: null
 mutates: [import_job.status, title.*, contributor.*]
