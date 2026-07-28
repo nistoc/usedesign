@@ -96,13 +96,33 @@ the whole family passes — but it means a single flaky case marks a step unprov
 | `test_failing` | error | The named test ran and failed. The step is not proven, whatever the card says |
 | `test_skipped` | error | The named test was skipped. Louder than absent, on purpose — see §2 |
 | `step_unproven` | error | A step with neither a test nor a declared gap. Today a warning from the card alone; with a report it becomes an error |
-| `stale_gap` | warning | A step declared as a gap whose test now exists and passes. Not a defect in the code — a card that under-claims, and a sign nobody revisits `coverage_gaps` |
 | `report_missing` | error | No report. Check 2 is then **not run**, never passed |
 | `report_empty` | error | A report with zero test cases — a failed run, not a suite without tests |
 
-`stale_gap` is deliberately included. A catalogue that is wrong in the pessimistic direction still
-misleads: it sends someone to write a test that exists, and it makes the coverage picture useless
-for deciding what to work on next.
+### The rule that did not survive its own example set
+
+An earlier draft of this note included `stale_gap`: a step declared in `coverage_gaps` whose test
+now exists and passes, on the argument that a catalogue wrong in the pessimistic direction still
+misleads. Checking it against the five example cards killed it. **Two of the three declared gaps
+sit on steps that are already covered by a passing test** — and both are correct:
+
+```yaml
+# library.staff.issue-api-key — s4-disclose has a UI test, and this gap:
+gap: no contract test asserting that the response body is excluded from request logging
+```
+
+A gap names a **specific** missing proof, not the absence of all proof. The step is tested; the
+particular thing the author was worried about is not. A naive implementation would have raised two
+false alarms out of three gaps in the only example set the project has — and a checker whose first
+outing is two-thirds false alarms never gets a second.
+
+A narrower version is possible later and would need an optional field: if a gap could say which
+`level` of test is missing (`contract`, `ui`, …), a passing test *at that level* would make the gap
+genuinely stale and checkable. Until then, `coverage_gaps` is prose about what is missing, and no
+checker can judge prose.
+
+This is worth more than the rule it removed. The design note was written first precisely so that
+its ideas would meet the data before they met an implementation, and the first one did not survive.
 
 ## 6. The limits, stated rather than discovered
 
@@ -128,7 +148,8 @@ project exists to prevent.
 | C1 | The two permitted shapes of `tests[].id` must be stated in §5.9, together with the matching rules of §4 — otherwise two implementations disagree about what a card's test id means | wording in §5.9 |
 | C2 | `step_unproven` becomes an error when a report is available and a warning when it is not; the spec should say which, so implementations do not each pick | wording in §7 |
 | C3 | The procedural freshness rule (§6) belongs in the spec next to check 2, because a checker cannot enforce it | wording in §7 |
-| C4 | Conformance cases: not found, failing, skipped, parametrised-partial-failure, stale gap, missing report | additions to `tests/conformance/checks/` |
+| C4 | Conformance cases: not found, failing, skipped, parametrised-partial-failure, missing report | additions to `tests/conformance/checks/` |
+| C5 | *Optional, later:* `coverage_gaps[].level`, which would make a gap checkable instead of prose (§5) | new optional field |
 
 **Again, no required field of the card changes.** Two rounds of implementation work in a row have
 now demanded only wording. That is the strongest evidence so far that the card's required set is

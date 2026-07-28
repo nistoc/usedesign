@@ -20,6 +20,7 @@ import json
 import os
 import re
 import sys
+from xml.etree import ElementTree
 
 try:
     import yaml
@@ -69,9 +70,8 @@ def load_config(path: str) -> tuple[dict, str]:
     return config, os.path.dirname(os.path.abspath(path))
 
 
-def load_cards(config: dict, base: str) -> tuple[dict, list[Finding]]:
-    """Return {(method, shape): [card ids]} for every REST interface the cards declare."""
-    declared: dict[tuple[str, str], list[str]] = {}
+def load_card_files(config: dict, base: str) -> tuple[list[tuple[str, dict]], list[Finding]]:
+    """Return [(card id, front matter)] for every card the config points at."""
     findings: list[Finding] = []
     files: list[str] = []
     for pattern in config.get("cards") or []:
@@ -80,11 +80,20 @@ def load_cards(config: dict, base: str) -> tuple[dict, list[Finding]]:
     if not files:
         findings.append(Finding("no_cards_found", "the `cards` patterns matched nothing"))
 
+    cards: list[tuple[str, dict]] = []
     for path in sorted(set(files)):
         fm = front_matter(path)
-        if not fm:
-            continue
-        card_id = fm.get("id", os.path.basename(path))
+        if fm:
+            cards.append((fm.get("id", os.path.basename(path)), fm))
+    return cards, findings
+
+
+def load_cards(config: dict, base: str) -> tuple[dict, list[Finding]]:
+    """Return {(method, shape): [card ids]} for every REST interface the cards declare."""
+    declared: dict[tuple[str, str], list[str]] = {}
+    cards, findings = load_card_files(config, base)
+
+    for card_id, fm in cards:
         for name, iface in (fm.get("interfaces") or {}).items():
             if not isinstance(iface, dict) or iface.get("transport") != "http_rest":
                 continue
@@ -245,8 +254,167 @@ def run_conformance() -> int:
     return 1 if failed else 0
 
 
+# ─────────────────────────── check 2 — no unproven steps ────────────────────────────────────────
+#
+# The repository states the facts, the checker compares — the same shape as check 1, except that
+# here the format already exists (JUnit XML), so nothing new is invented.
+# See design/step-coverage.md.
+
+PARAMETRISED = re.compile(r"[\[(].*$")   # checkout[blocked] · checkout(1) -> checkout
+
+
+class TestCase:
+    __slots__ = ("classname", "name", "status")
+
+    def __init__(self, classname: str, name: str, status: str):
+        self.classname, self.name, self.status = classname, name, status
+
+    @property
+    def full(self) -> str:
+        return f"{self.classname}.{self.name}" if self.classname else self.name
+
+
+def load_report(config: dict, base: str) -> tuple[list[TestCase], list[Finding]]:
+    location = config.get("test_report")
+    if not location:
+        return [], [Finding(
+            "report_missing",
+            "no `test_report` in the config — check 2 cannot run and is NOT considered passed")]
+
+    path = os.path.join(base, location)
+    if not os.path.exists(path):
+        return [], [Finding("report_missing", f"{location} does not exist")]
+
+    try:
+        root = ElementTree.parse(path).getroot()
+    except ElementTree.ParseError as exc:
+        return [], [Finding("report_malformed", f"{location}: {exc}")]
+
+    cases: list[TestCase] = []
+    for node in root.iter("testcase"):
+        status = "passed"
+        for child in node:
+            tag = child.tag.lower()
+            if tag in ("failure", "error"):
+                status = "failed"
+            elif tag == "skipped":
+                status = "skipped"
+        cases.append(TestCase(node.get("classname", ""), node.get("name", ""), status))
+
+    if not cases:
+        return cases, [Finding(
+            "report_empty",
+            f"{location}: no test cases — a failed run, not a suite without tests")]
+    return cases, []
+
+
+def index_report(cases: list[TestCase]) -> tuple[dict, dict]:
+    """Two indexes: by `classname.name`, and by bare name (with parametrised cases folded in)."""
+    by_full: dict[str, list[TestCase]] = {}
+    by_name: dict[str, list[TestCase]] = {}
+    for case in cases:
+        by_full.setdefault(case.full, []).append(case)
+        by_name.setdefault(case.name, []).append(case)
+        base = PARAMETRISED.sub("", case.name)
+        if base != case.name:
+            by_name.setdefault(base, []).append(case)
+            by_full.setdefault(f"{case.classname}.{base}" if case.classname else base,
+                               []).append(case)
+    return by_full, by_name
+
+
+def find_cases(test_id: str, by_full: dict, by_name: dict) -> list[TestCase]:
+    """Resolve a card's test id to report entries. Full-id matching only — never a substring."""
+    if test_id in by_full:
+        return by_full[test_id]
+    if ":" in test_id:                                  # file-and-name shape
+        file_part, name_part = test_id.rsplit(":", 1)
+        candidates = by_name.get(name_part, [])
+        narrowed = [c for c in candidates if file_part in (c.classname or "")]
+        return narrowed or candidates
+    if test_id in by_name:
+        return by_name[test_id]
+    if "." in test_id:                                  # runners disagree about `classname`
+        return by_name.get(test_id.rsplit(".", 1)[1], [])
+    return []
+
+
+def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
+    findings: list[Finding] = []
+    cases, report_findings = load_report(config, base)
+    findings += report_findings
+    have_report = bool(cases)
+    by_full, by_name = index_report(cases)
+
+    cards, _ = load_card_files(config, base)
+    proven = unproven = 0
+
+    for card_id, fm in cards:
+        steps = [s.get("id") for s in (fm.get("steps") or [])]
+        gaps = {g.get("step") for g in (fm.get("coverage_gaps") or [])}
+        by_step: dict[str, list[str]] = {}
+
+        for test in fm.get("tests") or []:
+            refs = test.get("covers")
+            refs = refs if isinstance(refs, list) else [refs]
+            test_id = test.get("id", "")
+            matched = find_cases(test_id, by_full, by_name) if have_report else []
+
+            if have_report:
+                if not matched:
+                    findings.append(Finding(
+                        "test_not_found",
+                        f"{card_id}: `{test_id}` matches nothing in the report"))
+                else:
+                    # Rule 4: a parametrised family proves the step only if all of it passes.
+                    failed = [c for c in matched if c.status == "failed"]
+                    skipped = [c for c in matched if c.status == "skipped"]
+                    if failed:
+                        findings.append(Finding(
+                            "test_failing",
+                            f"{card_id}: `{test_id}` failed"
+                            + (f" ({len(failed)} of {len(matched)} cases)" if len(matched) > 1 else "")))
+                    elif skipped:
+                        findings.append(Finding(
+                            "test_skipped",
+                            f"{card_id}: `{test_id}` was skipped — a name in the report is not proof"))
+
+            passing = matched and all(c.status == "passed" for c in matched)
+            for ref in refs:
+                by_step.setdefault(ref, [])
+                if passing or not have_report:
+                    by_step[ref].append(test_id)
+
+        for step in steps:
+            if step in gaps:
+                continue
+            if by_step.get(step):
+                proven += 1
+                continue
+            unproven += 1
+            # A step whose only tests failed or vanished is already reported above; saying it
+            # twice trains people to skim.
+            if step not in by_step:
+                findings.append(Finding(
+                    "step_unproven",
+                    f"{card_id}: step `{step}` has no test and no declared gap",
+                    "error" if have_report else "warning"))
+
+    return findings, {"report_cases": len(cases), "proven": proven, "unproven": unproven}
+
+
+def report(title: str, findings: list[Finding]) -> int:
+    errors = [f for f in findings if f.severity == "error"]
+    for finding in findings:
+        marker = "ERROR  " if finding.severity == "error" else "warning"
+        print(f"  {marker}  {finding}")
+    print(f"  → {title}: {len(errors)} error(s), {len(findings) - len(errors)} warning(s)\n")
+    return len(errors)
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="check 1 — no wild endpoints")
+    parser = argparse.ArgumentParser(
+        description="checks 1 and 2 — no wild endpoints, no unproven steps")
     parser.add_argument("config", nargs="?", help="path to usedesign.config.yaml")
     parser.add_argument("--conformance", action="store_true",
                         help="run the check-1 conformance corpus")
@@ -259,8 +427,8 @@ def main() -> int:
         return 2
 
     config, base = load_config(args.config)
-    findings, summary = check(config, base)
 
+    route_findings, summary = check(config, base)
     print(f"inventory:  {summary['served']} route(s) served"
           + (f", produced by {summary['produced_by']}" if summary["produced_by"] else ""))
     print(f"cards:      {summary['declared']} REST route(s) declared")
@@ -268,14 +436,14 @@ def main() -> int:
     for pattern, count in summary["hidden_per_rule"].items():
         print(f"              {pattern} → {count}")
     print()
+    errors = report("check 1 (no wild endpoints)", route_findings)
 
-    errors = [f for f in findings if f.severity == "error"]
-    for finding in findings:
-        marker = "ERROR  " if finding.severity == "error" else "warning"
-        print(f"  {marker}  {finding}")
+    coverage_findings, coverage = check_coverage(config, base)
+    print(f"report:     {coverage['report_cases']} test case(s)")
+    print(f"steps:      {coverage['proven']} proven, {coverage['unproven']} not")
+    print()
+    errors += report("check 2 (no unproven steps)", coverage_findings)
 
-    warnings = len(findings) - len(errors)
-    print(f"\ncheck 1: {len(errors)} error(s), {warnings} warning(s)")
     return 1 if errors else 0
 
 

@@ -5,6 +5,7 @@ cards:
   - ../../../examples/library/*.op.md
 
 inventory: route-inventory.json
+test_report: test-report.xml
 
 exclude:
   - path: /health

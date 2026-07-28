@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="library-service" tests="28" failures="1" skipped="1">
+  <testsuite name="library-service" timestamp="2026-07-28T21:20:00">
+    <testcase classname="CheckoutTests" name="rejects_copy_already_on_loan"/>
+    <testcase classname="CheckoutTests" name="rejects_stale_revision"/>
+    <testcase classname="CheckoutTests" name="blocked_member_cannot_borrow"/>
+    <testcase classname="CheckoutTests" name="due_date_follows_tier_period"/>
+    <testcase classname="CheckoutTests" name="own_hold_is_closed_and_reported_as_notice"/>
+    <testcase classname="CheckoutTests" name="limit_is_per_membership_tier"/>
+    <testcase classname="ImportTests" name="retry_joins_existing_job"/>
+    <testcase classname="ImportTests" name="derives_identity_from_content"/>
+    <testcase classname="ImportTests" name="returns_202_with_job_id"/>
+    <testcase classname="ImportWorkerTests" name="enrichment_failure_yields_partial"/>
+    <testcase classname="RpcImportTests" name="write_quota_is_stricter_than_rest"/>
+    <testcase classname="PurgeTests" name="non_admin_is_refused"/>
+    <testcase classname="PurgeTests" name="refuses_active_member"/>
+    <testcase classname="PurgeTests" name="refuses_member_with_open_loan"/>
+    <testcase classname="PurgeTests" name="history_survives_as_anonymous_counters"/>
+    <testcase classname="PurgeTests" name="receipt_carries_no_personal_data">
+      <skipped message="flaky since 2026-05, see LIB-441"/>
+    </testcase>
+    <testcase classname="SettlementTests" name="unknown_member_is_404"/>
+    <testcase classname="SettlementTests" name="counters_accompany_the_verdict"/>
+    <testcase classname="SettlementTests" name="closed_loans_do_not_count[open_loan]"/>
+    <testcase classname="SettlementTests" name="closed_loans_do_not_count[closed_loan]">
+      <failure message="expected 0, got 1"/>
+    </testcase>
+    <testcase classname="ApiKeyTests" name="non_admin_is_refused"/>
+    <testcase classname="ApiKeyTests" name="cannot_delegate_scopes_it_lacks"/>
+    <testcase classname="ApiKeyTests" name="only_hash_is_persisted"/>
+    <testcase classname="web/src/pages/circulation/CirculationDesk.test.tsx" name="shows_reason_when_blocked"/>
+    <testcase classname="web/src/pages/admin/AdminMemberDetail.test.tsx" name="requires_typed_confirmation"/>
+    <testcase classname="web/src/pages/admin/AdminApiKeys.test.tsx" name="secret_is_shown_once_and_not_refetched"/>
+    <testcase classname="HealthTests" name="liveness_returns_200"/>
+    <testcase classname="CheckoutTests" name="emits_metric_on_success"/>
+  </testsuite>
+</testsuites>

@@ -18,6 +18,10 @@
       "type": "string",
       "description": "Path to the route inventory (schema/route-inventory.schema.json). Without it, check 1 cannot run and is reported as not run — never as passed."
     },
+    "test_report": {
+      "type": "string",
+      "description": "Path to a JUnit XML report from the run being checked. Without it, check 2 cannot confirm that the tests a card names exist and pass, and is reported as not run — never as passed. Freshness is procedural: run the check in the same CI job as the suite. See design/step-coverage.md §6."
+    },
     "exclude": {
       "type": "array",
       "description": "Routes that are deliberately not operations: health probes, metrics, generated documentation UI, static assets.",
