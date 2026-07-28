@@ -1,0 +1,394 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nistoc/usedesign/schema/operation-card.schema.json",
+  "title": "Operation Card",
+  "description": "Front matter of a single operation description. See SPEC.md.",
+  "type": "object",
+  "required": [
+    "id",
+    "title",
+    "actors",
+    "maturity",
+    "steps",
+    "concurrency",
+    "interfaces",
+    "data",
+    "provenance",
+    "reversibility"
+  ],
+  "anyOf": [
+    { "required": ["scenario"] },
+    { "required": ["serves_step"] }
+  ],
+  "properties": {
+    "id": {
+      "description": "Stable identifier '<area>.<object>.<action>'. Never changes.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+){2,}$"
+    },
+    "title": { "type": "string", "minLength": 3 },
+
+    "scenario": {
+      "description": "The user goal this operation is part of.",
+      "type": "string"
+    },
+    "serves_step": {
+      "description": "This operation is a helper serving a step of another operation.",
+      "type": "object",
+      "required": ["operation", "step", "purpose"],
+      "properties": {
+        "operation": { "type": "string" },
+        "step": { "type": "string" },
+        "purpose": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "actors": {
+      "description": "Who may invoke the operation.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+
+    "maturity": {
+      "description": "Axis A — how far the operation is built.",
+      "enum": ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"]
+    },
+    "maturity_evidence": {
+      "description": "Proof for the claimed maturity level. Which keys are required depends on the level — see the conditional rules at the end of this schema.",
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "implemented": { "type": "string" },
+        "tested": { "type": "string" },
+        "deployed": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+
+    "data_transition": {
+      "description": "Axis C — what the operation does to the record's lifecycle state. Null for read-only.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["from", "to"],
+          "properties": {
+            "from": { "type": "string" },
+            "to": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "mutates": {
+      "description": "Fields written when data_transition is null but the operation still writes.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "since": {
+      "description": "Axis D — since which migration or release the operation behaves this way.",
+      "type": "object",
+      "properties": {
+        "migration": { "type": "string" },
+        "release": { "type": "string" },
+        "note": { "type": "string" }
+      }
+    },
+
+    "steps": {
+      "description": "Axis B — stages of execution, including failure branches.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "text"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^s[0-9]+-[a-z0-9-]+$" },
+          "text": { "type": "string" },
+          "on_violation": {
+            "type": "object",
+            "required": ["error"],
+            "properties": {
+              "error": { "type": "string" },
+              "http": { "type": "integer", "minimum": 100, "maximum": 599 },
+              "jsonrpc_code": { "type": "integer" },
+              "payload": { "type": "array", "items": { "type": "string" } }
+            },
+            "additionalProperties": false
+          },
+          "emits_notice": { "type": "string" },
+          "rationale": { "type": "string" },
+          "source": { "type": "string", "pattern": ".+:[0-9]+" }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "concurrency": {
+      "type": "object",
+      "required": ["mode", "source"],
+      "properties": {
+        "mode": {
+          "enum": [
+            "etag_required",
+            "idempotency_by_header",
+            "idempotency_by_formula",
+            "none_by_design"
+          ]
+        },
+        "rationale": { "type": "string" },
+        "formula": { "type": "string" },
+        "on_duplicate": { "type": "object" },
+        "source": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "mode": { "not": { "const": "etag_required" } } }
+          },
+          "then": { "required": ["rationale"] }
+        },
+        {
+          "if": {
+            "properties": { "mode": { "const": "idempotency_by_formula" } },
+            "required": ["mode"]
+          },
+          "then": { "required": ["formula", "on_duplicate"] }
+        }
+      ]
+    },
+
+    "quota": {
+      "description": "Present when call frequency is limited.",
+      "type": "object",
+      "required": ["scheme", "applies_to", "on_exceeded"],
+      "properties": {
+        "scheme": { "type": "string" },
+        "categories": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["bucket", "window_min"],
+            "properties": {
+              "bucket": { "type": "integer", "minimum": 1 },
+              "window_min": { "type": "number", "exclusiveMinimum": 0 }
+            }
+          }
+        },
+        "applies_to": { "type": "string" },
+        "on_exceeded": { "type": "object" },
+        "storage": { "type": "string" }
+      }
+    },
+
+    "async_execution": {
+      "description": "Axis E — required when the response does not mean the work is done.",
+      "type": "object",
+      "required": ["job_states", "terminal", "worker", "observe_via"],
+      "properties": {
+        "job_states": { "type": "array", "minItems": 2, "items": { "type": "string" } },
+        "terminal": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "worker": { "type": "string" },
+        "observe_via": { "type": "string" },
+        "cancel_via": { "type": "string" },
+        "s2s_dependency": {
+          "type": "object",
+          "required": ["service", "purpose", "failure_mode"],
+          "properties": {
+            "service": { "type": "string" },
+            "purpose": { "type": "string" },
+            "failure_mode": { "type": "string" }
+          }
+        }
+      }
+    },
+
+    "interfaces": {
+      "description": "At least one. Each declares its transport; rules may be overridden per transport.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["transport"],
+        "properties": {
+          "transport": { "enum": ["http_rest", "json_rpc", "in_process", "ui"] },
+          "method": { "type": "string" },
+          "path": { "type": "string" },
+          "headers_required": { "type": "array", "items": { "type": "string" } },
+          "responses": { "type": "array" },
+          "contract_version": { "type": "string" },
+          "tool": { "type": "string" },
+          "scope_required": { "type": "string" },
+          "screen": { "type": "string" },
+          "control": { "type": "string" },
+          "covers_steps": { "type": "array", "items": { "type": "string" } },
+          "quota": { "type": "object" },
+          "concurrency": { "type": "object" },
+          "actors": { "type": "array", "items": { "type": "string" } },
+          "note": { "type": "string" },
+          "source": { "type": "string" }
+        }
+      }
+    },
+
+    "data": {
+      "type": "object",
+      "required": ["entities"],
+      "properties": {
+        "entities": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "fields_touched": { "type": "array", "items": { "type": "string" } },
+        "migrations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "provenance": {
+      "description": "What is recorded about who did what, or 'none' for read-only operations.",
+      "oneOf": [
+        { "const": "none" },
+        {
+          "type": "object",
+          "required": ["activity_kind"],
+          "properties": {
+            "activity_kind": { "type": "string" },
+            "attributed_to": { "type": "string" },
+            "on_failure": { "type": "string" }
+          }
+        }
+      ]
+    },
+
+    "reversibility": {
+      "description": "Whether the effect can be undone, and by what.",
+      "oneOf": [
+        { "enum": ["reversible", "irreversible"] },
+        {
+          "type": "object",
+          "required": ["reversible_via"],
+          "properties": {
+            "reversible_via": { "type": "string" },
+            "note": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+
+    "sensitivity": {
+      "type": "object",
+      "properties": {
+        "response_contains_secret": { "type": "boolean" },
+        "disclosure": { "enum": ["one_time", "repeatable", "never"] },
+        "storage": { "type": "string" },
+        "logging_rule": { "type": "string" }
+      }
+    },
+
+    "consumer_boundary": {
+      "description": "Present when the owning scenario belongs to another system.",
+      "type": "object",
+      "required": ["owner", "our_role"],
+      "properties": {
+        "owner": { "type": "string" },
+        "our_role": { "type": "string" },
+        "adr": { "type": "string" }
+      }
+    },
+
+    "taxonomy_refs": { "type": "array", "items": { "type": "string" } },
+
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "covers", "level"],
+        "properties": {
+          "id": { "type": "string" },
+          "covers": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "type": "string" } }
+            ]
+          },
+          "level": { "enum": ["unit", "integration", "ui", "contract"] }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "coverage_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["step", "gap"],
+        "properties": {
+          "step": { "type": "string" },
+          "gap": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+
+    "adr": { "type": "array", "items": { "type": "string" } }
+  },
+
+  "allOf": [
+    {
+      "$comment": "Claiming 'implemented' or beyond requires pointing at the implementation.",
+      "if": {
+        "properties": {
+          "maturity": { "enum": ["implemented", "tested", "in_production", "deprecated"] }
+        },
+        "required": ["maturity"]
+      },
+      "then": {
+        "required": ["maturity_evidence"],
+        "properties": {
+          "maturity_evidence": { "required": ["implemented"] }
+        }
+      }
+    },
+    {
+      "$comment": "Claiming 'tested' or beyond requires at least one recorded test and a tested note.",
+      "if": {
+        "properties": {
+          "maturity": { "enum": ["tested", "in_production"] }
+        },
+        "required": ["maturity"]
+      },
+      "then": {
+        "properties": {
+          "tests": { "minItems": 1 },
+          "maturity_evidence": { "required": ["tested"] }
+        },
+        "required": ["tests"]
+      }
+    },
+    {
+      "$comment": "Claiming 'in_production' requires naming the environment it runs in.",
+      "if": {
+        "properties": { "maturity": { "const": "in_production" } },
+        "required": ["maturity"]
+      },
+      "then": {
+        "properties": {
+          "maturity_evidence": { "required": ["deployed"] }
+        }
+      }
+    },
+    {
+      "$comment": "A write that does not move lifecycle state must say what it changes.",
+      "if": {
+        "properties": { "data_transition": { "type": "null" } },
+        "required": ["data_transition"]
+      },
+      "then": {
+        "anyOf": [
+          { "required": ["mutates"] },
+          { "properties": { "provenance": { "const": "none" } } }
+        ]
+      }
+    }
+  ]
+}
