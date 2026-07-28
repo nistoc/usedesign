@@ -1,0 +1,29 @@
+{
+  "name": "usedesign",
+  "version": "0.2.0",
+  "description": "Validate and check Operation Cards: no wild endpoints, no unproven steps, no maturity beyond its evidence.",
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "git+https://github.com/nistoc/usedesign.git", "directory": "impl/typescript" },
+  "homepage": "https://nistoc.github.io/usedesign/",
+  "type": "module",
+  "bin": { "usedesign": "dist/cli.js" },
+  "exports": { ".": "./dist/index.js" },
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-schema.mjs",
+    "conformance": "npm run build && node dist/cli.js conformance",
+    "test": "npm run conformance"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "fast-xml-parser": "^4.5.0",
+    "yaml": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0"
+  },
+  "keywords": ["operation-card", "traceability", "specification", "openapi", "documentation"]
+}
