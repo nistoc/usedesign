@@ -128,3 +128,53 @@ cases:
     note: >-
       No report at all. Check 2 is then reported as not run — never as passed, which is the whole
       difference between a checker and a rubber stamp.
+
+  # ── check 3 — no inflated maturity ───────────────────────────────────────────────────────────
+
+  - dir: evidence-path-missing
+    check: 3
+    expect: fail
+    codes: [evidence_path_missing]
+    note: >-
+      The card claims `implemented` and names a file that is no longer there. Ordinary decay: the
+      handler was renamed, nothing broke, and the card quietly stopped being true.
+
+  - dir: evidence-multipath
+    check: 3
+    expect: pass
+    codes: []
+    note: >-
+      One operation spanning an endpoint and a worker, both named in one string joined by " + ".
+      A checker reading the value as a single path fails a card that is telling the truth.
+
+  - dir: maturity-without-passing-test
+    check: 3
+    expect: fail
+    codes: [maturity_without_passing_test]
+    note: >-
+      `maturity_evidence.tested` says "1 test" and the report says that test failed. The prose is
+      advisory; the evidence is the report.
+
+  - dir: evidence-undated
+    check: 3
+    expect: pass
+    warnings: [evidence_undated]
+    note: >-
+      `deployed: production` with no date. Not an error — but a claim that can never go stale is a
+      claim nobody will ever be asked to look at again.
+
+  - dir: evidence-stale
+    check: 3
+    expect: pass
+    warnings: [evidence_stale]
+    note: >-
+      A dated deployment claim far past the horizon. The operation may well still be in production;
+      what the warning reports is silence, not absence.
+
+  - dir: maturity-understated
+    check: 3
+    expect: pass
+    warnings: [maturity_understated]
+    note: >-
+      The card claims `designed` while the test it names passes. Advisory, and on probation — no
+      real card in this repository under-claims, so there is no evidence the rule is safe.

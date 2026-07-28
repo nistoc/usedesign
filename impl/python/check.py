@@ -222,7 +222,7 @@ def run_conformance() -> int:
     for case in manifest["cases"]:
         config, base = load_config(
             os.path.join(CORPUS, "cases", case["dir"], "usedesign.config.yaml"))
-        runner = check if case.get("check", 1) == 1 else check_coverage
+        runner = {1: check, 2: check_coverage, 3: check_maturity}[case.get("check", 1)]
         findings, _ = runner(config, base)
         errors = [f for f in findings if f.severity == "error"]
         verdict = "fail" if errors else "pass"
@@ -472,7 +472,11 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
                 f"{card_id}: claims `{maturity}` with no test of its own passing in the report",
                 "error" if have_report else "warning"))
 
-        if have_report and level < LEVELS.index("tested") and passing:
+        # Only below `implemented`. A passing test is *necessary* to claim `tested`, not
+        # sufficient for it — one smoke test does not make an operation covered, and a checker
+        # cannot judge which it is. Nagging every honest `implemented` card would retire this rule
+        # within a week.
+        if have_report and level < LEVELS.index("implemented") and passing:
             findings.append(Finding(
                 "maturity_understated",
                 f"{card_id}: claims `{maturity}` while {len(passing)} of its tests pass",

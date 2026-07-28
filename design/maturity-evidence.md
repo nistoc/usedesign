@@ -95,11 +95,21 @@ A card claiming *less* than it can prove is also wrong, and cheap to detect: `ma
 while the tests it names pass in the report. It sends people to build what exists.
 
 Checked against the data before proposing it, per the lesson from check 2: in this repository no
-card under-claims, so there is no evidence either way. That is exactly why it should be a
-**warning**, and why it must ignore the case where the passing tests belong to an operation the
-author marked `designed` on purpose while a partial implementation is exercised by early tests.
-The code is `maturity_understated`, its severity is advisory, and if it turns out to fire falsely
-it goes the way of `stale_gap`.
+card under-claims, so there is no evidence either way. The code is `maturity_understated` and its
+severity is advisory.
+
+**It was narrowed the first time it ran.** The initial rule fired whenever a card below `tested`
+had a passing test — and it immediately flagged two corpus cards that claim `implemented` and
+carry one passing test each. That is not under-claiming. A passing test is *necessary* to claim
+`tested`; it is not *sufficient* for it. One smoke test does not make an operation covered, and no
+checker can judge which case it is looking at. The rule now applies only below `implemented`,
+where the claim is unambiguously behind the evidence: a card saying `designed` while its tests
+pass.
+
+The general shape of the mistake is worth keeping: **a necessary condition read as a sufficient
+one**. It produces a rule that is right in the direction it was designed for and wrong in the
+mirror, and it is the second time in three checks that a rule survived the design note and died in
+contact with the corpus.
 
 ## 5. Diagnostics
 
