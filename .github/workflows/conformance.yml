@@ -1,0 +1,105 @@
+# The corpus is what stops "a valid card" from becoming "a card my validator happens to accept".
+# This workflow is what stops the corpus from becoming a file nobody runs.
+#
+# Three things are checked, and the third is the one that usually goes missing:
+#   1. the reference implementation passes both corpora;
+#   2. the prototype passes them too, on a different runtime — a corpus one implementation agrees
+#      with is a corpus that has stopped describing the format;
+#   3. the deliberately rotten fixture still FAILS. A checker that has quietly stopped checking
+#      reports success, which is indistinguishable from a healthy repository unless something
+#      insists on seeing the failure.
+
+name: conformance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  typescript:
+    name: reference implementation (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ["20", "22", "24"]
+    defaults:
+      run:
+        working-directory: impl/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: impl/typescript/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Both corpora
+        run: node dist/cli.js conformance
+
+      - name: The rotten fixture must still fail
+        run: |
+          set +e
+          node dist/cli.js check ../../tests/fixtures/library-service/usedesign.config.yaml
+          status=$?
+          set -e
+          if [ "$status" -ne 1 ]; then
+            echo "::error::the fixture exited $status; it is planted with six defects and must exit 1"
+            exit 1
+          fi
+          echo "fixture failed as designed"
+
+  python:
+    name: prototype (second runtime)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: impl/python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - name: Cards corpus
+        run: python validate.py --conformance
+      - name: Repository corpus
+        run: python check.py --conformance
+
+  agreement:
+    name: the two implementations agree
+    needs: [typescript, python]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: impl/typescript/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml
+      - run: npm ci && npm run build
+        working-directory: impl/typescript
+
+      # Same input, same diagnostics — compared as text, because "both said it was broken" is not
+      # agreement if they disagree about what is broken.
+      - name: Same findings on the same fixture
+        run: |
+          set +e
+          node impl/typescript/dist/cli.js check tests/fixtures/library-service/usedesign.config.yaml > /tmp/ts.txt
+          (cd impl/python && python check.py ../../tests/fixtures/library-service/usedesign.config.yaml) > /tmp/py.txt
+          set -e
+          grep -oE '(ERROR|warning) +[a-z_]+' /tmp/ts.txt | sort > /tmp/ts.codes
+          grep -oE '(ERROR|warning) +[a-z_]+' /tmp/py.txt | sort > /tmp/py.codes
+          if ! diff -u /tmp/py.codes /tmp/ts.codes; then
+            echo "::error::the implementations report different diagnostics for the same repository"
+            exit 1
+          fi
+          echo "both implementations reported:"
+          cat /tmp/ts.codes
