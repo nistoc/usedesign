@@ -31,8 +31,9 @@ An Operation Card is that missing unit.
 ## 2. Core principles
 
 1. **One file, one operation.** The file name equals the operation `id`. No collections.
-2. **Axes never merge.** Maturity, execution steps, data lifecycle, version and async job state
-   are five different things. Systems that squash them into a single `stage` field fall apart.
+2. **Axes never merge.** Maturity, execution steps, data lifecycle, version, async job state and
+   suspension are six different things. Systems that squash them into a single `stage` field fall
+   apart.
 3. **Every weakening is explained.** Any relaxation — no optimistic locking, no audit trail,
    no owning scenario — must carry a `rationale`. A silent relaxation is a spec bug.
 4. **Claims cite source.** Anything asserted about the implementation carries `source:
@@ -59,7 +60,7 @@ otherwise nobody knows who calls it, and it is probably a forgotten endpoint.
 
 ---
 
-## 4. The five axes of life
+## 4. The axes of life
 
 This is the heart of the format. Each axis changes at its own pace and is owned by different
 artifacts.
@@ -71,6 +72,7 @@ artifacts.
 | **C · Data lifecycle** | `data_transition` | What the operation does to the state of the record | Almost never — it is the domain model |
 | **D · Version** | `since` | Since which migration / release the operation behaves this way | Every release |
 | **E · Async job** | `async_execution.job_states` | The life of background work started by the operation | Only for async operations |
+| **F · Continuation** | `continuation` | The operation stopped and cannot proceed until a person decides | Only for operations that can suspend |
 
 **Why they must stay apart.** A test attaches to a *step* (axis B) and by existing moves
 *maturity* (axis A). A screen covers a *set of steps*. A migration attaches to *neither* — it
@@ -82,6 +84,12 @@ the state of *the record itself*. A publish operation has its own steps **and** 
 from draft to published. Conflating the two is the second classic mistake.
 
 **Axis E is neither.** A job may reach `succeeded` while the record it produced stays `draft`.
+
+**Axis F is not axis E**, though both mean *"the response does not tell you it is over"*. An async
+job progresses on its own and you watch it; a suspended operation progresses **not at all** until
+somebody decides. If everyone walks away, the first still finishes and the second never does.
+Axis F arrived in round 7 — the format was published with five axes, and the sixth is the reason
+this section is no longer called "the five axes".
 
 ---
 
@@ -105,7 +113,7 @@ Legend: ⬛ required · ⬜ optional · 🔶 conditionally required
 |---|:--:|---|
 | `maturity` | ⬛ | `conceived` · `designed` · `implemented` · `tested` · `in_production` · `deprecated` |
 | `maturity_evidence` | 🔶 | Required from `implemented` upward — **a level may not be claimed without its evidence**. A `conceived` or `designed` operation has nothing to prove yet. The three keys are not the same kind of claim; see below |
-| `data_transition` | ⬜ | `{ from, to }` — axis C. `null` for read-only operations and for writes that do not change state |
+| `data_transition` | ⬜ | `{ from, to }` — axis C. `null` for read-only operations and for writes that do not change state. `to` may be **a set of states** with `determined_by`, for operations whose destination comes from the record's own history |
 | `mutates` | 🔶 | Fields changed, when `data_transition` is null but the operation still writes |
 | `since` | ⬜ | `{ migration, note }` — axis D. The one place where migrations stop being orphans |
 
@@ -127,6 +135,93 @@ otherwise:**
 - `deployed` **cannot be verified by any checker** worth building. Give it a `since` date and it
   can go stale — a bare environment name never can, and a claim that never asks to be re-examined
   is how a catalogue becomes a museum. Staleness is a warning, never a build failure.
+
+**Undo operations, and why `to` may be a set.** An operation that reverses a lifecycle change
+returns the record to *the state it held before* — which differs from record to record. A single
+constant is false for half of them, and naming a variable (`to: previous_state`) puts a word
+where a value belongs and can be checked by nothing. So:
+
+```yaml
+data_transition:
+  from: retired
+  to: [draft, published]
+  determined_by: the state the record held before it was retired
+```
+
+`determined_by` is required whenever `to` is a set: a list of destinations with no rule for
+choosing between them is worse than one wrong constant, because it looks complete. What the
+consumer gains is the thing it actually needs — **the set of states this operation can leave a
+record in**, which a single false constant never gave it.
+
+### 5.2a Outcomes
+
+Not every ending is a success-as-usual or a violated step. An operation that searches, resolves a
+name or answers a question can **reach the end and honestly return nothing** — no rule broken,
+nothing to fix, the work done.
+
+```yaml
+outcomes:
+  - id: answered
+    means: The catalogue covered the question
+    http: 200
+    carries: [context, answer]
+  - id: not_covered
+    means: Nothing in the catalogue covers it — an honest empty answer, not a failure
+    http: 200
+    carries: []
+```
+
+**The test that separates an outcome from a violated step:**
+
+> *Can the caller fix this by changing the request?*
+> Yes → it is a violated step. No → it is an outcome.
+
+A missing field: fix the request. A stale revision: refetch. Nothing in the catalogue: **no
+request makes an absent record present.** Writing that as `on_violation` with a success status
+lies twice — it was not a violation, and the field naming error codes now holds a success.
+
+`outcomes` is optional, and belongs only where an operation has more than one terminal ending
+*and they differ in shape*. One ending, or several sharing a shape, stays prose in a step's text.
+
+The machinery is not new: `async_execution` has always carried `job_states` and `terminal`. The
+format could always say *"there are several end states, these are final"* — it was locked inside
+axis E, available only when the response did not mean the work was done. This unlocks it for
+operations that answer immediately.
+
+**Checked:** every `outcomes[].http` must appear in that interface's `responses[]`
+(`undeclared_response`).
+
+### 5.2b Continuation (axis F)
+
+An operation can stop and be unable to continue until **somebody decides**. The next call carries
+the decision and resumes where the first stopped.
+
+```yaml
+continuation:
+  after: ambiguous              # the outcome that suspends the operation
+  resumed_by: human             # human | caller
+  carries: selected_candidate   # what the resuming call must bring
+  same_operation: true
+```
+
+At a glance this looks like axis E — both are *"the response does not mean it is over"*. The
+difference decides whether anyone should wait:
+
+| | Async execution (axis E) | Continuation (axis F) |
+|---|---|---|
+| Who moves it forward | the system, on its own | **a person** |
+| What the caller does | watches (`observe_via`) | **decides** |
+| If everybody walks away | it still finishes | **it never finishes** |
+| What the second call is | a status query | this operation, resumed |
+
+`observe_via` is precisely the field that cannot be filled in here: there is nothing to observe.
+The work is not slow, it is *stopped*.
+
+It is a separate axis for the same reason the other five are separate — an operation can be
+asynchronous and resumable, one, the other, or neither. Folding this into `async_execution` would
+make one imply the other, which is the mistake the axes exist to prevent.
+
+**Checked:** `continuation.after` must name a declared outcome (`continuation_without_outcome`).
 
 ### 5.3 Steps (axis B)
 
@@ -250,7 +345,31 @@ its own steps returned `500`. The card contradicted itself, in the document used
 format, and nothing noticed because nothing compared the two lists. Undefined fields do not rot —
 they also cannot be checked, which is the same statement seen from the other side.
 
-`parameters[]` says what the operation does to what it was sent, and is described in §5.10.
+**`parameters[]` — what the operation does to what it was sent.** Not every parameter means what
+it appears to mean, and the gap is invisible in the response:
+
+```yaml
+parameters:
+  - name: take
+    handling: clamped
+    range: [1, 100]
+    note: A caller asking for more receives the maximum, and is not told
+  - name: tenant
+    handling: decorative
+    note: The real tenant comes from the caller's identity; this is for readable URLs
+```
+
+`handling` is one of `clamped` · `defaulted` · `normalised` · `decorative`, and all four make the
+same statement: **what you sent is not what was used.** The reason to write it down is not
+tidiness. A caller who asks for 5000 records, receives 100, and is told nothing will conclude the
+data ran out — and a card that stayed silent let it happen.
+
+`quota` does not cover this: it is about how often you may call, not about what happens to what
+you sent. Validation is not one of the four kinds, because validation *rejects*, and a rejection
+is already a violated step with an error code.
+
+**Checked:** a parameter declared `decorative` must appear in the interface's `path`, or the
+declaration describes nothing (`decorative_parameter_not_in_path`).
 
 **`source` is a human aid and must never be load-bearing.** It may carry a line number — a reader
 opening the file is glad of one — but no checker may rely on it. A line number is invalidated by
@@ -295,7 +414,7 @@ than in the path, this field is the only place it is visible.
 | `data.fields_touched` | ⬜ | Specific fields |
 | `data.migrations` | ⬜ | Migrations the operation depends on |
 | `provenance` | ⬛ | `{ activity_kind: <kind> }` or `none`. Explicit — otherwise the checker demands an audit test where nothing is recorded |
-| `reversibility` | ⬛ | `{ reversible_via: <id> }` · `reversible` · `irreversible` |
+| `reversibility` | ⬛ | `{ reversible_via: <id> }` · `reversible` · `irreversible` · `not_applicable` |
 | `sensitivity` | ⬜ | `{ response_contains_secret, disclosure, storage, logging_rule }`. `disclosure` ∈ `one_time` · `repeatable` · `never` |
 | `consumer_boundary` | ⬜ | `{ owner, our_role, adr }` — when the scenario belongs to another system |
 | `taxonomy_refs` | ⬜ | Links to business concepts / a controlled vocabulary |
@@ -304,6 +423,14 @@ than in the path, this field is the only place it is visible.
 > **Why `reversibility` is required.** An irreversible operation needs different UX (confirmation),
 > a different test (the guard) and often a different permission. Without an explicit field, telling
 > a hard delete from a soft retire requires reading the implementation.
+>
+> **And why `not_applicable` had to exist.** An operation that produces no effect has nothing to
+> reverse. Until round 7 the enum offered no true answer for a read, so both read-only cards in
+> this project said `reversible` — which answers a different question than the one asked. Neither
+> author was careless; the field is required, and the format supplied nothing true to put in it.
+> **A format that demands an answer must offer one that is true**, or it manufactures the exact
+> falsehood it exists to prevent. Claiming `reversible` on an operation that writes nothing is now
+> a warning (`reversibility_overstated`).
 >
 > **Why `sensitivity` matters.** An operation that returns a secret once states one rule for three
 > consumers at the same time: the UI must not show it twice, the gateway must not log it, the test
@@ -424,7 +551,34 @@ where the format broke:
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*.
 
-### 8.1 Known limits — what round 7 broke
+| 8 | Repairing round 7 — the four gaps closed, cards rewritten against the repairs | **Five**, all optional: `outcomes[]`, `continuation`, `parameters[]`, `to` as a set, `not_applicable` |
+
+### 8.1 What round 7 broke, and what round 8 did about it
+
+**All four gaps are closed, and a fifth was found while closing them.** The repairs are below;
+the original failures are kept because a specification that hides what it once could not say
+teaches people to trust it further than they should.
+
+| Gap | Repair | Section |
+|---|---|---|
+| A terminal outcome that is neither success-as-usual nor a violation | `outcomes[]` — the `job_states` machinery, unlocked from axis E | §5.2a |
+| An operation that stops and waits for a person | `continuation` — **axis F** | §5.2b |
+| A target state taken from the record's history | `data_transition.to` may be a set, with `determined_by` | §5.2 |
+| What an operation does to its own request | `interfaces.*.parameters[]` with `handling` | §5.7 |
+| **Found while repairing:** no honest `reversibility` for a read | `not_applicable` added to the enum | §5.8 |
+
+Four new checks came with them, and all four need nothing but the card itself:
+`undeclared_response` · `continuation_without_outcome` · `decorative_parameter_not_in_path` ·
+`reversibility_overstated`.
+
+**What repairing cost the existing corpus: nothing.** No required field changed, and every card
+written before round 7 still validates. By the v1.0 criterion this round qualifies — but it would
+be self-serving to count a repair against a criterion about *breakage*. The honest reading:
+
+> Round 7 broke the format in five places. The repairs are additive, which is the good news.
+> Whether they are *right* is decided by the next round that has not seen them.
+
+### 8.2 The original failures, as recorded
 
 Round 7 wrote cards for four areas no earlier round had touched, and four things could not be
 said honestly. They are listed here rather than quietly fixed, because a specification that hides
