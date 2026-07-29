@@ -404,9 +404,61 @@ where the format broke:
 |---|---|---|
 | 1 | CRUD, async ingestion, curation UI, read-only helper | `async_execution`, `concurrency`, `serves_step` |
 | 2 | RPC protocol, security administration, cross-system boundary | `transport`, `quota`, `reversibility`, `sensitivity`, `consumer_boundary`, `contract_version` |
+| 3–5 | Building the three checks — *using* cards instead of writing more of them | None |
+| 6 | A second implementation, written from this document and the schema | None |
+| 7 | Natural-language question answering, undo of a lifecycle change, paged search, attachments | **Four, listed below. `steps[]` is affected, so v1.0 is not reached** |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*.
+
+### 8.1 Known limits — what round 7 broke
+
+Round 7 wrote cards for four areas no earlier round had touched, and four things could not be
+said honestly. They are listed here rather than quietly fixed, because a specification that hides
+what it cannot express teaches people to write cards that lie.
+
+**① A terminal outcome that is neither success-as-usual nor a violation.** A question-answering
+operation returns *"the catalogue has nothing on this"* — with a success status, having done
+everything it was asked. It is not a violated step: no rule was broken. It is not a notice: the
+whole shape of the response changes. Writing it as `on_violation` with a success HTTP code lies
+twice.
+
+The machinery already exists: `async_execution` carries `job_states` and `terminal`. It is
+**locked inside axis E**, available only when the response does not mean the work is done. What
+is missing is the same idea for an operation that answers immediately.
+
+**② An operation that stops and waits for a person.** The same operation can answer *"your
+question is ambiguous, here are the candidates"*; the next call carries the chosen candidate and
+continues where the first stopped. This is not axis E: an async job progresses on its own and
+`observe_via` says where to watch it. Here nothing progresses. **A human decides, or nothing
+happens.** No existing field expresses this, not even badly.
+
+**③ A target state taken from history rather than from a rule.** An operation that undoes a
+retirement returns the record to *the state it was in before* — which may be draft or published,
+depending on that record's own past. `data_transition` requires `{from, to}` as two constant
+strings. `to: draft` is false for half the records; `to: previous_state` names a variable where a
+value belongs, and nothing can check it.
+
+Undo operations as a class have this shape: **they return the system to where it was, not to
+where the card says.**
+
+**④ What an operation does to its own request.** Two variants, one gap:
+
+- a paging parameter above the maximum is **silently clamped**, not rejected. The caller who
+  asked for 5000 and received 100 will conclude the data ran out;
+- a path parameter is **decorative** — the real value is derived from the caller's identity, and
+  substituting anything else changes nothing.
+
+Both must be written down, and there is nowhere to write them. `quota` is about call frequency,
+not about substituting a parameter.
+
+Three of them — ① and both halves of ④ — are one gap seen from three sides: **the format speaks
+well about what an operation does to the data, and poorly about what it does to its own request
+and its own response.** One decision closes all three, and it probably looks like `job_states`
+generalised out of axis E.
+
+Nothing here is scheduled. A specification that promises fixes on a date is making the claim
+check 3 exists to refuse.
 
 ### A note on this document's own consistency
 
