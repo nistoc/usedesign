@@ -239,6 +239,19 @@ for protocols whose errors are numeric RPC codes.
 `ui.covers_steps` is the mechanism that makes UI/API drift visible: if a screen claims to cover a
 step that does not exist, the checker fails.
 
+**`responses[]` is every status the operation can return** — success, each outcome, and every
+code named by an `on_violation`. Not "the interesting ones": a list that is allowed to be partial
+cannot be compared with anything, and a field nobody can be wrong about is a field nobody
+maintains.
+
+This definition was missing until round 7, and its absence had already cost something. The
+reference example in `examples/library/` declared `responses: [200, 403, 409, 412]` while one of
+its own steps returned `500`. The card contradicted itself, in the document used to teach the
+format, and nothing noticed because nothing compared the two lists. Undefined fields do not rot —
+they also cannot be checked, which is the same statement seen from the other side.
+
+`parameters[]` says what the operation does to what it was sent, and is described in §5.10.
+
 **`source` is a human aid and must never be load-bearing.** It may carry a line number — a reader
 opening the file is glad of one — but no checker may rely on it. A line number is invalidated by
 any insertion above it, and it fails *silently*: the reference keeps resolving, to the wrong line.

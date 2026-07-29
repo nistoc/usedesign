@@ -57,7 +57,7 @@ interfaces:
     method: POST
     path: /v1/copies/{copyId}/checkout
     headers_required: [If-Match]
-    responses: [200, 403, 409, 412]
+    responses: [200, 403, 409, 412, 500]
     contract_version: application/vnd.library.loan.v2+json
     source: src/loans/routes.ts:58
   ui:
