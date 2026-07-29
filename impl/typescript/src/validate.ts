@@ -174,6 +174,62 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     }
   }
 
+  // ── outcomes, continuation, parameters ─────────────────────────────────────────────────────
+  //
+  // Three rules that need nothing but the card itself. Each one exists because the field it
+  // guards is otherwise a claim nobody can be wrong about — and a claim nobody can be wrong
+  // about is a claim nobody maintains.
+  const outcomes: any[] = fm["outcomes"] ?? [];
+  const outcomeIds = new Set<string>(outcomes.map((o: any) => o?.id));
+
+  for (const [name, iface] of Object.entries<any>(interfaces)) {
+    const declared: number[] = iface?.responses ?? [];
+    if (declared.length === 0) continue; // the field is optional; absent is not a claim
+
+    const returned = new Map<number, string>();
+    for (const step of steps) {
+      const code = step?.on_violation?.http;
+      if (typeof code === "number") returned.set(code, `step \`${step.id}\``);
+    }
+    for (const outcome of outcomes) {
+      if (typeof outcome?.http === "number") returned.set(outcome.http, `outcome \`${outcome.id}\``);
+    }
+    for (const [code, who] of returned) {
+      if (!declared.includes(code)) {
+        err("undeclared_response", `interface \`${name}\`: ${who} returns ${code}, absent from \`responses\``);
+      }
+    }
+  }
+
+  const continuation = fm["continuation"];
+  if (continuation && typeof continuation === "object") {
+    if (!outcomeIds.has(continuation.after)) {
+      err("continuation_without_outcome", `\`continuation.after\` names \`${continuation.after}\`, which is not a declared outcome`);
+    }
+  }
+
+  for (const [name, iface] of Object.entries<any>(interfaces)) {
+    for (const parameter of iface?.parameters ?? []) {
+      if (parameter?.handling !== "decorative") continue;
+      const path: string = iface?.path ?? "";
+      if (!path.includes(`{${parameter.name}}`)) {
+        err(
+          "decorative_parameter_not_in_path",
+          `interface \`${name}\`: \`${parameter.name}\` is declared decorative but does not appear in \`${path || "(no path)"}\``,
+        );
+      }
+    }
+  }
+
+  // An operation that produces no effect has nothing to reverse. Saying `reversible` there
+  // answers a different question than the one asked, and both read-only cards in this project
+  // said it — because the field is required and, until round 7, had no honest value for them.
+  // A warning, not an error: the reading is a judgement about the card's own claims, and a
+  // checker that hard-fails on judgement gets switched off.
+  if (fm["data_transition"] === null && fm["provenance"] === "none" && fm["reversibility"] === "reversible") {
+    warn("reversibility_overstated", "read-only operation claims `reversible`; nothing was done, so nothing can be undone");
+  }
+
   // ── effect of a write ──────────────────────────────────────────────────────────────────────
   if ("data_transition" in fm && fm["data_transition"] === null) {
     if (!fm["mutates"] && fm["provenance"] !== "none") {

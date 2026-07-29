@@ -50,3 +50,43 @@ cases:
   - file: invalid/write-without-declared-effect.op.md
     expect: invalid
     codes: [write_without_effect]
+
+  # ── Round 7 repairs: outcomes, continuation, variable targets, request handling ──────────────
+  - file: valid/outcomes-and-continuation.op.md
+    expect: valid
+    codes: []
+    note: >-
+      Three terminal outcomes sharing one status code, and a continuation only a human can move.
+      Two of the outcomes are successes that carry nothing — reaching the end and returning
+      nothing IS the work. A validator that treats an empty answer as a failure fails here.
+  - file: valid/undo-with-variable-target.op.md
+    expect: valid
+    codes: []
+    note: >-
+      `data_transition.to` as a set with `determined_by`. Every undo operation has this shape:
+      it returns the record to where it was, not to where the card says.
+  - file: invalid/undeclared-response.op.md
+    expect: invalid
+    codes: [undeclared_response]
+    note: >-
+      A step returns 500 while `responses` lists only 200 and 409. This exact defect sat in the
+      project's own reference example until round 7, because nothing compared the two lists.
+  - file: invalid/continuation-without-outcome.op.md
+    expect: invalid
+    codes: [continuation_without_outcome]
+    note: >-
+      The operation claims it can be suspended by an outcome it never declares.
+  - file: invalid/decorative-parameter-not-in-path.op.md
+    expect: invalid
+    codes: [decorative_parameter_not_in_path]
+    note: >-
+      One parameter is wrongly declared decorative; the `clamped` entry beside it is correct and
+      must not be reported. A checker that flags both has stopped reading the `handling` value.
+  - file: valid/read-only-claiming-reversible.op.md
+    expect: valid
+    codes: []
+    warnings: [reversibility_overstated]
+    note: >-
+      Valid but nonsensical, and the first corpus case whose whole point is a warning. Round 7
+      found this in the project's own examples: `reversibility` is required, and until
+      `not_applicable` existed, every read-only card had to say something untrue.

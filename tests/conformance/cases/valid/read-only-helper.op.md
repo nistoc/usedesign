@@ -26,7 +26,7 @@ interfaces:
 data:
   entities: [thing]
 provenance: none
-reversibility: reversible
+reversibility: not_applicable
 ---
 
 A helper with no scenario of its own. `serves_step` is the alternative to `scenario`, not an addition to it.

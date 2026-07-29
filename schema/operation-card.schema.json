@@ -600,12 +600,13 @@
       ]
     },
     "reversibility": {
-      "description": "Whether the effect can be undone, and by what.",
+      "description": "Whether the effect can be undone, and by what. `not_applicable` for operations that produce no effect — a read has nothing to reverse, and calling it 'reversible' answers a different question than the one asked.",
       "oneOf": [
         {
           "enum": [
             "reversible",
-            "irreversible"
+            "irreversible",
+            "not_applicable"
           ]
         },
         {

@@ -46,11 +46,17 @@ export function runCardCorpus(withSchema = true): CorpusResult {
     const failing = errors(findings);
     const verdict = failing.length > 0 ? "invalid" : "valid";
     const reported = codesOf(failing);
+    const warned = codesOf(warnings(findings));
 
     const problems: string[] = [];
     if (verdict !== testCase.expect) problems.push(`expected ${testCase.expect}, got ${verdict}`);
     for (const code of testCase.codes ?? []) {
       if (!reported.includes(code)) problems.push(`missing code \`${code}\``);
+    }
+    // Warnings are part of the contract too: a rule that only warns is still a rule two
+    // implementations must agree about, and until now nothing here compared them.
+    for (const code of testCase.warnings ?? []) {
+      if (!warned.includes(code)) problems.push(`missing warning \`${code}\``);
     }
 
     report(testCase.file, problems, reported);

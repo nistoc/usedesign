@@ -163,6 +163,56 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         if sid not in covered and sid not in gaps:
             warn("step_unproven", f"step `{sid}` has no test and no declared gap")
 
+    # ── outcomes, continuation, parameters ───────────────────────────────────
+    #
+    # Three rules that need nothing but the card itself. Each guards a field that would
+    # otherwise be a claim nobody can be wrong about — and nobody maintains those.
+    outcomes = fm.get("outcomes") or []
+    outcome_ids = {o.get("id") for o in outcomes}
+
+    for name, iface in interfaces.items():
+        declared = iface.get("responses") or []
+        if not declared:            # the field is optional; absent is not a claim
+            continue
+        returned: dict[int, str] = {}
+        for step in steps:
+            code = (step.get("on_violation") or {}).get("http")
+            if isinstance(code, int):
+                returned[code] = f"step `{step.get('id')}`"
+        for outcome in outcomes:
+            if isinstance(outcome.get("http"), int):
+                returned[outcome["http"]] = f"outcome `{outcome.get('id')}`"
+        for code, who in returned.items():
+            if code not in declared:
+                err("undeclared_response",
+                    f"interface `{name}`: {who} returns {code}, absent from `responses`")
+
+    continuation = fm.get("continuation")
+    if isinstance(continuation, dict):
+        if continuation.get("after") not in outcome_ids:
+            err("continuation_without_outcome",
+                f"`continuation.after` names `{continuation.get('after')}`, "
+                "which is not a declared outcome")
+
+    for name, iface in interfaces.items():
+        for parameter in iface.get("parameters") or []:
+            if parameter.get("handling") != "decorative":
+                continue
+            path = iface.get("path") or ""
+            if "{" + str(parameter.get("name")) + "}" not in path:
+                err("decorative_parameter_not_in_path",
+                    f"interface `{name}`: `{parameter.get('name')}` is declared decorative "
+                    f"but does not appear in `{path or '(no path)'}`")
+
+    # An operation that produces no effect has nothing to reverse. Saying `reversible` there
+    # answers a different question than the one asked, and both read-only cards in this project
+    # said it — the field is required and, until round 7, had no honest value for them.
+    if (fm.get("data_transition", False) is None
+            and fm.get("provenance") == "none"
+            and fm.get("reversibility") == "reversible"):
+        warn("reversibility_overstated",
+             "read-only operation claims `reversible`; nothing was done, so nothing can be undone")
+
     # ── effect of a write ────────────────────────────────────────────────────
     if "data_transition" in fm and fm["data_transition"] is None:
         if not fm.get("mutates") and fm.get("provenance") != "none":
@@ -227,12 +277,19 @@ def run_conformance() -> int:
         verdict = "invalid" if errors else "valid"
         codes = sorted({f.code for f in errors})
 
+        warned = sorted({f.code for f in findings if f.severity == "warning"})
+
         problems = []
         if verdict != case["expect"]:
             problems.append(f"expected {case['expect']}, got {verdict}")
         for code in case.get("codes", []):
             if code not in codes:
                 problems.append(f"missing code `{code}`")
+        # Warnings are part of the contract too: a rule that only warns is still a rule two
+        # implementations must agree about.
+        for code in case.get("warnings", []):
+            if code not in warned:
+                problems.append(f"missing warning `{code}`")
 
         if problems:
             failed += 1

@@ -52,7 +52,7 @@ data:
 
 provenance: none
 
-reversibility: reversible
+reversibility: not_applicable
 
 tests:
   - { id: SettlementTests.unknown_member_is_404, covers: s1-member-exists, level: integration }
