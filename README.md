@@ -55,10 +55,10 @@ Now the question *"what proves this behaviour, and where is it shown to the user
 answer that fits on one screen — and the absence of an answer is **a visible line**, not a
 silence.
 
-## The five axes
+## The axes
 
-The one thing this format insists on: **stages of life are not a single field.** Five different
-things change at five different speeds, and squashing them into one `stage` is why traceability
+The one thing this format insists on: **stages of life are not a single field.** Six different
+things change at six different speeds, and squashing them into one `stage` is why traceability
 schemes rot.
 
 | Axis | Question it answers |
@@ -68,6 +68,7 @@ schemes rot.
 | **Data lifecycle** | What does it do to the record's state? |
 | **Version** | Since which migration does it behave this way? |
 | **Async job** | What is the life of the background work it starts? |
+| **Continuation** | Is it stopped, waiting for a person to decide? |
 
 A test attaches to a *step* and, by existing, moves *maturity*. A migration attaches to *neither* —
 which is exactly why migrations end up orphaned everywhere else.
@@ -83,9 +84,15 @@ which is exactly why migrations end up orphaned everywhere else.
 
 ## Status
 
-**v0.2, draft.** The format was hardened by writing cards for eight operations of a real
-production system and recording where it broke — twice, in seven places. The criterion for v1.0
+**v0.2, draft.** The format was hardened by writing cards for real operations of a production
+system and recording where it broke — three times now, in twelve places. The criterion for v1.0
 is not "no more breakage" but *a round that changes only optional fields, never required ones*.
+
+The most recent round broke it in five places and produced a sixth axis (`continuation`), three
+new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
+was required and had **no honest value for a read-only operation**, so both read-only cards in
+this repository claimed `reversible`. A format that demands an answer must supply one that is
+true, or it manufactures the exact falsehood it exists to prevent. See [SPEC §8.1](SPEC.md).
 
 Then the specification was checked against its own schema and examples, and failed in seven
 places of a different kind: a field the schema accepted but the spec never described, a rule
@@ -117,7 +124,7 @@ enshrining one tool's bugs.
 
 The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
 [impl/](impl/) rather than by default. It validates cards against the schema and the cross-card
-rules, runs all three checks, and passes both corpora — **14 / 14 and 20 / 20**. It is not
+rules, runs all three checks, and passes both corpora — **20 / 20 cards and 20 / 20 repository cases**. It is not
 published to npm yet, so `npx usedesign` does not work today; everything below runs from a clone.
 
 The Python prototype stays. A corpus that only one implementation agrees with has stopped
@@ -128,7 +135,7 @@ report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 14 cases, verdicts and codes
+- [x] Conformance corpus — 20 card cases and 20 repository cases, verdicts, codes **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))

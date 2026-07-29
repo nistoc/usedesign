@@ -710,11 +710,11 @@ svg.diagram{ width:100%; height:auto; display:block; }
     </section>
 
     <!-- ══════════════ 9 · FIVE AXES ══════════════ -->
-    <section class="slide" id="s9" aria-label="Slide 9: the five axes of life">
+    <section class="slide" id="s9" aria-label="Slide 9: the axes of life">
       <div class="wrap">
         <p data-i18n="s9-01" class="kicker anim">08 — the heart of the format</p>
-        <h2 data-i18n="s9-02" class="title anim">The five axes of life</h2>
-        <p data-i18n="s9-03" class="lede anim" style="max-width:72ch">Stages of life are <em class="hl">not a single field</em>. Five different things change at five different speeds, and each is owned by different artifacts.</p>
+        <h2 data-i18n="s9-02" class="title anim">The axes of life</h2>
+        <p data-i18n="s9-03" class="lede anim" style="max-width:72ch">Stages of life are <em class="hl">not a single field</em>. Six different things change at five different speeds, and each is owned by different artifacts.</p>
 
         <div class="stack mt-l" style="gap:10px">
           <div class="axis anim">
@@ -747,9 +747,15 @@ svg.diagram{ width:100%; height:auto; display:block; }
             <div data-i18n="s9-17" class="what">The life of the background work the operation starts</div>
             <div class="pace"><span data-i18n="s9-18" class="txt">Only for async operations</span><span class="pips" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span></div>
           </div>
+          <div class="axis anim">
+            <div class="letter">F</div>
+            <div class="nm-wrap"><span data-i18n="s9-20" class="nm">Continuation</span><code class="fld">continuation</code></div>
+            <div data-i18n="s9-21" class="what">The operation stopped and cannot proceed until a person decides — nothing to observe, nobody watching moves it</div>
+            <div class="pace"><span data-i18n="s9-22" class="txt">Only for operations that can suspend</span><span class="pips" aria-hidden="true"><i class="on"></i></span></div>
+          </div>
         </div>
 
-        <p data-i18n="s9-19" class="sub mt anim">Squashing five clocks into one <code class="mono">stage</code> field is why traceability schemes rot.</p>
+        <p data-i18n="s9-19" class="sub mt anim">Squashing six clocks into one <code class="mono">stage</code> field is why traceability schemes rot. <em class="hl">F arrived in round 7</em> — the format was published with five.</p>
       </div>
     </section>
 
@@ -1159,6 +1165,11 @@ svg.diagram{ width:100%; height:auto; display:block; }
                 <td data-i18n="s18-21">A second implementation, from the specification and schema — not from the first one</td>
                 <td data-i18n="s18-22"><strong>None.</strong> One defect, and it was in the port: CRLF cards</td>
               </tr>
+              <tr>
+                <td data-i18n="s18-23">7</td>
+                <td data-i18n="s18-24">Four untouched areas: a question in human language, an undo, paged search, attachments</td>
+                <td data-i18n="s18-25"><strong>Five.</strong> Including one that made every read-only card say something false</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1405,8 +1416,11 @@ window.USEDESIGN_RU = {
 's8-13': 'Операция без сценария обязана объявить, кому она служит (<code class="mono">serves_step</code>), — иначе никто не скажет, кто её вызывает, и, скорее всего, про неё просто забыли.',
 
 's9-01': '08 — сердце формата',
-'s9-02': 'Пять осей жизни',
-'s9-03': 'Этап жизни — <em class="hl">это не одно поле</em>. Пять разных вещей меняются с пятью разными скоростями, и у каждой свои хозяева среди артефактов.',
+'s9-02': 'Оси жизни',
+'s9-20': 'Продолжение',
+'s9-21': 'Операция остановлена и не сдвинется, пока человек не решит — наблюдать нечего, ожидание не помогает',
+'s9-22': 'Только для операций, которые умеют приостанавливаться',
+'s9-03': 'Этап жизни — <em class="hl">это не одно поле</em>. Шесть разных вещей меняются с шестью разными скоростями, и у каждой свои хозяева среди артефактов.',
 's9-04': 'Зрелость',
 's9-05': 'Насколько операция построена: задумана → спроектирована → реализована → покрыта тестами → в проде → устарела',
 's9-06': 'Еженедельно, по мере работы',
@@ -1422,7 +1436,7 @@ window.USEDESIGN_RU = {
 's9-16': 'Асинхронное задание',
 's9-17': 'Жизнь фоновой работы, которую операция запускает',
 's9-18': 'Только у асинхронных операций',
-'s9-19': 'Попытка свести пять разных часов в одно поле <code class="mono">stage</code> — ровно то, отчего схемы прослеживаемости гниют.',
+'s9-19': 'Попытка свести шесть разных часов в одно поле <code class="mono">stage</code> — ровно то, отчего схемы прослеживаемости гниют. <em class="hl">Ось F появилась в заходе 7</em> — формат публиковался с пятью.',
 
 's10-01': '09 — классические ошибки',
 's10-02': 'Почему оси нельзя смешивать',
@@ -1555,6 +1569,9 @@ window.USEDESIGN_RU = {
 's18-20': '6',
 's18-21': 'Вторая реализация — по спецификации и схеме, а не по первой реализации',
 's18-22': '<strong>Ни одного.</strong> Один дефект нашёлся, и тот в порте: карточки с CRLF',
+'s18-23': '7',
+'s18-24': 'Четыре нетронутые области: вопрос на человеческом языке, отмена, страничный поиск, вложения',
+'s18-25': '<strong>Пять.</strong> В том числе одна, из-за которой каждая read-only карточка говорила неправду',
 's18-15': 'А потом спецификацию сверили с ней самой',
 's18-16': 'Перед публикацией её проверили по её же схеме и примерам — тем упражнением, которого она требует от всех остальных. Она не прошла в семи местах уже другого рода: поле есть в схеме и в примере, но не описано нигде; правило сказано прозой, но схемой не проверяется; один термин написан двумя способами в двух файлах. Все семь исправлены. <em class="hl">Это и есть аргумент за то, чтобы проверяющий вообще был.</em>',
 's18-13': 'Критерий версии 1.0',
@@ -1614,7 +1631,7 @@ window.USEDESIGN_RU_META = {
     'Слайд 6: чего не хватает',
     'Слайд 7: идея',
     'Слайд 8: три уровня',
-    'Слайд 9: пять осей жизни',
+    'Слайд 9: оси жизни',
     'Слайд 10: почему оси нельзя смешивать',
     'Слайд 11: анатомия карточки',
     'Слайд 12: поля, которых мы не ждали',
