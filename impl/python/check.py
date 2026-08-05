@@ -454,6 +454,14 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
 
     code_root = config.get("code_root")
     root = os.path.join(base, code_root) if code_root else None
+    # A misspelt `code_root` otherwise reports every evidence path as missing from the repository —
+    # false, and one error per card. Say the true thing once instead.
+    if root and not os.path.isdir(root):
+        return ([Finding("code_root_missing",
+                         f"`code_root` points at `{code_root}`, which does not exist — "
+                         "check 3 cannot verify any path")],
+                {"cards": 0, "paths_checked": 0, "code_root": code_root or "",
+                 "horizon": config.get("evidence_horizon_days", DEFAULT_HORIZON_DAYS)})
     horizon = config.get("evidence_horizon_days", DEFAULT_HORIZON_DAYS)
     today = date.today()
 

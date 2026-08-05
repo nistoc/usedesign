@@ -198,3 +198,13 @@ cases:
       Two operations on one route, told apart by a request field. Before round 9 this raised
       `ambiguous_shape` — the checker treating a widespread REST idiom as a defect. With distinct
       `dispatch.value` they are two honest cards, and the route is declared exactly once.
+
+  - dir: code-root-missing
+    check: 3
+    expect: fail
+    codes: [code_root_missing]
+    note: >-
+      A misspelt `code_root`. Without this rule the checker reports every evidence path as absent
+      from the repository — false, and one error per card. Found by getting the path wrong while
+      pointing the tool at an unfamiliar project, which is exactly when a first-time user gets it
+      wrong too.

@@ -601,11 +601,38 @@ where the format broke:
 | 3–5 | Building the three checks — *using* cards instead of writing more of them | None |
 | 6 | A second implementation, written from this document and the schema | None |
 | 7 | Natural-language question answering, undo of a lifecycle change, paged search, attachments | **Four, listed below. `steps[]` is affected, so v1.0 is not reached** |
+| 8 | Repairing round 7 | Five, all optional |
+| 9 | **A different system entirely** — first round on a repository the format had never seen | Three optional fields, one normalisation bug, one rule fitted to its own example |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*.
 
 | 8 | Repairing round 7 — the four gaps closed, cards rewritten against the repairs | **Five**, all optional: `outcomes[]`, `continuation`, `parameters[]`, `to` as a set, `not_applicable` |
+
+### 8.0 What a different system found
+
+Rounds 1–8 all ran against one system. Round 9 pointed the tool at an unrelated codebase, and the
+first defect surfaced **before a single card was written**:
+
+- **The checker was silently wrong, not merely limited.** That API writes actions the AIP-136 way,
+  `POST /progress/{id}:finish`, and path normalisation read the suffix as a parameter. Eight of its
+  routes collapsed into two shapes; declare one and the checker calls all of them declared, then
+  reports a clean run. See `design/route-conformance.md` §4a.
+- **A rule written from one example was fitted to that example.** Axis F required
+  `continuation.after` to name an outcome, because the single case in hand suspended on one. A
+  request thread suspends on a *job state* and waits there for a person — the axis held, its check
+  did not.
+- **Two assumptions failed together**: one call, one record, one ending. A bulk endpoint reports
+  per-item failures inside a success, and one route carries several operations chosen by a request
+  field. Both are ordinary REST; the format called the first unwritable and the second a defect.
+  See `design/bulk-and-dispatch.md`.
+
+And two things held that had been argued for rather than demonstrated: `data_transition.to` as a
+set fitted an operation whose destination comes from *completeness* rather than history, and the
+separation of axes E and F stopped being an argument the moment one record needed both.
+
+None of this was findable on the original system. **A format tested on one codebase is partly a
+description of that codebase**, and the only way to learn which part is to take it somewhere else.
 
 ### 8.1 What round 7 broke, and what round 8 did about it
 
