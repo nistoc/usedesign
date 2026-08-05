@@ -543,6 +543,26 @@
                 }
               }
             }
+          },
+          "dispatch": {
+            "description": "Several operations share this route and are told apart by a request field.",
+            "type": "object",
+            "required": [
+              "by",
+              "value"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "by": {
+                "type": "string"
+              },
+              "value": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
           }
         }
       }
@@ -797,6 +817,49 @@
         },
         "same_operation": {
           "type": "boolean"
+        },
+        "rationale": {
+          "type": "string"
+        }
+      }
+    },
+    "per_item": {
+      "description": "Present when the operation processes a list and a failure on one item does not stop the others. Per-item failures carry no status of their own — they are data inside somebody else's success.",
+      "type": "object",
+      "required": [
+        "applies_to",
+        "independent",
+        "reported_in"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "applies_to": {
+          "type": "string"
+        },
+        "independent": {
+          "type": "boolean"
+        },
+        "reported_in": {
+          "type": "string"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "code",
+              "means"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "means": {
+                "type": "string"
+              }
+            }
+          }
         },
         "rationale": {
           "type": "string"

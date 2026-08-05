@@ -190,19 +190,31 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     # A violated step that answers with success is either a typo or not a violation at all. The
     # second case is real: a bulk operation reports per-item failures inside a 200, and the shape
     # of `steps[]` — violated, therefore stopped, therefore an error code — does not fit it.
+    per_item = fm.get("per_item")
     for step in steps:
         code = (step.get("on_violation") or {}).get("http")
         if isinstance(code, int) and 200 <= code < 300:
-            warn("violation_with_success_status",
-                 f"step `{step.get('id')}` is violated yet answers {code} — either a typo, "
-                 "or this is an outcome and not a violation")
+            if per_item:
+                # With `per_item` there is a true place for this, so writing it falsely is a
+                # mistake rather than a shortage of vocabulary.
+                err("per_item_failure_as_violation",
+                    f"step `{step.get('id')}` answers {code}; this card declares `per_item`, so a "
+                    "per-item failure belongs there and carries no status")
+            else:
+                warn("violation_with_success_status",
+                     f"step `{step.get('id')}` is violated yet answers {code} — either a typo, or "
+                     "this is a per-item failure and belongs in `per_item`")
 
+    # `after` may name an outcome or a job state. Axis F was designed from one example and its
+    # rule was fitted to it; a request thread suspends on `done`, a job state, and waits there
+    # for a person.
     continuation = fm.get("continuation")
     if isinstance(continuation, dict):
-        if continuation.get("after") not in outcome_ids:
+        job_states = (fm.get("async_execution") or {}).get("job_states") or []
+        if continuation.get("after") not in outcome_ids and continuation.get("after") not in job_states:
             err("continuation_without_outcome",
                 f"`continuation.after` names `{continuation.get('after')}`, "
-                "which is not a declared outcome")
+                "which is neither a declared outcome nor a job state")
 
     for name, iface in interfaces.items():
         for parameter in iface.get("parameters") or []:

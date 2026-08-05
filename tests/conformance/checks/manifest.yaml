@@ -189,3 +189,12 @@ cases:
       as a parameter collapses all four into one shape, finds it declared, and reports a clean
       run while three operations are described by nobody — the worst thing a checker can do.
       `:name` is a parameter only after a slash.
+
+  - dir: dispatch-distinct
+    check: 1
+    expect: pass
+    codes: []
+    note: >-
+      Two operations on one route, told apart by a request field. Before round 9 this raised
+      `ambiguous_shape` — the checker treating a widespread REST idiom as a defect. With distinct
+      `dispatch.value` they are two honest cards, and the route is declared exactly once.

@@ -98,3 +98,22 @@ cases:
       A bulk operation whose per-item failures live inside a 200. Structurally valid, quietly
       false: `steps[]` assumes violated → stopped → error code, and a partial-success response
       fits none of that. From round 9, on a repository the format had never seen.
+  - file: valid/bulk-with-per-item.op.md
+    expect: valid
+    codes: []
+    note: >-
+      A bulk operation written after round 9. `per_item` holds the per-item failures, which carry
+      no status of their own, and `steps[]` holds only what stops the whole call.
+  - file: invalid/per-item-failure-as-violation.op.md
+    expect: invalid
+    codes: [per_item_failure_as_violation]
+    note: >-
+      The same failure written as a step with a success status while `per_item` is declared. The
+      rule tightens from warning to error exactly when the vocabulary to say it truthfully exists.
+  - file: valid/continuation-on-job-state.op.md
+    expect: valid
+    codes: []
+    note: >-
+      `continuation.after` naming a job state rather than an outcome. Round 8 wrote this rule from
+      one example and fitted it to that example; a request thread suspends on `done` and waits for
+      a person. Axes E and F on one record — the evidence for keeping them apart.

@@ -205,20 +205,38 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // second case is real: a bulk operation reports per-item failures inside a 200, and the whole
   // shape of `steps[]` — violated, therefore stopped, therefore an error code — does not fit it.
   // A warning, not an error, because the honest bulk card would otherwise be unwritable.
+  const perItem = fm["per_item"];
   for (const step of steps) {
     const code = step?.on_violation?.http;
     if (typeof code === "number" && code >= 200 && code < 300) {
-      warn(
-        "violation_with_success_status",
-        `step \`${step.id}\` is violated yet answers ${code} — either a typo, or this is an outcome and not a violation`,
-      );
+      if (perItem) {
+        // With `per_item` declared there is a true place to write this, so writing it falsely
+        // is a mistake rather than a shortage of vocabulary.
+        err(
+          "per_item_failure_as_violation",
+          `step \`${step.id}\` answers ${code}; this card declares \`per_item\`, so a per-item failure belongs there and carries no status`,
+        );
+      } else {
+        warn(
+          "violation_with_success_status",
+          `step \`${step.id}\` is violated yet answers ${code} — either a typo, or this is a per-item failure and belongs in \`per_item\``,
+        );
+      }
     }
   }
 
+  // `after` may name an outcome or a job state. Axis F was designed with one example in hand —
+  // an operation answering immediately and suspending on an outcome — and the rule was fitted to
+  // it. A request thread suspends on `done`, a *job state*, and waits there for a person. The
+  // axis survived that; its check did not.
   const continuation = fm["continuation"];
   if (continuation && typeof continuation === "object") {
-    if (!outcomeIds.has(continuation.after)) {
-      err("continuation_without_outcome", `\`continuation.after\` names \`${continuation.after}\`, which is not a declared outcome`);
+    const jobStates: string[] = fm["async_execution"]?.job_states ?? [];
+    if (!outcomeIds.has(continuation.after) && !jobStates.includes(continuation.after)) {
+      err(
+        "continuation_without_outcome",
+        `\`continuation.after\` names \`${continuation.after}\`, which is neither a declared outcome nor a job state`,
+      );
     }
   }
 

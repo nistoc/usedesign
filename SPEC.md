@@ -149,9 +149,59 @@ data_transition:
 ```
 
 `determined_by` is required whenever `to` is a set: a list of destinations with no rule for
-choosing between them is worse than one wrong constant, because it looks complete. What the
+choosing between them is worse than one wrong constant, because it looks complete. The rule may
+be anything the destination actually depends on — the record's history for an undo, its
+completeness for a finish, a request field for a bulk dispatch. Round 8 wrote this field for undo
+operations and said so; round 9 found the other cases, and the field fitted them unchanged. What the
 consumer gains is the thing it actually needs — **the set of states this operation can leave a
 record in**, which a single false constant never gave it.
+
+### 5.2c Operations over many items
+
+An operation may process a list, and a failure on one item may not stop the others. `steps[]`
+cannot say this: its shape is **violated → stopped → error code**, and a per-item failure inside
+a success fits none of the three.
+
+```yaml
+per_item:
+  applies_to: ids
+  independent: true
+  reported_in: results
+  failures:
+    - { code: not_found,          means: the item does not exist }
+    - { code: invalid_transition, means: the item cannot make that move }
+```
+
+**Note the absence of `http`.** A per-item failure has no status of its own — it is data inside
+somebody else's success. Giving it one would rebuild the same falsehood one level down.
+
+With `per_item` present, per-item conditions leave `steps[]`, which then holds only what stops
+the whole call: authentication, a malformed body, an empty list.
+
+**Checked:** an `on_violation` answering 2xx is a warning normally
+(`violation_with_success_status`) and an **error** when `per_item` is declared
+(`per_item_failure_as_violation`) — the rule tightens exactly when the vocabulary to say it
+truthfully exists.
+
+### 5.2d Several operations on one route
+
+`POST /things:batch` with `op` in the body may publish, archive, duplicate or delete. Those are
+different operations — different reversibility, different transitions, different permissions —
+and a card is one operation.
+
+```yaml
+interfaces:
+  rest:
+    path: /v1/things:batch
+    dispatch: { by: op, value: publish }
+```
+
+One card each, all truthful. `ambiguous_shape` no longer fires on cards sharing a route when
+their `dispatch.value` differ; it still fires when two cards claim the same route the same way,
+or with no dispatch at all — which is the case it was always meant to catch.
+
+The route shape itself is unchanged by `dispatch`: the inventory knows nothing about request
+bodies, and the comparison in check 1 must stay a comparison of routes.
 
 ### 5.2a Outcomes
 
@@ -221,7 +271,11 @@ It is a separate axis for the same reason the other five are separate — an ope
 asynchronous and resumable, one, the other, or neither. Folding this into `async_execution` would
 make one imply the other, which is the mistake the axes exist to prevent.
 
-**Checked:** `continuation.after` must name a declared outcome (`continuation_without_outcome`).
+**Checked:** `continuation.after` must name a declared outcome **or a job state**
+(`continuation_without_outcome`). Round 8 required an outcome, because its single example
+suspended on one; a request thread suspends on `done`, a *job state*, and waits there for a
+person. The axis survived that contact — its check did not, which is what a rule written from one
+example does.
 
 ### 5.3 Steps (axis B)
 

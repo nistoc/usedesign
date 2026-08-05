@@ -97,6 +97,7 @@ def load_card_files(config: dict, base: str) -> tuple[list[tuple[str, dict]], li
 def load_cards(config: dict, base: str) -> tuple[dict, list[Finding]]:
     """Return {(method, shape): [card ids]} for every REST interface the cards declare."""
     declared: dict[tuple[str, str], list[str]] = {}
+    dispatch_of: dict[tuple, str] = {}
     cards, findings = load_card_files(config, base)
 
     for card_id, fm in cards:
@@ -109,15 +110,27 @@ def load_cards(config: dict, base: str) -> tuple[dict, list[Finding]]:
                     "incomplete_rest_interface",
                     f"{card_id}: interface `{name}` declares http_rest without method or path"))
                 continue
-            declared.setdefault(normalise(method, route), []).append(card_id)
+            # The key stays the route shape — that is what the inventory can be compared against.
+            # Dispatch tells cards apart from each other, not routes from each other.
+            d = iface.get("dispatch") or {}
+            key = normalise(method, route)
+            declared.setdefault(key, []).append(card_id)
+            stamp = f"{d['by']}={d['value']}" if d.get("by") and d.get("value") else ""
+            dispatch_of[(key, card_id)] = stamp
 
     for key, owners in sorted(declared.items()):
-        if len(owners) > 1:
-            findings.append(Finding(
-                "ambiguous_shape",
-                f"{key[0]} {key[1]} is declared by {len(owners)} cards ({', '.join(owners)}) — "
-                "the checker cannot tell them apart",
-                "warning"))
+        if len(owners) < 2:
+            continue
+        # Several operations may legitimately share a route, told apart by a request field — a
+        # widespread REST idiom. Ambiguous only when two cards claim it the same way, or not at all.
+        stamps = [dispatch_of.get((key, card_id), "") for card_id in owners]
+        if len(set(stamps)) == len(owners) and "" not in stamps:
+            continue
+        findings.append(Finding(
+            "ambiguous_shape",
+            f"{key[0]} {key[1]} is declared by {len(owners)} cards ({', '.join(owners)}) — "
+            "the checker cannot tell them apart",
+            "warning"))
     return declared, findings
 
 
