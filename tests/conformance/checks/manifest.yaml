@@ -178,3 +178,14 @@ cases:
     note: >-
       The card claims `designed` while the test it names passes. Advisory, and on probation — no
       real card in this repository under-claims, so there is no evidence the rule is safe.
+
+  - dir: action-suffix
+    check: 1
+    expect: fail
+    codes: [wild_endpoint]
+    note: >-
+      Four actions on one resource, written the AIP-136 way: POST /v1/copies/{copyId}:checkout,
+      :return, :reserve, :transfer. One card declares the first. A checker treating `:action`
+      as a parameter collapses all four into one shape, finds it declared, and reports a clean
+      run while three operations are described by nobody — the worst thing a checker can do.
+      `:name` is a parameter only after a slash.

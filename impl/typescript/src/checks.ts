@@ -14,8 +14,16 @@ import { Card, Config, Finding, loadCardFiles } from "./core.js";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
-/** Parameter syntaxes seen in the wild: {name} · :name · <name> · <converter:name> */
-const PARAM = /\{[^}]*\}|:[A-Za-z_][A-Za-z0-9_]*|<[^>]*>/g;
+/**
+ * Parameter syntaxes seen in the wild: {name} · :name · <name> · <converter:name>
+ *
+ * `:name` counts as a parameter ONLY after a slash. Written any other way it is a literal —
+ * the AIP-136 style spells an action on a resource as `POST /progress/{id}:finish`, and treating
+ * that suffix as a parameter collapses `:finish`, `:abandon`, `:resume`, `:reorder` and `:sync`
+ * into one shape. The checker then reports a clean run while four operations are declared by
+ * nobody, which is the worst thing a checker can do.
+ */
+const PARAM = /\{[^}]*\}|(?<=\/):[A-Za-z_][A-Za-z0-9_]*|<[^>]*>/g;
 
 /**
  * Reduce a route to what identifies it: method and path *shape*.

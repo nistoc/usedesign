@@ -117,6 +117,44 @@ different routes can share a shape — `/users/{}/follow` and `/users/{}/block` 
 checker cannot tell them apart, and the card must disambiguate by method or by carrying the literal
 segment. This is a known limit of the mechanism, not a bug to be fixed by a cleverer matcher.
 
+## 4a. `:name` is a parameter only after a slash
+
+Round 9 ran the checker against a repository it had never seen, and the normalisation rule broke
+before a single card was written.
+
+The API writes an action on a resource the AIP-136 way — a **colon suffix**:
+
+```
+POST /progress/{id}:finish
+POST /progress/{id}:abandon
+POST /progress/{id}:resume
+POST /progress/{id}:reorder
+POST /progress/{id}:sync
+```
+
+The rule read `:name` as a parameter, because it was written for the Express style `/users/:id`.
+Measured over that repository's 67 routes: **8 of them collapsed into 2 shapes.** Five unrelated
+operations became indistinguishable.
+
+That is worse than a missed defect. If a card declares **any one** of the five, all five count as
+declared, and the checker reports a clean run while four operations are described by nobody. A
+checker that has quietly stopped checking looks exactly like a healthy repository.
+
+**This was not the known limit of §4.** That limit is about two shapes differing only in a
+parameter *name* — genuinely indistinguishable. Here the shapes differ in a literal, and a wrong
+rule glued them together.
+
+The fix is one lookbehind, and the test that separates the two cases is positional:
+
+| Path | Before the colon | Verdict |
+|---|---|---|
+| `/users/:id` | `/` | parameter |
+| `/progress/{id}:finish` | `}` | literal |
+| `/catalogs:batch` | `s` | literal |
+
+Corpus case: `action-suffix`. Four actions on one resource, one card, **three** wild endpoints
+expected. A checker that still folds the suffix reports zero and passes nothing.
+
 ## 5. Routes that are deliberately not operations
 
 Every real application serves routes that no card should describe: health probes, metrics, the

@@ -37,7 +37,12 @@ CORPUS = os.path.join(REPO, "tests", "conformance", "checks")
 METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
 
 # Parameter syntaxes seen in the wild: {name} · :name · <name> · <converter:name>
-PARAM = re.compile(r"\{[^}]*\}|:[A-Za-z_][A-Za-z0-9_]*|<[^>]*>")
+#
+# `:name` is a parameter ONLY after a slash. Elsewhere it is a literal: the AIP-136 style writes
+# an action as `POST /progress/{id}:finish`, and reading that suffix as a parameter collapses
+# five distinct operations into one shape — after which the checker reports a clean run while
+# four of them are declared by nobody.
+PARAM = re.compile(r"\{[^}]*\}|(?<=/):[A-Za-z_][A-Za-z0-9_]*|<[^>]*>")
 
 
 class Finding:

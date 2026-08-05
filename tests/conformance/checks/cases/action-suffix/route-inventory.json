@@ -1,0 +1,10 @@
+{
+  "usedesign_inventory": 1,
+  "produced_by": "runtime dump, minimal API host (EndpointDataSource walk)",
+  "routes": [
+    { "method": "POST", "path": "/v1/copies/{copyId}:checkout", "source": "src/routes.ts" },
+    { "method": "POST", "path": "/v1/copies/{copyId}:return",   "source": "src/routes.ts" },
+    { "method": "POST", "path": "/v1/copies/{copyId}:reserve",  "source": "src/routes.ts" },
+    { "method": "POST", "path": "/v1/copies/{copyId}:transfer", "source": "src/routes.ts" }
+  ]
+}
