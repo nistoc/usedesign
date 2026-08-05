@@ -201,6 +201,20 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     }
   }
 
+  // A violated step that answers with success is either a typo or not a violation at all. The
+  // second case is real: a bulk operation reports per-item failures inside a 200, and the whole
+  // shape of `steps[]` — violated, therefore stopped, therefore an error code — does not fit it.
+  // A warning, not an error, because the honest bulk card would otherwise be unwritable.
+  for (const step of steps) {
+    const code = step?.on_violation?.http;
+    if (typeof code === "number" && code >= 200 && code < 300) {
+      warn(
+        "violation_with_success_status",
+        `step \`${step.id}\` is violated yet answers ${code} — either a typo, or this is an outcome and not a violation`,
+      );
+    }
+  }
+
   const continuation = fm["continuation"];
   if (continuation && typeof continuation === "object") {
     if (!outcomeIds.has(continuation.after)) {

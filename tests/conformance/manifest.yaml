@@ -90,3 +90,11 @@ cases:
       Valid but nonsensical, and the first corpus case whose whole point is a warning. Round 7
       found this in the project's own examples: `reversibility` is required, and until
       `not_applicable` existed, every read-only card had to say something untrue.
+  - file: valid/bulk-violation-inside-success.op.md
+    expect: valid
+    codes: []
+    warnings: [violation_with_success_status]
+    note: >-
+      A bulk operation whose per-item failures live inside a 200. Structurally valid, quietly
+      false: `steps[]` assumes violated → stopped → error code, and a partial-success response
+      fits none of that. From round 9, on a repository the format had never seen.

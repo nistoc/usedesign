@@ -187,6 +187,16 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
                 err("undeclared_response",
                     f"interface `{name}`: {who} returns {code}, absent from `responses`")
 
+    # A violated step that answers with success is either a typo or not a violation at all. The
+    # second case is real: a bulk operation reports per-item failures inside a 200, and the shape
+    # of `steps[]` — violated, therefore stopped, therefore an error code — does not fit it.
+    for step in steps:
+        code = (step.get("on_violation") or {}).get("http")
+        if isinstance(code, int) and 200 <= code < 300:
+            warn("violation_with_success_status",
+                 f"step `{step.get('id')}` is violated yet answers {code} — either a typo, "
+                 "or this is an outcome and not a violation")
+
     continuation = fm.get("continuation")
     if isinstance(continuation, dict):
         if continuation.get("after") not in outcome_ids:
