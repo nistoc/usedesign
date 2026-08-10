@@ -15,6 +15,15 @@ Agreeing on the *code* matters as much as the verdict. Two tools that both rejec
 disagree on why cannot be used interchangeably in a pipeline, and their messages teach users two
 different mental models of the format.
 
+**What the agreement covers, and what it deliberately does not.** It covers every *verdict*:
+`validate` and the three checks. It does not cover `scaffold`, which lives in the TypeScript
+implementation alone. Scaffolding decides nothing — it writes drafts that are guaranteed to fail
+validation, and any disagreement between two generators is settled a moment later by the
+validator both must obey. Requiring a second generator would buy no safety and would make the
+"two implementations agree" job fail for a command whose output is checked by the agreement
+itself. Written down because an unexplained asymmetry in CI eventually gets "fixed" by somebody
+who no longer knows why it was there.
+
 ## Layout
 
 ```

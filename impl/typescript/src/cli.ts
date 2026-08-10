@@ -12,6 +12,7 @@ import { dirname, join } from "node:path";
 import { CHECKS, checkCoverage, checkMaturity, checkRoutes } from "./checks.js";
 import { codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
+import { planScaffold, writeScaffold } from "./scaffold.js";
 import { validate, validateSchema } from "./validate.js";
 
 /**
@@ -30,12 +31,17 @@ const USAGE = `usedesign — one description per operation, checked against the 
 Usage:
   usedesign validate <path…>          validate cards (files or directories)
   usedesign check <config>            run the three checks against a usedesign.config.yaml
+  usedesign scaffold <openapi.json> --out <dir>
+                                      draft a card shell per undescribed route
   usedesign conformance [--cards|--checks]
                                       run the conformance corpora
   usedesign --help | --version
 
 Options:
   --no-schema                        validate: skip the JSON Schema, keep the cross-card rules
+  --config <file>                    scaffold: skip routes already declared or excluded
+  --dry-run                          scaffold: print the arithmetic, write nothing
+  --force                            scaffold: overwrite drafts already on disk
 `;
 
 function print(findings: Finding[], prefix = ""): void {
@@ -104,6 +110,56 @@ function commandCheck(configPath: string): number {
   return errorCount > 0 ? 1 : 0;
 }
 
+/**
+ * Generate draft cards for routes nobody has described yet.
+ *
+ * The arithmetic is printed because it is the point: generated + skipped-as-declared +
+ * skipped-as-excluded must equal the routes served. A command that quietly dropped the remainder
+ * would read exactly like one that covered everything.
+ */
+function commandScaffold(openapiPath: string, outDir: string, configPath: string | undefined, dryRun: boolean, force: boolean): number {
+  let config = null;
+  let base: string | null = null;
+  if (configPath) ({ config, base } = loadConfig(configPath));
+
+  const plan = planScaffold(openapiPath, outDir, config, base);
+  print(plan.findings);
+
+  console.log(`routes:     ${plan.total} served, read from ${openapiPath}`);
+  console.log(`drafts:     ${plan.drafts.length} to write into ${outDir}`);
+  console.log(`skipped:    ${plan.skippedDeclared.length} already declared by a card`);
+  for (const skip of plan.skippedDeclared) console.log(`              ${skip.route} → ${skip.by.join(", ")}`);
+  console.log(`            ${plan.skippedExcluded.length} excluded by the config`);
+  for (const skip of plan.skippedExcluded) console.log(`              ${skip.route} → ${skip.reason}`);
+
+  const accounted = plan.drafts.length + plan.skippedDeclared.length + plan.skippedExcluded.length;
+  if (accounted !== plan.total) {
+    console.log("");
+    print([
+      new Finding(
+        "routes_unaccounted",
+        `${plan.total} routes served but ${accounted} accounted for — ${plan.total - accounted} vanished without a reason`,
+      ),
+    ]);
+    return 1;
+  }
+  console.log(`            → ${plan.drafts.length} + ${plan.skippedDeclared.length} + ${plan.skippedExcluded.length} = ${plan.total} ✓`);
+
+  if (plan.existing.length > 0) {
+    console.log(`\nexisting:   ${plan.existing.length} draft(s) already on disk — ${force ? "OVERWRITTEN (--force)" : "left untouched"}`);
+  }
+
+  if (dryRun) {
+    console.log("\ndry run: nothing written.");
+    return 0;
+  }
+
+  const { written, kept } = writeScaffold(plan, outDir, force);
+  console.log(`\nwritten:    ${written}${kept ? `, kept ${kept} existing` : ""}`);
+  console.log("Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.");
+  return 0;
+}
+
 function main(argv: string[]): number {
   const args = argv.slice(2);
   if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
@@ -133,6 +189,41 @@ function main(argv: string[]): number {
         return 2;
       }
       return commandCheck(positional[0]!);
+
+    case "scaffold": {
+      // `--out dir` and `--config file` take a value, so the value must not be mistaken for a
+      // positional argument. Parsed explicitly rather than by filtering on a leading dash.
+      const takesValue = new Set(["--out", "--config"]);
+      const values = new Map<string, string>();
+      const free: string[] = [];
+      for (let i = 0; i < rest.length; i += 1) {
+        const argument = rest[i]!;
+        if (takesValue.has(argument)) {
+          const value = rest[i + 1];
+          if (!value || value.startsWith("--")) {
+            console.error(`usedesign scaffold: ${argument} needs a value`);
+            return 2;
+          }
+          values.set(argument, value);
+          i += 1;
+        } else if (!argument.startsWith("--")) {
+          free.push(argument);
+        }
+      }
+      if (free.length !== 1) {
+        console.error(
+          "usedesign scaffold: name exactly one OpenAPI document\n" +
+            "  usedesign scaffold <openapi.json> --out <dir> [--config <usedesign.config.yaml>] [--dry-run] [--force]",
+        );
+        return 2;
+      }
+      const outDir = values.get("--out");
+      if (!outDir) {
+        console.error("usedesign scaffold: --out <dir> is required — drafts must not land among real cards");
+        return 2;
+      }
+      return commandScaffold(free[0]!, outDir, values.get("--config"), flags.includes("--dry-run"), flags.includes("--force"));
+    }
 
     case "conformance": {
       const cardsOnly = flags.includes("--cards");
