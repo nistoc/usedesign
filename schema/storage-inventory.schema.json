@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nistoc/usedesign/schema/storage-inventory.schema.json",
+  "title": "Storage inventory",
+  "description": "What the storage says about ITSELF: which stores exist, what they are keyed by, and which secondary indexes they carry. Produced by dumping the deployed storage — never by reading application code. The sibling of the route inventory, and it exists for the same reason: a card's claim about where data lives is otherwise a claim nobody can be wrong about.",
+  "type": "object",
+  "required": ["usedesign_storage_inventory", "produced_by", "stores"],
+  "properties": {
+    "usedesign_storage_inventory": { "const": 1 },
+    "produced_by": {
+      "description": "How this file was made, in words a human can check. An inventory of unknown origin is worse than none: it looks like evidence.",
+      "type": "string",
+      "minLength": 3
+    },
+    "environment": {
+      "description": "Which environment was dumped. Store names usually carry it as a suffix, and cards must never name one.",
+      "type": "string"
+    },
+    "stores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "keyed_by"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "keyed_by": {
+            "description": "The primary key attributes, in order: partition key first, then sort key if there is one.",
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "indexes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "additionalProperties": false,
+              "properties": {
+                "name": { "type": "string" },
+                "keyed_by": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          },
+          "source": { "type": "string" }
+        }
+      }
+    }
+  }
+}

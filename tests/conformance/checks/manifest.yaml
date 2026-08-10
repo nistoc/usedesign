@@ -208,3 +208,23 @@ cases:
       from the repository — false, and one error per card. Found by getting the path wrong while
       pointing the tool at an unfamiliar project, which is exactly when a first-time user gets it
       wrong too.
+
+  # ── Check 4 — no imagined storage (the lower layer, added after measuring a schemaless store) ──
+  - dir: storage-clean
+    check: 4
+    expect: pass
+    warnings: [undescribed_store]
+    note: >-
+      A card naming its store as a PATTERN, its key, and the index it depends on; the inventory
+      agrees. The second store is touched by no card and earns a warning — the mirror of a wild
+      endpoint, asking what we keep that no description accounts for. Store names carry the
+      environment, so a card that named `-dev` would be true in one place and false in another.
+  - dir: storage-vanished-index
+    check: 4
+    expect: fail
+    codes: [unknown_index]
+    note: >-
+      The index the operation depends on has been removed — the ordinary way this goes wrong,
+      since dropping an index is a cost decision taken far from the card. Naming an index is a
+      promise that removing it breaks this operation, and this is the check that keeps the
+      promise falsifiable.

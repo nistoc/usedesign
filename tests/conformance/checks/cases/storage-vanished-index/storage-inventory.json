@@ -1,0 +1,14 @@
+{
+  "usedesign_storage_inventory": 1,
+  "produced_by": "runtime dump — the deployed storage describing itself",
+  "environment": "dev",
+  "stores": [
+    {
+      "name": "library-loans-dev",
+      "keyed_by": [
+        "LoanId"
+      ],
+      "source": "describe-table"
+    }
+  ]
+}

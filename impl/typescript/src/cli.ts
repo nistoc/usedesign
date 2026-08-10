@@ -9,7 +9,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { CHECKS, checkCoverage, checkMaturity, checkRoutes } from "./checks.js";
+import { CHECKS, checkCoverage, checkMaturity, checkRoutes, checkStorage } from "./checks.js";
 import { codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { planScaffold, writeScaffold } from "./scaffold.js";
@@ -106,6 +106,14 @@ function commandCheck(configPath: string): number {
   );
   console.log(`horizon:    ${m["horizon"]} days\n`);
   errorCount += summarise("check 3 (no inflated maturity)", maturity.findings);
+
+  const storage = checkStorage(config, base);
+  const g = storage.summary as Record<string, any>;
+  console.log(
+    `storage:    ${g["stores"]} store(s)${g["produced_by"] ? `, produced by ${g["produced_by"]}` : ""}` +
+      `; ${g["claims"]} claim(s) in cards touching ${g["touched"]}`,
+  );
+  errorCount += summarise("check 4 (no imagined storage)", storage.findings);
 
   return errorCount > 0 ? 1 : 0;
 }

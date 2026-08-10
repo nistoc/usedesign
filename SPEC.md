@@ -638,6 +638,46 @@ the checker is on the roadmap rather than the schema being made ever cleverer.
 
 ---
 
+### 7.4 Check 4 — no imagined storage
+
+The same shape as check 1, one layer down. The storage says what it is — which stores exist, what
+they are keyed by, which secondary indexes they carry — and the cards are compared with that.
+Nothing reads a repository class, an ORM mapping, or a migration file.
+
+```yaml
+data:
+  entities: [request]          # the logical noun, unchanged
+  storage:
+    - store: abdominal-requests-*   # a PATTERN, never a literal name
+      keyed_by: [RequestId]
+      via_index: gsi-owner-status   # naming one promises that removing it breaks this operation
+```
+
+**`store` is a pattern because store names carry their environment.** A card naming
+`…-dev` is true in one place and false in every other, and the checker would either bless the lie
+or fail the honest card, depending on which dump it was handed.
+
+| Finding | Means |
+|---|---|
+| `unknown_store` | the card names a store the storage does not have |
+| `store_key_mismatch` | the claimed key is not the store's key |
+| `unknown_index` | the index the operation depends on is gone — the ordinary failure, since dropping an index is a cost decision taken far from the card |
+| `undescribed_store` (warning) | a store no card accounts for — the mirror of a wild endpoint |
+| `storage_inventory_missing` | the check **cannot run and is not considered passed** |
+
+**What this check deliberately does not do: verify which fields an operation writes.** A
+schemaless store declares its keys and indexes and knows nothing about the rest, so checking
+`fields_touched` against it would be a promise the storage cannot keep — and a check that cannot
+fail is not a check. This is stated rather than left implicit because `fields_touched` and
+`migrations` sat in the format for eleven rounds, unfilled and unchecked: fields nobody could be
+wrong about, which §5.7 says nobody maintains. They remain prose.
+
+The measurement that produced this check is worth recording. Before it, `data.entities: [request]`
+was the whole of what a card said about storage — one logical noun, true by construction. The
+first run against a real system found nine stores of which **none** was accounted for by any card,
+and writing four honest claims immediately revealed that publishing an item touches **two** stores,
+not the one the card had named for months.
+
 ## 8. Maturity of this specification
 
 v0.2 was reached by writing cards for eight real operations of a production system and recording
@@ -654,6 +694,7 @@ where the format broke:
 | 9 | **A different system entirely** — first round on a repository the format had never seen | Three optional fields, one normalisation bug, one rule fitted to its own example |
 | 10 | **A screen against a described operation** — one real button traced from control to pixel | One, optional: `covers_outcomes{}` (§5.7) |
 | 11 | **Four more screens** — a form, a service operation, and a bulk pair | None new. Round 10's own rule corrected twice: job states out of the vocabulary, per-item failures in; plus `outcomes_indistinguishable` |
+| 12 | **The layer below** — cards against a live schemaless store | One, optional: `data.storage[]`, plus check 4 (§7.4) |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

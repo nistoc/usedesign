@@ -240,7 +240,7 @@ def run_conformance() -> int:
     for case in manifest["cases"]:
         config, base = load_config(
             os.path.join(CORPUS, "cases", case["dir"], "usedesign.config.yaml"))
-        runner = {1: check, 2: check_coverage, 3: check_maturity}[case.get("check", 1)]
+        runner = {1: check, 2: check_coverage, 3: check_maturity, 4: check_storage}[case.get("check", 1)]
         findings, _ = runner(config, base)
         errors = [f for f in findings if f.severity == "error"]
         verdict = "fail" if errors else "pass"
@@ -540,6 +540,98 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
     }
 
 
+# ─────────────────────────── check 4 — no imagined storage ──────────────────────────────────────
+#
+# The same shape as check 1, one layer down: the storage says what it is — which stores exist,
+# what they are keyed by, which secondary indexes they carry — and the cards are compared with
+# that. Nothing reads a repository class or a mapping attribute.
+#
+# It exists because `data.entities: [request]` was the whole of what a card said about storage: a
+# logical noun, true by construction, falsifiable by nothing.
+#
+# What this check deliberately does NOT do: verify which ATTRIBUTES an operation writes. A
+# schemaless store declares its keys and indexes and knows nothing about the rest, so a
+# `fields_touched` check would be a promise the storage cannot keep.
+def check_storage(config: dict, base: str) -> tuple[list[Finding], dict]:
+    empty = {"stores": 0, "claims": 0, "touched": 0, "produced_by": ""}
+    location = config.get("storage_inventory")
+    if not location:
+        return ([Finding("storage_inventory_missing",
+                         "no `storage_inventory` in the config — check 4 cannot run and is NOT "
+                         "considered passed")], empty)
+
+    path = os.path.join(base, location)
+    if not os.path.exists(path):
+        return ([Finding("storage_inventory_missing", f"{location} does not exist")], empty)
+
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    findings: list[Finding] = []
+    if data.get("usedesign_storage_inventory") != 1:
+        findings.append(Finding("storage_inventory_malformed",
+                                f"{location}: missing `usedesign_storage_inventory: 1`"))
+    if not data.get("produced_by"):
+        findings.append(Finding("storage_inventory_malformed", f"{location}: missing `produced_by`"))
+
+    stores = data.get("stores") or []
+    if not stores:
+        findings.append(Finding("storage_inventory_empty",
+                                f"{location}: no stores — almost always a failed dump rather than "
+                                "a system without storage"))
+
+    cards, card_findings = load_card_files(config, base)
+    findings += card_findings
+
+    touched: set[str] = set()
+    claims = 0
+
+    for card_id, fm in cards:
+        for claim in (fm.get("data") or {}).get("storage") or []:
+            claims += 1
+            pattern = claim.get("store") or ""
+            matched = [s for s in stores if fnmatch.fnmatch(str(s.get("name")), pattern)]
+
+            if not matched:
+                findings.append(Finding(
+                    "unknown_store",
+                    f"{card_id}: claims store `{pattern}`, which the storage does not have"))
+                continue
+            for store in matched:
+                touched.add(str(store.get("name")))
+
+            claimed_keys = claim.get("keyed_by") or []
+            if claimed_keys:
+                for store in matched:
+                    actual = store.get("keyed_by") or []
+                    if list(claimed_keys) != list(actual):
+                        findings.append(Finding(
+                            "store_key_mismatch",
+                            f"{card_id}: claims `{pattern}` is keyed by [{', '.join(claimed_keys)}], "
+                            f"but `{store.get('name')}` is keyed by [{', '.join(actual)}]"))
+
+            index = claim.get("via_index")
+            if index:
+                for store in matched:
+                    names = [str(i.get("name")) for i in (store.get("indexes") or [])]
+                    if index not in names:
+                        findings.append(Finding(
+                            "unknown_index",
+                            f"{card_id}: depends on index `{index}` of `{store.get('name')}`, "
+                            f"which has {', '.join(names) if names else 'no indexes'}"))
+
+    # The mirror of a wild endpoint, and the question nobody asks out loud: what do we keep that no
+    # description accounts for? A warning — storage outlives the operations that filled it.
+    for store in stores:
+        if str(store.get("name")) not in touched:
+            findings.append(Finding(
+                "undescribed_store",
+                f"{store.get('name')} exists but no card says anything about it", "warning"))
+
+    return findings, {"stores": len(stores), "claims": claims, "touched": len(touched),
+                      "produced_by": data.get("produced_by", "")}
+
+
 def report(title: str, findings: list[Finding]) -> int:
     errors = [f for f in findings if f.severity == "error"]
     for finding in findings:
@@ -587,6 +679,12 @@ def main() -> int:
     print(f"horizon:    {maturity['horizon']} days")
     print()
     errors += report("check 3 (no inflated maturity)", maturity_findings)
+
+    storage_findings, storage = check_storage(config, base)
+    print(f"storage:    {storage['stores']} store(s)"
+          + (f", produced by {storage['produced_by']}" if storage["produced_by"] else "")
+          + f"; {storage['claims']} claim(s) in cards touching {storage['touched']}")
+    errors += report("check 4 (no imagined storage)", storage_findings)
 
     return 1 if errors else 0
 

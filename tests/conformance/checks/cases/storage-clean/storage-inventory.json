@@ -1,0 +1,18 @@
+{
+  "usedesign_storage_inventory": 1,
+  "produced_by": "runtime dump — the deployed storage describing itself",
+  "environment": "dev",
+  "stores": [
+    {
+      "name": "library-loans-dev",
+      "keyed_by": ["LoanId"],
+      "indexes": [{ "name": "gsi-borrower", "keyed_by": ["BorrowerId", "BorrowedAt"] }],
+      "source": "describe-table"
+    },
+    {
+      "name": "library-fines-dev",
+      "keyed_by": ["FineId"],
+      "source": "describe-table"
+    }
+  ]
+}
