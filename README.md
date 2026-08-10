@@ -155,7 +155,7 @@ report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 24 card cases and 23 repository cases, verdicts, codes **and warnings**
+- [x] Conformance corpus — 30 card cases and 23 repository cases, verdicts, codes **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))
@@ -165,10 +165,14 @@ report about the same repository.
       nobody can verify expires instead ([design note](design/maturity-evidence.md))
 - [x] `usedesign validate` — cards against the schema **and** the cross-card rules
 - [x] `usedesign check` — the three invariants, holding the 23-case repository corpus
+- [x] `usedesign scaffold` — a draft card per undescribed route, read from the application's own
+      OpenAPI. Every draft fails validation on purpose: a shell that validated would look like a
+      description while claiming maturity nobody measured
 - [x] A reference implementation in TypeScript, both corpora run in CI on three Node versions,
       plus a job that insists the deliberately rotten fixture still fails
 - [x] Published to npm with build provenance — `npx usedesign` needs no clone
-- [ ] `usedesign gen openapi` — derive an API contract from the cards. Not started
+- [ ] `usedesign gen openapi` — derive an API contract from the cards (the opposite direction to
+      `scaffold`). Not started
 
 The checker is the point: a catalogue without one becomes aspiration within months. It exists
 now, on two runtimes, and CI compares what they say about the same repository — because two tools
