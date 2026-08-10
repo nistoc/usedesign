@@ -6,10 +6,24 @@
  *   usedesign check <config>       the three invariants against the repository
  *   usedesign conformance          the corpora this implementation must pass
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { CHECKS, checkCoverage, checkMaturity, checkRoutes } from "./checks.js";
 import { codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { validate, validateSchema } from "./validate.js";
+
+/**
+ * The version is read from package.json, never written here. It was written here once, and the
+ * published 0.3.0 introduced itself as 0.2.0 — the tool that checks other people's claims against
+ * their code was making a claim about itself that nothing compared to anything. Found by asking
+ * the published box its version while watching it run a rule only the new version has.
+ */
+function version(): string {
+  const path = join(dirname(fileURLToPath(import.meta.url)), "..", "package.json");
+  return JSON.parse(readFileSync(path, "utf8")).version;
+}
 
 const USAGE = `usedesign — one description per operation, checked against the repository
 
@@ -97,7 +111,7 @@ function main(argv: string[]): number {
     return args.length === 0 ? 2 : 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.log("usedesign 0.2.0 (SPEC v0.2)");
+    console.log(`usedesign ${version()} (SPEC v0.2)`);
     return 0;
   }
 

@@ -61,13 +61,25 @@ jobs:
       # Проверка коробки, а не исходников: пакет ставится в пустой каталог и запускается там,
       # где нашего репозитория нет. Схема лежит внутри пакета — если она вдруг не попадёт,
       # инструмент упадёт именно здесь, а не у первого постороннего.
+      #
+      # Коробку спрашивают и о её собственной версии. Барьер добавлен после того, как
+      # опубликованная 0.3.0 представилась как 0.2.0: строка была захардкожена, и никто её ни с
+      # чем не сравнивал. Инструмент, который проверяет чужие заявления против кода, обязан
+      # выдерживать ту же проверку сам — иначе всякая будущая диагностика начинается со лжи.
       - name: Коробка работает у постороннего
         run: |
+          set -euo pipefail
+          PKG="$(node -p "require('./package.json').version")"
           npm pack --pack-destination /tmp
           mkdir -p /tmp/boxtest && cd /tmp/boxtest
           npm init -y >/dev/null
           npm install /tmp/usedesign-*.tgz --no-audit --no-fund
-          npx usedesign --version
+          SAID="$(npx usedesign --version)"
+          echo "коробка о себе: $SAID · package.json: $PKG"
+          case "$SAID" in
+            *"$PKG"*) ;;
+            *) echo "::error::коробка называет себя «$SAID», а версия пакета $PKG"; exit 1 ;;
+          esac
           npx usedesign validate "$GITHUB_WORKSPACE/examples/library/"
 
       - name: Опубликовать
