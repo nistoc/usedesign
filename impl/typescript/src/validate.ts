@@ -247,6 +247,13 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // The card had no way to say it. This map is that way. The rule is deliberately asymmetric:
   // once the map exists, a MISSING outcome is an error, while an outcome explicitly mapped to
   // null is only a warning. The field forbids silent gaps, not honest ones.
+  //
+  // The vocabulary is what THIS INVOCATION can end with — not everything the record will ever
+  // be. Round 11 met the second card the rule had ever seen and demanded that a *create* screen
+  // display `checking`, `executing`, `done`, `rejected`, `failed`, `archived`: job states the
+  // call never returns, reached later and watched through `observe_via` — a different operation
+  // with a screen of its own. Job states stayed in the vocabulary from the continuation rule,
+  // which asks a genuinely different question. Six errors, all false, on the first honest card.
   const outcomeVocabulary = new Map<string, string>();
   for (const outcome of outcomes) {
     if (outcome?.id) outcomeVocabulary.set(outcome.id, "outcomes");
@@ -260,8 +267,14 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     const error = step?.on_violation?.error;
     if (error) outcomeVocabulary.set(error, `step \`${step.id}\``);
   }
-  for (const state of fm["async_execution"]?.job_states ?? []) {
-    outcomeVocabulary.set(state, "job state");
+  // Per-item failures belong here and job states do not, and the line between them is not taste.
+  // A per-item failure arrives in THIS call's response — the user is looking at the screen when
+  // it happens. A job state is the record's later life, watched through `observe_via`. Round 11
+  // measured a bulk screen that discards the response body entirely: ten items selected, three
+  // rejected inside a 200, and the page says nothing at all. Without these in the vocabulary the
+  // card had no way to admit it, which is the one thing this field exists to prevent.
+  for (const failure of fm["per_item"]?.failures ?? []) {
+    if (failure?.code) outcomeVocabulary.set(failure.code, "per_item failure");
   }
   for (const [name, iface] of Object.entries<any>(interfaces)) {
     const covers = iface?.covers_outcomes;
@@ -270,7 +283,7 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
       if (!outcomeVocabulary.has(key)) {
         err(
           "covers_unknown_outcome",
-          `interface \`${name}\`: covers_outcomes names \`${key}\`, which no outcome, transition target, violation, or job state declares`,
+          `interface \`${name}\`: covers_outcomes names \`${key}\`, which no outcome, transition target, or violation declares`,
         );
       }
     }
@@ -282,6 +295,27 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
         );
       } else if (covers[id] === null) {
         warn("outcome_unshown", `interface \`${name}\`: outcome \`${id}\` is declared not shown to the user`);
+      }
+    }
+
+    // Shown, but shown as the same thing. Between "the user sees it" and "the user sees nothing"
+    // sits the state nobody notices: two different endings wearing one sentence. Measured on a
+    // real screen — 401 and 403 both surfaced as «Не удалось выполнить действие. Попробуйте ещё
+    // раз.», so the one user who must give consent is told to retry, and retrying can never work.
+    // A warning: collapsing outcomes is sometimes a deliberate choice, and the card is the place
+    // where that choice stops being invisible.
+    const byText = new Map<string, string[]>();
+    for (const [id, shown] of Object.entries<any>(covers)) {
+      if (typeof shown !== "string") continue;
+      const key = shown.trim().toLowerCase();
+      byText.set(key, [...(byText.get(key) ?? []), id]);
+    }
+    for (const [, ids] of byText) {
+      if (ids.length > 1) {
+        warn(
+          "outcomes_indistinguishable",
+          `interface \`${name}\`: outcomes ${ids.map((i) => `\`${i}\``).join(", ")} are shown identically — the user cannot tell them apart`,
+        );
       }
     }
   }

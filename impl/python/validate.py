@@ -223,6 +223,11 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     # from success. The card had no way to say it. This map is that way. The rule is
     # deliberately asymmetric: once the map exists, a MISSING outcome is an error, while an
     # outcome explicitly mapped to null is only a warning. It forbids silent gaps, not honest ones.
+    #
+    # The vocabulary is what THIS INVOCATION can end with — not everything the record will ever
+    # be. Round 11: the rule demanded that a *create* screen display `checking`, `executing`,
+    # `done`, `rejected`, `failed`, `archived` — job states the call never returns, reached later
+    # and watched through `observe_via`, a different operation with a screen of its own.
     outcome_vocabulary: dict[str, str] = {}
     for outcome in outcomes:
         if outcome.get("id"):
@@ -237,8 +242,13 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         error_id = (step.get("on_violation") or {}).get("error")
         if error_id:
             outcome_vocabulary[error_id] = f"step `{step.get('id')}`"
-    for state in (fm.get("async_execution") or {}).get("job_states") or []:
-        outcome_vocabulary[state] = "job state"
+    # Per-item failures belong here and job states do not. A per-item failure arrives in THIS
+    # call's response — the user is watching the screen when it happens; a job state is the
+    # record's later life, seen through `observe_via`. Round 11 measured a bulk screen that
+    # discards the response body: ten selected, three rejected inside a 200, nothing shown.
+    for failure in (fm.get("per_item") or {}).get("failures") or []:
+        if failure.get("code"):
+            outcome_vocabulary[failure["code"]] = "per_item failure"
     for name, iface in interfaces.items():
         covers = iface.get("covers_outcomes")
         if not isinstance(covers, dict):
@@ -247,7 +257,7 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
             if key not in outcome_vocabulary:
                 err("covers_unknown_outcome",
                     f"interface `{name}`: covers_outcomes names `{key}`, which no outcome, "
-                    "transition target, violation, or job state declares")
+                    "transition target, or violation declares")
         for oid, where in outcome_vocabulary.items():
             if oid not in covers:
                 err("outcome_not_covered",
@@ -256,6 +266,22 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
             elif covers[oid] is None:
                 warn("outcome_unshown",
                      f"interface `{name}`: outcome `{oid}` is declared not shown to the user")
+
+        # Shown, but shown as the same thing. Between "the user sees it" and "the user sees
+        # nothing" sits the state nobody notices: two different endings wearing one sentence.
+        # Measured on a real screen — 401 and 403 both surfaced as the same «попробуйте ещё раз»,
+        # so the user who must give consent is told to retry, and retrying can never work.
+        by_text: dict[str, list[str]] = {}
+        for oid, shown in covers.items():
+            if not isinstance(shown, str):
+                continue
+            by_text.setdefault(shown.strip().lower(), []).append(oid)
+        for ids in by_text.values():
+            if len(ids) > 1:
+                shown_ids = ", ".join(f"`{i}`" for i in ids)
+                warn("outcomes_indistinguishable",
+                     f"interface `{name}`: outcomes {shown_ids} are shown identically — "
+                     "the user cannot tell them apart")
 
     for name, iface in interfaces.items():
         for parameter in iface.get("parameters") or []:

@@ -140,3 +140,31 @@ cases:
     note: >-
       The map exists and one declared outcome is simply absent from it. That silence is exactly
       what the field forbids; the honest card writes the outcome as null and takes the warning.
+
+  # ── Round 11: what the vocabulary is, and the third state between shown and hidden ───────────
+  - file: valid/ui-covers-outcomes-not-job-states.op.md
+    expect: valid
+    codes: []
+    note: >-
+      The screen covers what the CALL can end with. Job states are the record's later life,
+      watched through `observe_via` — a different operation with a screen of its own. Round 10
+      let them leak in from the continuation rule, and the second card the rule ever met failed
+      six times over, every error false. An implementation reporting `outcome_not_covered` for a
+      job state still has that leak.
+  - file: valid/ui-covers-per-item-failures.op.md
+    expect: valid
+    codes: []
+    warnings: [outcome_unshown]
+    note: >-
+      Per-item failures are outcomes the user meets, and until round 11 nothing named them: they
+      carry no status. Measured on a bulk screen whose client discards the response body — three
+      of ten items rejected inside a 200, nothing shown. An implementation that omits per_item
+      codes from the vocabulary accepts this card while the silence stays unsayable.
+  - file: valid/outcomes-shown-identically.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    note: >-
+      Two outcomes wearing one sentence — the state between shown and not shown, and the one
+      nobody notices. Measured on a real screen: 401 and 403 both surfaced as the same «try
+      again», so the user who must give consent is told to do the one thing that cannot help.

@@ -407,10 +407,28 @@ ui:
 ```
 
 Keys must name declared outcomes — an entry of `outcomes[]`, a `data_transition.to` value, a
-step's `on_violation.error`, or a job state; anything else is `covers_unknown_outcome`, the
-residue of a rename. Once the map exists, **every** declared outcome must appear in it: a missing
-one is `outcome_not_covered` (an error), while one explicitly mapped to null is `outcome_unshown`
-(a warning). The asymmetry is the point — the field forbids **silent** gaps, not honest ones.
+step's `on_violation.error`, or a `per_item.failures[].code`; anything else is
+`covers_unknown_outcome`, the residue of a rename. Once the map exists, **every** declared
+outcome must appear in it: a missing one is `outcome_not_covered` (an error), while one
+explicitly mapped to null is `outcome_unshown` (a warning). The asymmetry is the point — the
+field forbids **silent** gaps, not honest ones.
+
+**The vocabulary is what this invocation can end with.** Job states are *not* in it, and the
+line is not taste: a per-item failure arrives in this call's response while the user is looking
+at the screen, whereas a job state is the record's later life, watched through `observe_via` by
+another operation with a screen of its own. Round 10 wrote the rule with job states included —
+they had been in hand for the continuation rule, which asks a different question — and the second
+card the rule ever met failed six times, every error false: a *create* screen was required to
+display `checking`, `executing`, `done`, `rejected`, `failed`, `archived`. Per-item failures went
+the other way: they carry no status, so nothing named them, and a bulk screen that silently drops
+them had no way to admit it.
+
+**Values are what the user reads, verbatim — not a description of it.** Writing "the same
+sentence as above" hides the collapse from the checker, which compares strings. When two outcomes
+carry identical text, `outcomes_indistinguishable` warns: between *shown* and *not shown* sits a
+third state nobody notices — two endings wearing one sentence. Measured on a real screen where
+`401` and `403` both surfaced as "something went wrong, try again", so the one user who must give
+consent is told to do the only thing that cannot help.
 
 What the round rejected matters as much as what it added. The measurement showed outcome handling
 is not located in "the screen": the control sat in one component, the error policy in a shared
@@ -635,10 +653,18 @@ where the format broke:
 | 8 | Repairing round 7 — the four gaps closed, cards rewritten against the repairs | **Five**, all optional: `outcomes[]`, `continuation`, `parameters[]`, `to` as a set, `not_applicable` |
 | 9 | **A different system entirely** — first round on a repository the format had never seen | Three optional fields, one normalisation bug, one rule fitted to its own example |
 | 10 | **A screen against a described operation** — one real button traced from control to pixel | One, optional: `covers_outcomes{}` (§5.7) |
+| 11 | **Four more screens** — a form, a service operation, and a bulk pair | None new. Round 10's own rule corrected twice: job states out of the vocabulary, per-item failures in; plus `outcomes_indistinguishable` |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
-but *a round that changes only optional fields, never required ones*. Rounds 9 and 10 both meet
-it; two consecutive qualifying rounds on foreign ground is when the claim starts to mean something.
+but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
+meet it; three consecutive qualifying rounds on foreign ground is when the claim starts to mean
+something.
+
+⚠️ Round 11 is the first round whose findings were mostly about **the previous round's rule**
+rather than the format. A rule written from one measurement fits that measurement: `covers_outcomes`
+was built from a button that ends immediately, and it failed the first card whose operation keeps
+living afterwards. Worth stating plainly, because it is the same failure as axis F in round 9 —
+the second occurrence of a pattern, not a one-off.
 
 ### 8.0 What a different system found
 
