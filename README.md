@@ -138,8 +138,14 @@ enshrining one tool's bugs.
 
 The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
 [impl/](impl/) rather than by default. It validates cards against the schema and the cross-card
-rules, runs all three checks, and passes both corpora — **24 / 24 cards and 23 / 23 repository cases**. It is not
-published to npm yet, so `npx usedesign` does not work today; everything below runs from a clone.
+rules, runs all three checks, and passes both corpora — **24 / 24 cards and 23 / 23 repository cases**.
+
+```bash
+npx usedesign check usedesign.config.yaml
+```
+
+Nothing to install. The package carries its own copy of the schema, so it does not need this
+repository to be anywhere nearby — which is what makes it usable inside somebody else's CI.
 
 The Python prototype stays. A corpus that only one implementation agrees with has stopped
 describing the format and started describing that tool, so CI runs both and diffs what they
@@ -161,7 +167,7 @@ report about the same repository.
 - [x] `usedesign check` — the three invariants, holding the 23-case repository corpus
 - [x] A reference implementation in TypeScript, both corpora run in CI on three Node versions,
       plus a job that insists the deliberately rotten fixture still fails
-- [~] Published to npm, so `npx usedesign` needs no clone
+- [x] Published to npm with build provenance — `npx usedesign` needs no clone
 - [ ] `usedesign gen openapi` — derive an API contract from the cards. Not started
 
 The checker is the point: a catalogue without one becomes aspiration within months. It exists

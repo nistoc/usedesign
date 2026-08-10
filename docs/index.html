@@ -1258,7 +1258,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
             <li data-i18n="s20-05" class="done anim"><span class="box">✓</span><span><code>usedesign validate</code><br><span class="sub small">Cards against the schema <em>and</em> the cross-card rules — the schema catches 7 of the 10 invalid corpus cases, the rules catch the other 3</span></span></li>
             <li data-i18n="s20-07" class="done anim"><span class="box">✓</span><span><code>usedesign check</code><br><span class="sub small">The three invariants, holding all 23 repository cases</span></span></li>
             <li data-i18n="s20-07b" class="done anim"><span class="box">✓</span><span><strong>A reference implementation, and CI</strong><br><span class="sub small">TypeScript on three Node versions, the Python prototype beside it, and a job that insists the rotten fixture still fails</span></span></li>
-            <li data-i18n="s20-05b" class="part anim"><span class="box">◐</span><span><strong>Published to npm</strong><br><span class="sub small">So that <code>npx usedesign</code> needs no clone. Everything runs today; nothing is released yet</span></span></li>
+            <li data-i18n="s20-05b" class="done anim"><span class="box">✓</span><span><strong>Published, with build provenance</strong><br><span class="sub small"><code>npx usedesign</code> — nothing to install. Running in a real project's CI, where it collapsed three setup steps into one line</span></span></li>
             <li data-i18n="s20-06" class="anim"><span class="box"></span><span><code>usedesign gen openapi</code><br><span class="sub small">Derive an API contract from the cards. Not started</span></span></li>
           </ul>
 
@@ -1608,7 +1608,7 @@ window.USEDESIGN_RU = {
 's20-05': '<span class="box">✓</span><span><code>usedesign validate</code><br><span class="sub small">Карточки по схеме <em>и</em> по межкарточным правилам — схема ловит 7 из 10 невалидных случаев корпуса, правила ловят остальные 3</span></span>',
 's20-07': '<span class="box">✓</span><span><code>usedesign check</code><br><span class="sub small">Три инварианта, держат все 23 случая по репозиторию</span></span>',
 's20-07b': '<span class="box">✓</span><span><strong>Эталонная реализация и CI</strong><br><span class="sub small">TypeScript на трёх версиях Node, рядом прототип на Python и работа, которая требует, чтобы гнилой стенд по-прежнему падал</span></span>',
-'s20-05b': '<span class="box">◐</span><span><strong>Публикация в npm</strong><br><span class="sub small">Чтобы <code>npx usedesign</code> работал без клона. Всё уже запускается; ничего ещё не выпущено</span></span>',
+'s20-05b': '<span class="box">✓</span><span><strong>Опубликован, с подписью происхождения</strong><br><span class="sub small"><code>npx usedesign</code> — ставить нечего. Работает в CI настоящего проекта, где заменил три шага настройки одной строкой</span></span>',
 's20-06': '<span class="box"></span><span><code>usedesign gen openapi</code><br><span class="sub small">Вывод контракта API из карточек. Не начато</span></span>',
 's20-08': 'Проверяющий был смыслом — и он есть',
 's20-09': 'Каталог без него превращается в благие намерения за считанные месяцы. Теперь реализаций две, на двух средах, и CI сличает, что они говорят об одном репозитории, — потому что два инструмента, согласные, что «что-то сломано», но расходящиеся в том, ЧТО именно, — это начало диалектов. Схему до появления второй реализации ни разу не прогоняли по корпусу. Она сошлась с ним полностью.',
