@@ -1,0 +1,87 @@
+# Публикация в npm — по тегу, и только по нему.
+#
+# Тег ставит человек; всё остальное делает эта работа. Публикация почти необратима (снять
+# версию можно лишь в первые 72 часа, и то не всегда), поэтому перед ней стоят два барьера:
+#
+#   1. оба корпуса должны пройти. Выложить инструмент, который не проходит собственную
+#      проверку, — ровно то заявление сверх доказательств, которое он у карточек не принимает;
+#   2. версия в теге обязана совпадать с версией в package.json. Иначе в реестр уезжает не то,
+#      что человек имел в виду, и исправить это уже нечем.
+#
+# Пакет подписывается происхождением (--provenance): реестр сохраняет доказательство, что эта
+# версия собрана из этого репозитория и этого коммита, а не собрана кем-то у себя на машине.
+
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Собрать и проверить, но НЕ публиковать'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write   # нужно для --provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: impl/typescript
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Оба корпуса
+        run: node dist/cli.js conformance
+
+      - name: Версия в теге совпадает с версией пакета
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "тег: $TAG · package.json: $PKG"
+          if [ "$TAG" != "$PKG" ]; then
+            echo "::error::тег v$TAG не совпадает с версией пакета $PKG — публикация остановлена"
+            exit 1
+          fi
+
+      # Проверка коробки, а не исходников: пакет ставится в пустой каталог и запускается там,
+      # где нашего репозитория нет. Схема лежит внутри пакета — если она вдруг не попадёт,
+      # инструмент упадёт именно здесь, а не у первого постороннего.
+      - name: Коробка работает у постороннего
+        run: |
+          npm pack --pack-destination /tmp
+          mkdir -p /tmp/boxtest && cd /tmp/boxtest
+          npm init -y >/dev/null
+          npm install /tmp/usedesign-*.tgz --no-audit --no-fund
+          npx usedesign --version
+          npx usedesign validate "$GITHUB_WORKSPACE/examples/library/"
+
+      - name: Опубликовать
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPMJS_USEDESIGN_PACKAGES_TOKEN }}
+
+      - name: Сводка
+        if: always()
+        run: |
+          {
+            echo "## usedesign — публикация"
+            echo
+            echo "- версия пакета: \`$(node -p "require('./package.json').version")\`"
+            echo "- ссылка: https://www.npmjs.com/package/usedesign"
+          } >> "$GITHUB_STEP_SUMMARY"
