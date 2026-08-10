@@ -378,7 +378,7 @@ interfaces:
   rest: { transport: http_rest, method, path, headers_required[], responses[],
           contract_version: <media type>, source }
   rpc:  { transport: json_rpc, tool, scope_required, source }
-  ui:   { transport: ui, screen, control, covers_steps[], source }
+  ui:   { transport: ui, screen, control, covers_steps[], covers_outcomes{}, source }
 ```
 
 At least one interface is required. Each interface declares its `transport`
@@ -387,6 +387,37 @@ for protocols whose errors are numeric RPC codes.
 
 `ui.covers_steps` is the mechanism that makes UI/API drift visible: if a screen claims to cover a
 step that does not exist, the checker fails.
+
+**`covers_outcomes{}` — what the user of this interface sees for each declared outcome.** Round 10
+traced one real button through its screen, its store, and back: of the four outcomes the server
+declared, the screen showed two and swallowed both errors in a bodyless `catch` — a rollback
+indistinguishable from success in the user's eyes. The card had no way to say it. This map is
+that way:
+
+```yaml
+ui:
+  transport: ui
+  screen: SessionNavPanel
+  control: button[data-action="finish-progress"]
+  covers_outcomes:
+    finished: footer label «Завершено»
+    partial: footer label «Частично»
+    unauthorized:          # null — declared NOT shown; a warning, never an error
+    invalid_time_range:
+```
+
+Keys must name declared outcomes — an entry of `outcomes[]`, a `data_transition.to` value, a
+step's `on_violation.error`, or a job state; anything else is `covers_unknown_outcome`, the
+residue of a rename. Once the map exists, **every** declared outcome must appear in it: a missing
+one is `outcome_not_covered` (an error), while one explicitly mapped to null is `outcome_unshown`
+(a warning). The asymmetry is the point — the field forbids **silent** gaps, not honest ones.
+
+What the round rejected matters as much as what it added. The measurement showed outcome handling
+is not located in "the screen": the control sat in one component, the error policy in a shared
+store, and the success label was rendered from a state field computed offline as well. So there is
+no screen-card to write and no page→forms→api hierarchy to model — a screen is an *interface of an
+operation*, and a page with ten forms is ten cards each naming its own control. The page is an
+address, not an entity.
 
 **`responses[]` is every status the operation can return** — success, each outcome, and every
 code named by an `on_violation`. Not "the interesting ones": a list that is allowed to be partial
@@ -601,13 +632,13 @@ where the format broke:
 | 3–5 | Building the three checks — *using* cards instead of writing more of them | None |
 | 6 | A second implementation, written from this document and the schema | None |
 | 7 | Natural-language question answering, undo of a lifecycle change, paged search, attachments | **Four, listed below. `steps[]` is affected, so v1.0 is not reached** |
-| 8 | Repairing round 7 | Five, all optional |
+| 8 | Repairing round 7 — the four gaps closed, cards rewritten against the repairs | **Five**, all optional: `outcomes[]`, `continuation`, `parameters[]`, `to` as a set, `not_applicable` |
 | 9 | **A different system entirely** — first round on a repository the format had never seen | Three optional fields, one normalisation bug, one rule fitted to its own example |
+| 10 | **A screen against a described operation** — one real button traced from control to pixel | One, optional: `covers_outcomes{}` (§5.7) |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
-but *a round that changes only optional fields, never required ones*.
-
-| 8 | Repairing round 7 — the four gaps closed, cards rewritten against the repairs | **Five**, all optional: `outcomes[]`, `continuation`, `parameters[]`, `to` as a set, `not_applicable` |
+but *a round that changes only optional fields, never required ones*. Rounds 9 and 10 both meet
+it; two consecutive qualifying rounds on foreign ground is when the claim starts to mean something.
 
 ### 8.0 What a different system found
 

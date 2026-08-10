@@ -489,6 +489,22 @@
               "type": "string"
             }
           },
+          "covers_outcomes": {
+            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or job states. A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones.",
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
           "quota": {
             "type": "object"
           },

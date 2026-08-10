@@ -216,6 +216,47 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
                 f"`continuation.after` names `{continuation.get('after')}`, "
                 "which is neither a declared outcome nor a job state")
 
+    # ── covers_outcomes ──────────────────────────────────────────────────────
+    #
+    # Round 10, from tracing one real button: of the four outcomes the server declares, the
+    # screen showed two and swallowed two in a bodyless catch — a rollback indistinguishable
+    # from success. The card had no way to say it. This map is that way. The rule is
+    # deliberately asymmetric: once the map exists, a MISSING outcome is an error, while an
+    # outcome explicitly mapped to null is only a warning. It forbids silent gaps, not honest ones.
+    outcome_vocabulary: dict[str, str] = {}
+    for outcome in outcomes:
+        if outcome.get("id"):
+            outcome_vocabulary[outcome["id"]] = "outcomes"
+    transition = fm.get("data_transition")
+    if isinstance(transition, dict):
+        raw_to = transition.get("to")
+        targets = raw_to if isinstance(raw_to, list) else ([raw_to] if raw_to else [])
+        for target in targets:
+            outcome_vocabulary[target] = "data_transition.to"
+    for step in steps:
+        error_id = (step.get("on_violation") or {}).get("error")
+        if error_id:
+            outcome_vocabulary[error_id] = f"step `{step.get('id')}`"
+    for state in (fm.get("async_execution") or {}).get("job_states") or []:
+        outcome_vocabulary[state] = "job state"
+    for name, iface in interfaces.items():
+        covers = iface.get("covers_outcomes")
+        if not isinstance(covers, dict):
+            continue
+        for key in covers:
+            if key not in outcome_vocabulary:
+                err("covers_unknown_outcome",
+                    f"interface `{name}`: covers_outcomes names `{key}`, which no outcome, "
+                    "transition target, violation, or job state declares")
+        for oid, where in outcome_vocabulary.items():
+            if oid not in covers:
+                err("outcome_not_covered",
+                    f"interface `{name}`: outcome `{oid}` ({where}) is absent from "
+                    "covers_outcomes — write it, even as null")
+            elif covers[oid] is None:
+                warn("outcome_unshown",
+                     f"interface `{name}`: outcome `{oid}` is declared not shown to the user")
+
     for name, iface in interfaces.items():
         for parameter in iface.get("parameters") or []:
             if parameter.get("handling") != "decorative":

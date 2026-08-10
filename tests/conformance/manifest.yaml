@@ -117,3 +117,26 @@ cases:
       `continuation.after` naming a job state rather than an outcome. Round 8 wrote this rule from
       one example and fitted it to that example; a request thread suspends on `done` and waits for
       a person. Axes E and F on one record — the evidence for keeping them apart.
+
+  # ── Round 10: covers_outcomes — what the screen shows for each declared outcome ──────────────
+  - file: valid/ui-covers-outcomes.op.md
+    expect: valid
+    codes: []
+    warnings: [outcome_unshown]
+    note: >-
+      From tracing one real button: the screen showed two of four server outcomes and swallowed
+      both errors in a bodyless catch. `unauthorized:` mapped to null is the honest claim that
+      the outcome is not shown — a warning, never an error. Silent gaps are forbidden; honest
+      ones are not.
+  - file: invalid/covers-unknown-outcome.op.md
+    expect: invalid
+    codes: [covers_unknown_outcome]
+    note: >-
+      The map names an outcome nothing declares — the residue of a rename. Without the key check
+      a renamed outcome leaves the map still looking fully covered.
+  - file: invalid/outcome-not-covered.op.md
+    expect: invalid
+    codes: [outcome_not_covered]
+    note: >-
+      The map exists and one declared outcome is simply absent from it. That silence is exactly
+      what the field forbids; the honest card writes the outcome as null and takes the warning.

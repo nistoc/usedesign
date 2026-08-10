@@ -240,6 +240,52 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     }
   }
 
+  // ── covers_outcomes ────────────────────────────────────────────────────────────────────────
+  //
+  // Round 10, from tracing one real button: of the four outcomes the server declares, the screen
+  // showed two and swallowed two in a bodyless catch — a rollback indistinguishable from success.
+  // The card had no way to say it. This map is that way. The rule is deliberately asymmetric:
+  // once the map exists, a MISSING outcome is an error, while an outcome explicitly mapped to
+  // null is only a warning. The field forbids silent gaps, not honest ones.
+  const outcomeVocabulary = new Map<string, string>();
+  for (const outcome of outcomes) {
+    if (outcome?.id) outcomeVocabulary.set(outcome.id, "outcomes");
+  }
+  const transition = fm["data_transition"];
+  if (transition && typeof transition === "object") {
+    const targets: any[] = Array.isArray(transition.to) ? transition.to : transition.to ? [transition.to] : [];
+    for (const target of targets) outcomeVocabulary.set(target, "data_transition.to");
+  }
+  for (const step of steps) {
+    const error = step?.on_violation?.error;
+    if (error) outcomeVocabulary.set(error, `step \`${step.id}\``);
+  }
+  for (const state of fm["async_execution"]?.job_states ?? []) {
+    outcomeVocabulary.set(state, "job state");
+  }
+  for (const [name, iface] of Object.entries<any>(interfaces)) {
+    const covers = iface?.covers_outcomes;
+    if (!covers || typeof covers !== "object") continue;
+    for (const key of Object.keys(covers)) {
+      if (!outcomeVocabulary.has(key)) {
+        err(
+          "covers_unknown_outcome",
+          `interface \`${name}\`: covers_outcomes names \`${key}\`, which no outcome, transition target, violation, or job state declares`,
+        );
+      }
+    }
+    for (const [id, where] of outcomeVocabulary) {
+      if (!(id in covers)) {
+        err(
+          "outcome_not_covered",
+          `interface \`${name}\`: outcome \`${id}\` (${where}) is absent from covers_outcomes — write it, even as null`,
+        );
+      } else if (covers[id] === null) {
+        warn("outcome_unshown", `interface \`${name}\`: outcome \`${id}\` is declared not shown to the user`);
+      }
+    }
+  }
+
   for (const [name, iface] of Object.entries<any>(interfaces)) {
     for (const parameter of iface?.parameters ?? []) {
       if (parameter?.handling !== "decorative") continue;
