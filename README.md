@@ -94,7 +94,21 @@ was required and had **no honest value for a read-only operation**, so both read
 this repository claimed `reversible`. A format that demands an answer must supply one that is
 true, or it manufactures the exact falsehood it exists to prevent. See [SPEC §8.1](SPEC.md).
 
-Then the specification was checked against its own schema and examples, and failed in seven
+**Then it was pointed at a system it had never seen** — a different product, a different domain,
+the same author's habits deliberately left behind. The first defect surfaced *before a single
+card was written*: that API writes actions as `POST /progress/{id}:finish`, path normalisation
+read the suffix as a parameter, and eight of its routes collapsed into two shapes. Declare one
+and the checker calls them all declared, then reports a clean run. **A checker that has quietly
+stopped checking looks exactly like a healthy repository.**
+
+Three more followed: a bulk operation reporting per-item failures inside a success could not be
+written truthfully; one route carrying several operations was treated as a defect rather than an
+ordinary REST idiom; and a rule from the previous round turned out to be fitted to its single
+example. Two things held that had only been argued for. None of it was findable on the original
+system — **a format tested on one codebase is partly a description of that codebase**, and the
+only way to learn which part is to take it somewhere else. See [SPEC §8.0](SPEC.md).
+
+Earlier, the specification was checked against its own schema and examples, and failed in seven
 places of a different kind: a field the schema accepted but the spec never described, a rule
 stated in prose that nothing enforced, one term spelled two ways in two files. All fixed before
 publication — and recorded, because it is the honest argument for check number three below. A
@@ -124,7 +138,7 @@ enshrining one tool's bugs.
 
 The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
 [impl/](impl/) rather than by default. It validates cards against the schema and the cross-card
-rules, runs all three checks, and passes both corpora — **20 / 20 cards and 20 / 20 repository cases**. It is not
+rules, runs all three checks, and passes both corpora — **24 / 24 cards and 23 / 23 repository cases**. It is not
 published to npm yet, so `npx usedesign` does not work today; everything below runs from a clone.
 
 The Python prototype stays. A corpus that only one implementation agrees with has stopped
@@ -135,7 +149,7 @@ report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 20 card cases and 20 repository cases, verdicts, codes **and warnings**
+- [x] Conformance corpus — 24 card cases and 23 repository cases, verdicts, codes **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))
@@ -144,7 +158,7 @@ report about the same repository.
 - [x] Check 3 designed and prototyped — the implementation path must exist, and the one claim
       nobody can verify expires instead ([design note](design/maturity-evidence.md))
 - [x] `usedesign validate` — cards against the schema **and** the cross-card rules
-- [x] `usedesign check` — the three invariants, holding the 20-case repository corpus
+- [x] `usedesign check` — the three invariants, holding the 23-case repository corpus
 - [x] A reference implementation in TypeScript, both corpora run in CI on three Node versions,
       plus a job that insists the deliberately rotten fixture still fails
 - [~] Published to npm, so `npx usedesign` needs no clone
