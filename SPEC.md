@@ -634,6 +634,35 @@ separation of axes E and F stopped being an argument the moment one record neede
 None of this was findable on the original system. **A format tested on one codebase is partly a
 description of that codebase**, and the only way to learn which part is to take it somewhere else.
 
+### 8.0a What building a gate proved
+
+Round 9 checked an unfamiliar system by hand. Wiring the same checks into that repository's CI
+produced four findings that no amount of design could have supplied:
+
+**Cards cannot live apart from the code.** The specification has always said so; CI made it a
+fact. Both repositories were private, and a CI job's token reaches only its own repository —
+cards kept elsewhere need a cross-repository secret, and a secret that exists for documentation
+is the first thing removed when permissions are tightened. The check would then go quiet, which
+is the failure mode this project exists to prevent.
+
+**A tool that cannot be installed cannot be adopted.** With no published package, the gate clones
+the tool and builds it from source on every run: three extra steps and a dependency on somebody
+else's `main`. Publishing stops being roadmap decoration and becomes a precondition.
+
+**The report format is a real barrier.** .NET emits TRX, not JUnit. A one-line package
+(`JunitXml.TestLogger`) closes it — but it is a change to the checked repository, and every
+ecosystem will have its own version of that line.
+
+**A gate on a partly-described system must not fail the build.** 108 of 113 routes were described
+by nobody. A strict gate would fail every build over honestly-acknowledged incompleteness, and be
+switched off within a day — teaching people to hide incompleteness rather than declare it. Report
+mode is the honest setting, with the cost that **report mode is what everybody ignores**; the
+condition for switching to strict belongs in the file itself, so it cannot be quietly forgotten.
+
+A fifth thing was confirmed rather than found: cards name tests in short form, the native JUnit
+logger writes them fully qualified, and the matching rules held across a change of report
+generator — until then they had only ever been tested against output the same author produced.
+
 ### 8.1 What round 7 broke, and what round 8 did about it
 
 **All four gaps are closed, and a fifth was found while closing them.** The repairs are below;
