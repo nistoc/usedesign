@@ -1,6 +1,6 @@
 {
   "name": "usedesign",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Validate and check Operation Cards: no wild endpoints, no unproven steps, no maturity beyond its evidence.",
   "license": "Apache-2.0",
   "repository": {
