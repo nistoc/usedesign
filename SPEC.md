@@ -26,6 +26,30 @@ a contract, a migration — declare **what it implements** and **which stage of 
 
 An Operation Card is that missing unit.
 
+### 1.1 Where collaborative modelling fits
+
+Event Storming and Domain Storytelling are the nearest neighbours, and they are **not
+competitors**. They are the half that comes before: a room agreeing on what happens, using the
+same unit this format uses — the thing that happens, not the layer it lives in. Steps here are
+close relatives of commands and policies there; `data_transition` is the aggregate's move.
+
+Three differences decide the division of labour:
+
+| | Collaborative modelling | Operation Cards |
+|---|---|---|
+| **When** | before the code exists | against code that runs |
+| **What counts as true** | the agreement of the room | what the system states about itself — its own route list, its own test report, the keys of its own live store |
+| **What survives the session** | a wall of stickies, then a photograph in a wiki that ages silently | a file the next build compares with reality |
+
+They chain without strain: the workshop yields the vocabulary and the boundaries, the cards turn
+that result into files that cannot lie for long. A sticky reading "request rejected" becomes an
+outcome named `rejected` — and from then on, if the code stops producing it or the screen stops
+showing it, somebody learns the same day rather than the following year.
+
+What this format adds on top is not a better picture but a worse one to fake: maturity that must
+name its evidence (§7.3), outcomes that must say what the user sees (§5.7), storage that must
+match the live store (§7.4), and gaps that must be written as lines rather than left as silence.
+
 ---
 
 ## 2. Core principles

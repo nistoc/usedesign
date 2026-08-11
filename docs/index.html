@@ -562,11 +562,24 @@ svg.diagram{ width:100%; height:auto; display:block; }
                 <td data-i18n="s5-27">Proves properties of a model</td>
                 <td data-i18n="s5-28">Proves the model, and says nothing about its implementations. The wrong cost for CRUD-shaped systems</td>
               </tr>
+              <tr>
+                <td data-i18n="s5-30">Collaborative modelling</td>
+                <td class="ex">Event Storming, Domain Storytelling</td>
+                <td data-i18n="s5-31">The best way there is to <strong>agree</strong> what the operations are — and it takes the same unit we do: the thing that happens</td>
+                <td data-i18n="s5-32">Produces a wall of stickies, then a photograph in a wiki. Truth is the <strong>agreement in the room</strong>, and nothing afterwards compares it with the running system</td>
+              </tr>
             </tbody>
           </table>
         </div>
 
         <p data-i18n="s5-29" class="lede mt-l anim">Each family closes one or two of the six consumers. <em class="hl">None of them closes the link between them.</em></p>
+
+        <div class="card accent anim mt-l">
+          <h3 data-i18n="s5-33">Event Storming is the closest neighbour, and it is not a competitor</h3>
+          <p data-i18n="s5-36" class="sub mt-s">It is the half that comes before — a room agreeing on what happens. This format is the half that comes after: the same agreement written down so that it <em class="hl">cannot go stale quietly</em>.</p>
+          <p data-i18n="s5-34" class="sub mt-s">Three differences do the work. <strong>When:</strong> a workshop runs before the code, a card lives against it. <strong>What counts as true:</strong> there, the nod of everyone present; here, what the system states about itself — its own route list, its own test report, the keys of its own live database. <strong>What survives:</strong> a sticky wall ages silently in a wiki; a card that has drifted is printed by the next build.</p>
+          <p data-i18n="s5-35" class="sub mt-s">They chain without strain: the workshop yields the vocabulary and the boundaries, the cards turn that result into files that cannot lie for long. A sticky reading “request rejected” becomes an outcome named <code>rejected</code> — and from then on, if the code stops producing it or the screen stops showing it, somebody learns the same day rather than the following year.</p>
+        </div>
       </div>
     </section>
 
@@ -1379,6 +1392,13 @@ window.USEDESIGN_RU = {
 's5-27': 'Доказывают свойства модели',
 's5-28': 'Доказывают модель и ничего не говорят о её реализациях. Неподъёмная цена для систем формы CRUD',
 's5-29': 'Каждое семейство закрывает одного-двух потребителей из шести. <em class="hl">Ни одно не закрывает связь между ними.</em>',
+'s5-30': 'Совместное моделирование',
+'s5-31': 'Лучший из существующих способов <strong>договориться</strong>, какие операции вообще есть, — и берёт ту же единицу, что и мы: то, что происходит',
+'s5-32': 'Даёт стену стикеров, потом фотографию в вики. Правда здесь — <strong>согласие людей в комнате</strong>, и ничто потом не сверяет её с работающей системой',
+'s5-33': 'Event Storming — ближайший сосед, и он не конкурент',
+'s5-36': 'Это половина ДО: комната договаривается о том, что происходит. Наш формат — половина ПОСЛЕ: та же договорённость, записанная так, чтобы она <em class="hl">не могла протухнуть молча</em>.',
+'s5-34': 'Работают три различия. <strong>Когда:</strong> сессия идёт до кода, карточка живёт при нём. <strong>Что считается правдой:</strong> там — кивок всех присутствующих, здесь — то, что система заявляет о себе сама: собственный список маршрутов, собственный отчёт о тестах, ключи собственной живой базы. <strong>Что переживает встречу:</strong> стена стикеров стареет в вики беззвучно, а разошедшуюся карточку печатает ближайшая сборка.',
+'s5-35': 'Стыкуются без натяжки: сессия даёт словарь и границы, карточки превращают её результат в файлы, которые не смогут врать долго. Стикер «заявка отклонена» становится исходом <code>rejected</code> — и с этого момента, если код перестанет его порождать или экран перестанет его показывать, кто-то узнает в тот же день, а не через год.',
 
 's6-01': '05 — зазор',
 's6-02': 'Так чего же не хватает?',
