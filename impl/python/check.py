@@ -240,7 +240,7 @@ def run_conformance() -> int:
     for case in manifest["cases"]:
         config, base = load_config(
             os.path.join(CORPUS, "cases", case["dir"], "usedesign.config.yaml"))
-        runner = {1: check, 2: check_coverage, 3: check_maturity, 4: check_storage}[case.get("check", 1)]
+        runner = {1: check, 2: check_coverage, 3: check_maturity, 4: check_storage, 5: check_form}[case.get("check", 1)]
         findings, _ = runner(config, base)
         errors = [f for f in findings if f.severity == "error"]
         verdict = "fail" if errors else "pass"
@@ -632,6 +632,164 @@ def check_storage(config: dict, base: str) -> tuple[list[Finding], dict]:
                       "produced_by": data.get("produced_by", "")}
 
 
+# ─────────────────────────── check 5 — the form matches its contract ────────────────────────────
+#
+# The one check whose reference is authored rather than measured: the contract says what the owner
+# decided the screen must show; the inventory says what the rendered screen carries, state by
+# state. Contract lines the code has not caught up with are the product's TODO list, printed by
+# every build. See the TypeScript twin for the full commentary.
+def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
+    empty = {"contracts": 0, "screens": 0, "produced_by": ""}
+    patterns = config.get("forms") or []
+    location = config.get("form_inventory")
+    if not patterns:
+        return ([Finding("form_contracts_missing",
+                         "no `forms` patterns in the config — check 5 cannot run and is NOT "
+                         "considered passed")], empty)
+    if not location:
+        return ([Finding("form_inventory_missing",
+                         "no `form_inventory` in the config — check 5 cannot run and is NOT "
+                         "considered passed")], empty)
+    inventory_path = os.path.join(base, location)
+    if not os.path.exists(inventory_path):
+        return ([Finding("form_inventory_missing", f"{location} does not exist")], empty)
+
+    with open(inventory_path, encoding="utf-8") as handle:
+        data = json.load(handle)
+
+    findings: list[Finding] = []
+    if data.get("usedesign_form_inventory") != 1:
+        findings.append(Finding("form_inventory_malformed",
+                                f"{location}: missing `usedesign_form_inventory: 1`"))
+    if not data.get("produced_by"):
+        findings.append(Finding("form_inventory_malformed", f"{location}: missing `produced_by`"))
+
+    by_screen: dict[str, dict[str, dict]] = {}
+    for form in data.get("forms") or []:
+        states = {}
+        for s in form.get("states") or []:
+            states[str(s.get("state"))] = {
+                "fields": {str(x) for x in s.get("fields") or []},
+                "controls": {str(x) for x in s.get("controls") or []},
+            }
+        by_screen[str(form.get("screen"))] = states
+
+    cards, _ = load_card_files(config, base)
+    card_by_id = dict(cards)
+
+    contracts: list[tuple[str, dict]] = []
+    files: list[str] = []
+    for pattern in patterns:
+        files += glob.glob(os.path.join(base, pattern), recursive=True)
+    for path in sorted(set(files)):
+        fm = front_matter(path)
+        if fm and fm.get("usedesign_form") == 1:
+            contracts.append((str(fm.get("id", path)), fm))
+    if not contracts:
+        findings.append(Finding("form_contracts_missing", "the `forms` patterns matched no contract"))
+
+    claimed: dict[str, dict[str, set]] = {}
+
+    for contract_id, fm in contracts:
+        screen = str(fm.get("screen") or "")
+        states = by_screen.get(screen)
+        if states is None:
+            findings.append(Finding("form_screen_missing",
+                                    f"{contract_id}: screen `{screen}` is absent from the "
+                                    "inventory — nothing rendered it"))
+            continue
+        every_state = list(states.keys())
+        mine = claimed.setdefault(screen, {"fields": set(), "controls": set()})
+
+        for entry in fm.get("presents") or []:
+            field = str(entry.get("field") or "")
+            mine["fields"].add(field)
+            for state in entry.get("when") or every_state:
+                rendered = states.get(state)
+                if rendered is None:
+                    findings.append(Finding("form_state_missing",
+                                            f"{contract_id}: `{field}` is required in state "
+                                            f"`{state}`, which the inventory never rendered"))
+                elif field not in rendered["fields"]:
+                    findings.append(Finding("element_missing",
+                                            f"{contract_id}: `{field}` must be shown in state "
+                                            f"`{state}` and is not"))
+
+        for control in fm.get("controls") or []:
+            name = str(control.get("control") or "")
+            mine["controls"].add(name)
+            shown_when = control.get("shown_when")
+
+            if shown_when:
+                for state in shown_when:
+                    rendered = states.get(state)
+                    if rendered is None:
+                        findings.append(Finding("form_state_missing",
+                                                f"{contract_id}: control `{name}` is required in "
+                                                f"state `{state}`, which the inventory never rendered"))
+                    elif name not in rendered["controls"]:
+                        findings.append(Finding("control_missing",
+                                                f"{contract_id}: control `{name}` must be "
+                                                f"available in state `{state}` and is not"))
+                for state, rendered in states.items():
+                    if state not in shown_when and name in rendered["controls"]:
+                        findings.append(Finding("control_out_of_state",
+                                                f"{contract_id}: control `{name}` appears in "
+                                                f"state `{state}`, outside its declared `shown_when`"))
+            elif not any(name in rendered["controls"] for rendered in states.values()):
+                findings.append(Finding("control_missing",
+                                        f"{contract_id}: control `{name}` appears in no state at all"))
+
+            calls = control.get("calls")
+            if isinstance(calls, str) and calls:
+                card = card_by_id.get(calls)
+                if card is None:
+                    findings.append(Finding("form_calls_undescribed",
+                                            f"{contract_id}: control `{name}` calls `{calls}`, "
+                                            "which no card describes", "warning"))
+                elif shown_when:
+                    transition = card.get("data_transition")
+                    origin = str(transition.get("from") or "") if isinstance(transition, dict) else ""
+                    if origin and origin not in ("none", "any"):
+                        mismatch = [s for s in shown_when if s != origin]
+                        if mismatch or origin not in shown_when:
+                            findings.append(Finding(
+                                "shown_when_conflicts_transition",
+                                f"{contract_id}: control `{name}` is shown in "
+                                f"[{', '.join(shown_when)}] but `{calls}` departs from `{origin}`"))
+
+        for entry in fm.get("removed") or []:
+            name = str(entry.get("control") or "")
+            mine["controls"].add(name)
+            for state, rendered in states.items():
+                if name in rendered["controls"]:
+                    findings.append(Finding("removed_control_present",
+                                            f"{contract_id}: control `{name}` was removed by the "
+                                            f"owner's decision yet appears in state `{state}`"))
+
+    for screen, states in by_screen.items():
+        mine = claimed.get(screen)
+        if mine is None:
+            continue
+        seen: set[str] = set()
+        for rendered in states.values():
+            for field in rendered["fields"]:
+                if field not in mine["fields"] and f"f:{field}" not in seen:
+                    seen.add(f"f:{field}")
+                    findings.append(Finding("undescribed_element",
+                                            f"{screen}: `{field}` is rendered but no contract "
+                                            "line accounts for it", "warning"))
+            for control in rendered["controls"]:
+                if control not in mine["controls"] and f"c:{control}" not in seen:
+                    seen.add(f"c:{control}")
+                    findings.append(Finding("undescribed_element",
+                                            f"{screen}: control `{control}` is rendered but no "
+                                            "contract line accounts for it", "warning"))
+
+    return findings, {"contracts": len(contracts), "screens": len(by_screen),
+                      "produced_by": data.get("produced_by", "")}
+
+
 def report(title: str, findings: list[Finding]) -> int:
     errors = [f for f in findings if f.severity == "error"]
     for finding in findings:
@@ -685,6 +843,13 @@ def main() -> int:
           + (f", produced by {storage['produced_by']}" if storage["produced_by"] else "")
           + f"; {storage['claims']} claim(s) in cards touching {storage['touched']}")
     errors += report("check 4 (no imagined storage)", storage_findings)
+
+    # Check 5 is opt-in: a backend repository has no forms. Same rule as the TypeScript twin.
+    if config.get("forms"):
+        form_findings, form = check_form(config, base)
+        print(f"forms:      {form['contracts']} contract(s) against {form['screens']} rendered screen(s)"
+              + (f", produced by {form['produced_by']}" if form["produced_by"] else ""))
+        errors += report("check 5 (the form matches its contract)", form_findings)
 
     return 1 if errors else 0
 

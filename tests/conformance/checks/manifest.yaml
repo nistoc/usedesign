@@ -228,3 +228,31 @@ cases:
       since dropping an index is a cost decision taken far from the card. Naming an index is a
       promise that removing it breaks this operation, and this is the check that keeps the
       promise falsifiable.
+
+  # ── Check 5 — the form matches its contract (the reference is authored, not measured) ─────────
+  - dir: form-clean
+    check: 5
+    expect: pass
+    warnings: [undescribed_element]
+    note: >-
+      Everything the contract requires is rendered where required and the removed control is
+      gone. One rendered element is accounted for by nobody — the mirror of a wild endpoint,
+      a warning and never an error: contracts are opt-in per element, silence is not a claim.
+  - dir: form-drift
+    check: 5
+    expect: fail
+    codes: [element_missing, control_out_of_state, removed_control_present]
+    note: >-
+      Three ordinary drifts at once: a required element vanished from its state, a control
+      leaked into a state outside its shown_when, and a control the owner removed came back.
+      Each is a separate finding — a checker that collapses them teaches the wrong lesson.
+  - dir: form-shown-when-conflict
+    check: 5
+    expect: fail
+    codes: [shown_when_conflicts_transition]
+    note: >-
+      The contract shows a control in a state its operation cannot depart from. The measured
+      rule (two screens, zero exceptions): a control is available exactly in the states of the
+      called operation's data_transition.from. The inventory agrees with the contract here —
+      the conflict is between the contract and the CARD, which is what makes it worth its own
+      code: the form and the screen can drift together.

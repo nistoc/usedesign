@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nistoc/usedesign/schema/form-inventory.schema.json",
+  "title": "Form inventory",
+  "description": "What the rendered UI says about ITSELF: for each screen, in each entity state, which machine anchors (data-field/data-section) and controls (data-action) it actually carries. Produced by rendering the real components in a test — never by parsing their source. The sibling of the route and storage inventories.",
+  "type": "object",
+  "required": ["usedesign_form_inventory", "produced_by", "forms"],
+  "properties": {
+    "usedesign_form_inventory": { "const": 1 },
+    "produced_by": { "type": "string", "minLength": 3 },
+    "forms": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["screen", "states"],
+        "additionalProperties": false,
+        "properties": {
+          "screen": { "type": "string", "minLength": 1 },
+          "states": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["state", "fields", "controls"],
+              "additionalProperties": false,
+              "properties": {
+                "state": { "type": "string", "minLength": 1 },
+                "fields": { "type": "array", "items": { "type": "string" } },
+                "controls": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

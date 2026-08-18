@@ -1,0 +1,13 @@
+{
+  "usedesign_form_inventory": 1,
+  "produced_by": "runtime dump — components rendered per state by a test",
+  "forms": [
+    {
+      "screen": "SessionPanel",
+      "states": [
+        { "state": "active", "fields": ["session-status", "main-progress", "phase-badge"], "controls": ["finish"] },
+        { "state": "finished", "fields": ["session-status"], "controls": [] }
+      ]
+    }
+  ]
+}

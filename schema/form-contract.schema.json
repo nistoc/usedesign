@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nistoc/usedesign/schema/form-contract.schema.json",
+  "title": "Form contract",
+  "description": "What a screen MUST show, written by the owner — not what the code happens to render. The one artifact in this format whose truth is authored rather than measured: check 5 then keeps the built thing equal to the chosen thing. Lines that do not match the code yet are not errors in the contract; they are the product's TODO list, printed by every build.",
+  "type": "object",
+  "required": ["usedesign_form", "id", "screen", "presents"],
+  "properties": {
+    "usedesign_form": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+){2,}$" },
+    "screen": { "type": "string", "minLength": 1 },
+    "page": { "type": "string" },
+    "entity": {
+      "description": "Whose lifecycle the screen lives against. The state vocabulary is the entity's, computed from the cards that touch it — never declared here, or it would be a duplicate that drifts.",
+      "type": "string"
+    },
+    "presents": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["field", "shows"],
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "description": "The machine anchor: a data-field/data-section marker the rendered screen carries. The contract names the anchor; the form inventory proves it.",
+            "type": "string",
+            "minLength": 1
+          },
+          "shows": { "type": "string", "minLength": 1 },
+          "when": {
+            "description": "Entity states in which the element must be present. Absent = in every state the inventory has for this screen.",
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["control"],
+        "additionalProperties": false,
+        "properties": {
+          "control": { "type": "string", "minLength": 1 },
+          "calls": {
+            "description": "The operation card this control invokes, or null for local behaviour. Naming a card lets check 5 compare shown_when with the operation's data_transition.from — the measured rule: a control is available exactly in the states its operation departs from.",
+            "oneOf": [{ "type": "string" }, { "type": "null" }]
+          },
+          "shown_when": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
+          "shown_when_rule": {
+            "description": "Availability that depends on more than the entity state, in words. Check 5 can only verify presence somewhere, not the rule itself — written so the limit is declared, not discovered.",
+            "type": "string"
+          },
+          "behaviour": { "type": "string" },
+          "placement": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "removed": {
+      "description": "Controls the owner has decided must NOT exist. Presence anywhere is a finding — a decision is only real while something enforces it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["control"],
+        "properties": {
+          "control": { "type": "string" },
+          "was": { "type": "string" },
+          "verdict": { "type": "string" }
+        }
+      }
+    }
+  }
+}

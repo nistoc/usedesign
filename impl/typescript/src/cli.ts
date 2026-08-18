@@ -9,7 +9,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { CHECKS, checkCoverage, checkMaturity, checkRoutes, checkStorage } from "./checks.js";
+import { CHECKS, checkCoverage, checkForm, checkMaturity, checkRoutes, checkStorage } from "./checks.js";
 import { codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { planScaffold, writeScaffold } from "./scaffold.js";
@@ -114,6 +114,18 @@ function commandCheck(configPath: string): number {
       `; ${g["claims"]} claim(s) in cards touching ${g["touched"]}`,
   );
   errorCount += summarise("check 4 (no imagined storage)", storage.findings);
+
+  // Check 5 is opt-in: a backend repository has no forms, and a missing section must not read
+  // as a failure there. Once `forms` appears in the config, absence of the inventory IS one.
+  if ((config as any).forms) {
+    const form = checkForm(config, base);
+    const f = form.summary as Record<string, any>;
+    console.log(
+      `forms:      ${f["contracts"]} contract(s) against ${f["screens"]} rendered screen(s)` +
+        (f["produced_by"] ? `, produced by ${f["produced_by"]}` : ""),
+    );
+    errorCount += summarise("check 5 (the form matches its contract)", form.findings);
+  }
 
   return errorCount > 0 ? 1 : 0;
 }
