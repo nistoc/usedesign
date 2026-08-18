@@ -98,6 +98,15 @@ export function renderPreviewHtml(data: PreviewData): string {
   .el .name{font-family:ui-monospace,monospace;font-size:11px;color:var(--dim)}
   .el .shows{font-size:13px}
   .btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  /* группы по назначению: рамка + подпись роли; вид грубый намеренно */
+  .grp{border:1px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;background:#fff}
+  .grp .grphead{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;gap:8px}
+  .grp-header{background:#f2f2ea}
+  .grp-footer{background:#f2f2ea;border-top:3px solid var(--line)}
+  .grp-table .el, .grp-list .el{border-style:solid;border-left:3px solid #c9c9bf}
+  .grp-toolbar{flex-direction:row;flex-wrap:wrap;align-items:center}
+  .grp-menu{border-style:dashed;align-self:flex-end;max-width:70%}
+  .ungrouped{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}
   .ctl{border:1px solid #22251f;border-radius:8px;padding:6px 12px;background:#fff;font-size:13px}
   .ctl.rule{border-style:dashed;color:var(--dim)}
   .ctl.removedghost{border-style:dotted;color:var(--todo);text-decoration:line-through}
@@ -260,6 +269,13 @@ function renderDoc() {
         (k.shown_when_rule ? '<div class="meta">когда: ' + k.shown_when_rule + '</div>' : '') +
         (k.behaviour ? '<div class="meta">' + k.behaviour + '</div>' : '') + '</div>';
   }
+  if ((c.groups || []).length) {
+    h += '<dl class="kv"><dt>groups — как владелец группирует экран</dt></dl>';
+    for (const g of c.groups || [])
+      h += '<div class="item" data-item="group"><div class="name">' + g.group + ' <span class="meta">· ' + g.role + '</span></div>' +
+        '<div class="meta">' + (g.contains || []).join(' · ') + '</div>' +
+        (g.note ? '<div class="meta">' + g.note + '</div>' : '') + '</div>';
+  }
   if ((c.removed || []).length) {
     h += '<dl class="kv"><dt>removed — решено, что этого быть не должно</dt></dl>';
     for (const r of c.removed || []) h += '<div class="item" data-item="removed"><div class="name">' + r.control + '</div><div class="meta">' + (r.was || '') + '</div></div>';
@@ -278,28 +294,58 @@ function renderWire() {
   const inv = DATA.inventory && DATA.inventory[c.screen];
   const now = inv && inv[state];
   const badge = (kind, label) => '<span class="badge b-' + kind + '">' + label + '</span>';
-  let h = '<div class="wire" data-group="wire-canvas">';
-  const claimedF = new Set(), claimedC = new Set();
-  for (const p of c.presents || []) {
-    claimedF.add(p.field);
-    if (p.when && !p.when.includes(state)) continue;
+  // Каркас рисуется ПО ГРУППАМ контракта: порядок групп = порядок на панели, роль группы —
+  // подпись и грубый вид (шапка/подвал/таблица/кнопки/меню). Всё, что владелец не сгруппировал,
+  // честно падает в «вне групп» — не спрятано и не разложено за него.
+  const fieldByName = new Map((c.presents || []).map((p) => [p.field, p]));
+  const controlByName = new Map((c.controls || []).map((k) => [k.control, k]));
+  const grouped = new Set();
+  for (const g of c.groups || []) {
+    for (const m of g.contains || []) grouped.add(m);
+    // Контейнер, который САМ показывает содержимое: якорь группы совпал с элементом presents —
+    // элемент рисуется первым внутри своей группы, а не вторым экземпляром «вне групп».
+    if (fieldByName.has(g.group)) grouped.add(g.group);
+  }
+  const claimedF = new Set((c.presents || []).map((p) => p.field));
+  const claimedC = new Set((c.controls || []).map((k) => k.control));
+
+  const fieldBox = (p) => {
+    if (p.when && !p.when.includes(state)) return '';
     const v = !now ? '' : now.fields.includes(p.field) ? badge('ok', 'есть') : badge('todo', 'нет в коде');
-    h += '<div class="el" data-item="wire-field" data-anchor="' + p.field + '"><div class="name">' + p.field + v + '</div><div class="shows">' + p.shows + '</div></div>';
-  }
-  h += '<div class="btnrow" data-group="wire-controls">';
-  for (const k of c.controls || []) {
-    claimedC.add(k.control);
-    const inState = k.shown_when ? k.shown_when.includes(state) : true;
-    if (!inState) continue;
+    return '<div class="el" data-item="wire-field" data-anchor="' + p.field + '"><div class="name">' + p.field + v + '</div><div class="shows">' + p.shows + '</div></div>';
+  };
+  const controlChip = (k) => {
+    if (k.shown_when && !k.shown_when.includes(state)) return '';
     const v = !now ? '' : now.controls.includes(k.control) ? badge('ok', 'есть') : badge('todo', 'нет в коде');
-    h += '<span class="ctl' + (k.shown_when ? '' : ' rule') + '" data-item="wire-control" data-anchor="' + k.control + '">' + k.control + v + '</span>';
+    return '<span class="ctl' + (k.shown_when ? '' : ' rule') + '" data-item="wire-control" data-anchor="' + k.control + '">' + k.control + v + '</span>';
+  };
+  const member = (name) =>
+    fieldByName.has(name) ? fieldBox(fieldByName.get(name)) :
+    controlByName.has(name) ? controlChip(controlByName.get(name)) : '';
+
+  const ROLE_LABEL = { header: 'шапка', footer: 'подвал', section: 'секция', table: 'таблица', list: 'список', toolbar: 'кнопки', menu: 'меню ⋯' };
+  let h = '<div class="wire" data-group="wire-canvas">';
+  for (const g of c.groups || []) {
+    const names = fieldByName.has(g.group) ? [g.group, ...(g.contains || [])] : (g.contains || []);
+    const inner = names.map(member).join('');
+    if (!inner) continue; // в этом состоянии группе нечего показать
+    h += '<div class="grp grp-' + g.role + '" data-item="wire-group" data-anchor="' + g.group + '" data-role="' + g.role + '">' +
+      '<div class="grphead"><span>' + g.group + '</span><span>' + (ROLE_LABEL[g.role] || g.role) + '</span></div>' + inner + '</div>';
   }
+
+  const looseFields = (c.presents || []).filter((p) => !grouped.has(p.field)).map(fieldBox).join('');
+  let looseControls = (c.controls || []).filter((k) => !grouped.has(k.control)).map(controlChip).join('');
   for (const r of c.removed || []) {
     claimedC.add(r.control);
     if (now && now.controls.includes(r.control))
-      h += '<span class="ctl removedghost" data-item="wire-removed" data-anchor="' + r.control + '">' + r.control + badge('todo', 'должно исчезнуть') + '</span>';
+      looseControls += '<span class="ctl removedghost" data-item="wire-removed" data-anchor="' + r.control + '">' + r.control + badge('todo', 'должно исчезнуть') + '</span>';
   }
-  h += '</div></div>';
+  if (looseFields || looseControls) {
+    h += '<div class="' + ((c.groups || []).length ? 'ungrouped' : '') + '" data-group="wire-ungrouped">' +
+      ((c.groups || []).length ? '<div class="grphead"><span>вне групп</span></div>' : '') +
+      looseFields + (looseControls ? '<div class="btnrow" data-group="wire-controls">' + looseControls + '</div>' : '') + '</div>';
+  }
+  h += '</div>';
   if (now) {
     const extraF = now.fields.filter((f) => !claimedF.has(f));
     const extraC = now.controls.filter((f) => !claimedC.has(f));

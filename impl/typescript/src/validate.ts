@@ -32,6 +32,7 @@ const EVIDENCE_FOR: Record<string, string> = {
 };
 
 let compiled: ((data: unknown) => boolean) & { errors?: any[] } | null = null;
+let compiledForm: ((data: unknown) => boolean) & { errors?: any[] } | null = null;
 
 /**
  * Where the published schema is. In the repository it is `schema/` at the root; in a published
@@ -61,6 +62,155 @@ export function validateSchema(fm: Card): Finding[] {
     (error: any) =>
       new Finding("schema_violation", `${error.instancePath || "/"} ${error.message}`.trim()),
   );
+}
+
+/** Validate a form contract against its published JSON Schema. */
+export function validateFormSchema(fm: Card): Finding[] {
+  if (!compiledForm) {
+    const ajv = new Ajv2020({ allErrors: true, strict: false });
+    addFormats.default ? addFormats.default(ajv as any) : (addFormats as any)(ajv as any);
+    compiledForm = ajv.compile(
+      JSON.parse(readFileSync(schemaPathFor("form-contract.schema.json"), "utf8")),
+    ) as any;
+  }
+  if (compiledForm!(fm)) return [];
+  return (compiledForm!.errors ?? []).map(
+    (error: any) =>
+      new Finding("schema_violation", `${error.instancePath || "/"} ${error.message}`.trim()),
+  );
+}
+
+// ── form contracts ───────────────────────────────────────────────────────────────────────────
+//
+// Check 5 used to read contracts raw, and the measured failure is quiet in the worst way: a
+// contract with `presnts` misspelled lost its whole "must show" section, and every line of it
+// resurfaced as SOMEBODY ELSE'S warning — "element rendered but not described". The typo did not
+// fail; it changed whose problem it looked like. Same class as the gate that ran `check` without
+// `validate` and stayed green on a card with an invented maturity level.
+//
+// The rules are hand-rolled with named codes — not raw schema output — because the second
+// implementation has no schema library, and two implementations must agree on WHAT is wrong,
+// not merely that something is.
+
+const FORM_REQUIRED = ["usedesign_form", "id", "screen", "presents"];
+const FORM_KEYS = new Set(["usedesign_form", "id", "screen", "page", "entity", "presents", "controls", "groups", "removed"]);
+const ELEMENT_KEYS = new Set(["field", "shows", "when", "note"]);
+const CONTROL_KEYS = new Set(["control", "calls", "shown_when", "shown_when_rule", "opens", "behaviour", "placement", "note"]);
+const GROUP_KEYS = new Set(["group", "role", "contains", "note"]);
+const GROUP_ROLES = ["header", "footer", "section", "table", "list", "toolbar", "menu"];
+const REMOVED_KEYS = new Set(["control", "was", "verdict"]);
+
+/**
+ * Validate one form contract's *meaning*. `knownForms` enables the cross-contract link warning
+ * (`opens` pointing at a contract that is not in the validated set); pass null for a lone file.
+ */
+export function validateForm(fm: Card, filename = "", knownForms: Set<string> | null = null): Finding[] {
+  const out: Finding[] = [];
+  const err = (code: string, detail: string) => out.push(new Finding(code, detail));
+  const warn = (code: string, detail: string) => out.push(new Finding(code, detail, "warning"));
+
+  for (const field of FORM_REQUIRED) {
+    if (!(field in fm)) err("missing_required_field", `\`${field}\` is absent`);
+  }
+  // The typo gets its own name. Reported as an unknown key, `presnts` says what happened;
+  // reported only as "presents is absent", it reads like an empty contract, not a broken one.
+  for (const key of Object.keys(fm)) {
+    if (!FORM_KEYS.has(key)) err("unknown_field", `\`${key}\` is not part of the form contract format`);
+  }
+
+  const formId: string = fm["id"] ?? "";
+  if (formId && !OPERATION_ID.test(formId)) {
+    err("malformed_form_id", `\`${formId}\` is not <area>.<object>.<name>`);
+  }
+
+  const presents: any[] = Array.isArray(fm["presents"]) ? fm["presents"] : [];
+  const seenFields = new Set<string>();
+  for (const [index, element] of presents.entries()) {
+    if (!element || typeof element !== "object") continue;
+    for (const required of ["field", "shows"]) {
+      if (!element[required]) err("missing_required_field", `presents[${index}]: \`${required}\` is absent`);
+    }
+    for (const key of Object.keys(element)) {
+      if (!ELEMENT_KEYS.has(key)) err("unknown_field", `presents[${index}]: \`${key}\` is not part of an element line`);
+    }
+    const field = element["field"];
+    if (field) {
+      if (seenFields.has(field)) err("duplicate_element", `\`${field}\` appears more than once in presents`);
+      seenFields.add(field);
+    }
+  }
+
+  const controls: any[] = Array.isArray(fm["controls"]) ? fm["controls"] : [];
+  const seenControls = new Set<string>();
+  for (const [index, control] of controls.entries()) {
+    if (!control || typeof control !== "object") continue;
+    if (!control["control"]) err("missing_required_field", `controls[${index}]: \`control\` is absent`);
+    for (const key of Object.keys(control)) {
+      if (!CONTROL_KEYS.has(key)) err("unknown_field", `controls[${index}]: \`${key}\` is not part of a control line`);
+    }
+    const name = control["control"];
+    if (name) {
+      if (seenControls.has(name)) err("duplicate_control", `\`${name}\` appears more than once in controls`);
+      seenControls.add(name);
+    }
+    const opens = control["opens"];
+    if (opens && knownForms !== null && !knownForms.has(opens)) {
+      warn("undescribed_form", `control \`${name}\` opens \`${opens}\`, which no contract in this set describes`);
+    }
+  }
+
+  // ── groups ─────────────────────────────────────────────────────────────────────────────────
+  // Grouping by purpose: headers, footers, tables, and which controls sit where. Array order IS
+  // the group order. Membership is authored, not yet verified — the inventory records anchors
+  // flat — but a group naming a member the contract itself does not declare is wrong today, by
+  // the contract's own text, and needs no inventory to prove it.
+  const members = new Set([...seenFields, ...seenControls]);
+  const seenGroups = new Set<string>();
+  const claimed = new Map<string, string>();
+  for (const [index, group] of (Array.isArray(fm["groups"]) ? fm["groups"] : []).entries()) {
+    if (!group || typeof group !== "object") continue;
+    for (const required of ["group", "role", "contains"]) {
+      if (!group[required]) err("missing_required_field", `groups[${index}]: \`${required}\` is absent`);
+    }
+    for (const key of Object.keys(group)) {
+      if (!GROUP_KEYS.has(key)) err("unknown_field", `groups[${index}]: \`${key}\` is not part of a group line`);
+    }
+    const name = group["group"];
+    if (name) {
+      if (seenGroups.has(name)) err("duplicate_group", `\`${name}\` appears more than once in groups`);
+      seenGroups.add(name);
+    }
+    const role = group["role"];
+    if (role && !GROUP_ROLES.includes(role)) {
+      err("invalid_enum_value", `groups[${index}]: role \`${role}\` is not one of ${GROUP_ROLES}`);
+    }
+    for (const member of Array.isArray(group["contains"]) ? group["contains"] : []) {
+      if (!members.has(member)) {
+        err("unknown_group_member", `group \`${name}\` contains \`${member}\`, which no element or control declares`);
+      }
+      const already = claimed.get(member);
+      if (already && already !== name) {
+        err("element_in_two_groups", `\`${member}\` sits in \`${already}\` and \`${name}\` — an element renders in one place`);
+      }
+      if (name) claimed.set(member, name);
+    }
+  }
+
+  // One document both requiring and forbidding a control is not incompleteness — it is the
+  // contract disagreeing with itself, and no amount of code can satisfy it.
+  for (const [index, removed] of (Array.isArray(fm["removed"]) ? fm["removed"] : []).entries()) {
+    if (!removed || typeof removed !== "object") continue;
+    if (!removed["control"]) err("missing_required_field", `removed[${index}]: \`control\` is absent`);
+    for (const key of Object.keys(removed)) {
+      if (!REMOVED_KEYS.has(key)) err("unknown_field", `removed[${index}]: \`${key}\` is not part of a removed line`);
+    }
+    const name = removed["control"];
+    if (name && seenControls.has(name)) {
+      err("removed_also_required", `\`${name}\` is listed in controls and in removed — the contract both requires and forbids it`);
+    }
+  }
+
+  return out;
 }
 
 /**

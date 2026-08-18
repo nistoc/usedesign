@@ -10,7 +10,7 @@ import { basename, join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { CHECKS } from "./checks.js";
 import { codesOf, errors, Finding, frontMatter, loadConfig, warnings } from "./core.js";
-import { REPO, validate, validateSchema } from "./validate.js";
+import { REPO, validate, validateForm, validateFormSchema, validateSchema } from "./validate.js";
 
 export interface CorpusResult {
   passed: number;
@@ -39,9 +39,11 @@ export function runCardCorpus(withSchema = true): CorpusResult {
   for (const testCase of manifest.cases) {
     const path = join(CARDS, "cases", ...String(testCase.file).split("/"));
     const fm = frontMatter(path);
-    const findings: Finding[] = fm
-      ? [...(withSchema ? validateSchema(fm) : []), ...validate(fm, basename(path))]
-      : [new Finding("missing_required_field", "no front matter")];
+    const findings: Finding[] = !fm
+      ? [new Finding("missing_required_field", "no front matter")]
+      : fm["usedesign_form"] === 1
+        ? [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, basename(path))]
+        : [...(withSchema ? validateSchema(fm) : []), ...validate(fm, basename(path))];
 
     const failing = errors(findings);
     const verdict = failing.length > 0 ? "invalid" : "valid";

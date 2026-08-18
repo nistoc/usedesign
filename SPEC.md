@@ -745,6 +745,41 @@ contract carries them as prose for the human who writes those tests.
 The measured rule behind `shown_when`: a control is available exactly in the states of the called
 operation's `data_transition.from`. Two screens, zero exceptions, before it was written down.
 
+**Grouping by purpose.** A contract may carry `groups:` — how the owner groups the screen:
+headers, footers, tables, toolbars, menus, and which elements and controls sit in each. Array
+order **is** the group order (a separate order key would be a duplicate that drifts); membership
+is to the **nearest** group — a flat model, not a tree, twice refuted by measurement. A group's
+anchor may coincide with a `presents` field: a container that itself shows content, which is how
+real headers measure. Membership against the code is **authored, not yet verified** — the
+inventory records anchors flat, so check 5 proves a group's anchor exists but not who sits
+inside it; a declared limit, like `shown_when_rule`.
+
+```yaml
+groups:
+  - group: session-foot
+    role: footer            # header | footer | section | table | list | toolbar | menu
+    contains: [main-progress, finish-progress, finish-error]
+```
+
+**Validating the contract itself.** Form contracts pass through `validate` like cards do, told
+apart by the `usedesign_form: 1` marker. Measured on 0.5.0, which had no such validation: a
+contract with `presents` misspelled as `presnts` lost its whole "must show" section silently,
+and every line of it resurfaced as somebody else's `undescribed_element` warning — the typo did
+not fail, it changed whose problem it looked like. The rules are hand-rolled with named codes,
+in both implementations, so the two agree on *what* is wrong:
+
+| Finding | Means |
+|---|---|
+| `unknown_field` | a key the format does not know — the typo named as itself |
+| `missing_required_field` | `usedesign_form` / `id` / `screen` / `presents`, or a required key inside a line |
+| `malformed_form_id` | the id is not `<area>.<object>.<name>` |
+| `duplicate_element` / `duplicate_control` / `duplicate_group` | one anchor, two lines — the inventory can prove it only once |
+| `removed_also_required` | one document both requires and forbids a control — self-contradiction, not a TODO |
+| `unknown_group_member` | a group names a member the contract never declares |
+| `element_in_two_groups` | an element renders in one place; two claims cannot both hold |
+| `invalid_enum_value` | a group `role` outside the vocabulary |
+| `undescribed_form` (warning) | `opens` points at a contract outside the validated set — honest incompleteness, the counterpart of `undescribed_counterpart` |
+
 ### 7.6 Scoping the checks per repository
 
 `checks: [5]` in the config limits which checks run. A frontend repository serves no routes and
@@ -770,6 +805,7 @@ where the format broke:
 | 11 | **Four more screens** — a form, a service operation, and a bulk pair | None new. Round 10's own rule corrected twice: job states out of the vocabulary, per-item failures in; plus `outcomes_indistinguishable` |
 | 12 | **The layer below** — cards against a live schemaless store | One, optional: `data.storage[]`, plus check 4 (§7.4) |
 | 13 | **The layer above, inverted** — the owner authors form contracts first; the rendered screens answer | Two optional artifact kinds: the form contract and the form inventory, plus check 5 (§7.5) |
+| 14 | **The contract's own shape** — a planted `presnts` typo passed 0.5.0 silently; plus grouping by purpose (headers, footers, tables) | One optional field: `groups[]`; validation of form contracts with named codes (§7.5) |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

@@ -168,3 +168,54 @@ cases:
       Two outcomes wearing one sentence — the state between shown and not shown, and the one
       nobody notices. Measured on a real screen: 401 and 403 both surfaced as the same «try
       again», so the user who must give consent is told to do the one thing that cannot help.
+
+  # ── form contracts ───────────────────────────────────────────────────────────────────────────
+  # The same `validate` command, told apart by `usedesign_form: 1`. Until 0.6.0 these documents
+  # had no validator at all: `validate forms/` collected nothing and printed a green
+  # "0 card(s): 0 error(s)" over a directory of broken contracts.
+  - file: valid/forms/demo.session.panel.contract.md
+    expect: valid
+    codes: []
+    note: >-
+      Every section exercised: states, an operation call, a local control opening another form,
+      an owner's removal. `opens` names a contract outside the file — with no known-forms set
+      the link check stays silent, the restraint the card corpus applies to `reversible_via`.
+  - file: invalid/forms/typo-section.contract.md
+    expect: invalid
+    codes: [missing_required_field, unknown_field]
+    note: >-
+      The measured hole, verbatim: `presents` misspelled as `presnts`. On 0.5.0 the whole
+      "must show" section vanished silently and resurfaced as somebody else's warnings. Both
+      codes are required — the unknown key names what happened, the absence names what it cost.
+  - file: invalid/forms/duplicate-element.contract.md
+    expect: invalid
+    codes: [duplicate_element]
+    note: >-
+      One anchor, two meanings. The inventory can only prove the anchor once, so the second
+      line is unverifiable by construction.
+  - file: invalid/forms/duplicate-control.contract.md
+    expect: invalid
+    codes: [duplicate_control]
+    note: >-
+      Measured on 0.5.0: the duplicate was never named — every downstream finding about the
+      control simply appeared twice. The defect multiplied instead of being reported.
+  - file: invalid/forms/removed-also-required.contract.md
+    expect: invalid
+    codes: [removed_also_required]
+    note: >-
+      The contract disagreeing with itself: `clear-session` both required and forbidden. No
+      code can satisfy it, so it is an error in the contract, not a TODO for the product.
+  - file: invalid/forms/group-of-strangers.contract.md
+    expect: invalid
+    codes: [unknown_group_member]
+    note: >-
+      A group naming a member the contract never declares. Membership against the code is not
+      verifiable yet (the inventory records anchors flat), but this is wrong by the contract's
+      own text and needs no inventory to prove it.
+  - file: invalid/forms/element-in-two-groups.contract.md
+    expect: invalid
+    codes: [element_in_two_groups]
+    note: >-
+      One element claimed by two groups. A rendered element sits in exactly one place; no
+      screen can satisfy the contract, so the error is the contract's — the same family as
+      requiring and forbidding one control.

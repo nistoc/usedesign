@@ -323,11 +323,150 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     return out
 
 
+# ── form contracts ───────────────────────────────────────────────────────────
+#
+# Check 5 used to read contracts raw, and the measured failure is quiet in the worst way: a
+# contract with `presnts` misspelled lost its whole "must show" section, and every line of it
+# resurfaced as SOMEBODY ELSE'S warning — "element rendered but not described". The rules are
+# hand-rolled with named codes so both implementations agree on WHAT is wrong.
+
+FORM_REQUIRED = ["usedesign_form", "id", "screen", "presents"]
+FORM_KEYS = {"usedesign_form", "id", "screen", "page", "entity", "presents", "controls",
+             "groups", "removed"}
+ELEMENT_KEYS = {"field", "shows", "when", "note"}
+CONTROL_KEYS = {"control", "calls", "shown_when", "shown_when_rule", "opens",
+                "behaviour", "placement", "note"}
+GROUP_KEYS = {"group", "role", "contains", "note"}
+GROUP_ROLES = ["header", "footer", "section", "table", "list", "toolbar", "menu"]
+REMOVED_KEYS = {"control", "was", "verdict"}
+
+
+def validate_form(fm: dict, filename: str = "",
+                  known_forms: set[str] | None = None) -> list[Finding]:
+    """Validate one form contract. `known_forms` enables the `opens` link warning."""
+    out: list[Finding] = []
+
+    def err(code: str, detail: str):
+        out.append(Finding(code, detail))
+
+    def warn(code: str, detail: str):
+        out.append(Finding(code, detail, "warning"))
+
+    for field in FORM_REQUIRED:
+        if field not in fm:
+            err("missing_required_field", f"`{field}` is absent")
+    # The typo gets its own name: reported as an unknown key, `presnts` says what happened.
+    for key in fm:
+        if key not in FORM_KEYS:
+            err("unknown_field", f"`{key}` is not part of the form contract format")
+
+    form_id = fm.get("id") or ""
+    if form_id and not OPERATION_ID.match(str(form_id)):
+        err("malformed_form_id", f"`{form_id}` is not <area>.<object>.<name>")
+
+    presents = fm.get("presents") if isinstance(fm.get("presents"), list) else []
+    seen_fields: set[str] = set()
+    for index, element in enumerate(presents):
+        if not isinstance(element, dict):
+            continue
+        for required in ("field", "shows"):
+            if not element.get(required):
+                err("missing_required_field", f"presents[{index}]: `{required}` is absent")
+        for key in element:
+            if key not in ELEMENT_KEYS:
+                err("unknown_field", f"presents[{index}]: `{key}` is not part of an element line")
+        field = element.get("field")
+        if field:
+            if field in seen_fields:
+                err("duplicate_element", f"`{field}` appears more than once in presents")
+            seen_fields.add(field)
+
+    controls = fm.get("controls") if isinstance(fm.get("controls"), list) else []
+    seen_controls: set[str] = set()
+    for index, control in enumerate(controls):
+        if not isinstance(control, dict):
+            continue
+        if not control.get("control"):
+            err("missing_required_field", f"controls[{index}]: `control` is absent")
+        for key in control:
+            if key not in CONTROL_KEYS:
+                err("unknown_field", f"controls[{index}]: `{key}` is not part of a control line")
+        name = control.get("control")
+        if name:
+            if name in seen_controls:
+                err("duplicate_control", f"`{name}` appears more than once in controls")
+            seen_controls.add(name)
+        opens = control.get("opens")
+        if opens and known_forms is not None and opens not in known_forms:
+            warn("undescribed_form",
+                 f"control `{name}` opens `{opens}`, which no contract in this set describes")
+
+    # ── groups ───────────────────────────────────────────────────────────────
+    # Grouping by purpose: headers, footers, tables, and which controls sit where. Array order
+    # IS the group order. Membership is authored, not yet verified — the inventory records
+    # anchors flat — but a group naming a member the contract itself does not declare is wrong
+    # today, by the contract's own text, and needs no inventory to prove it.
+    members = seen_fields | seen_controls
+    seen_groups: set[str] = set()
+    claimed: dict[str, str] = {}
+    groups = fm.get("groups") if isinstance(fm.get("groups"), list) else []
+    for index, group in enumerate(groups):
+        if not isinstance(group, dict):
+            continue
+        for required in ("group", "role", "contains"):
+            if not group.get(required):
+                err("missing_required_field", f"groups[{index}]: `{required}` is absent")
+        for key in group:
+            if key not in GROUP_KEYS:
+                err("unknown_field", f"groups[{index}]: `{key}` is not part of a group line")
+        name = group.get("group")
+        if name:
+            if name in seen_groups:
+                err("duplicate_group", f"`{name}` appears more than once in groups")
+            seen_groups.add(name)
+        role = group.get("role")
+        if role and role not in GROUP_ROLES:
+            err("invalid_enum_value", f"groups[{index}]: role `{role}` is not one of {GROUP_ROLES}")
+        contains = group.get("contains") if isinstance(group.get("contains"), list) else []
+        for member in contains:
+            if member not in members:
+                err("unknown_group_member",
+                    f"group `{name}` contains `{member}`, which no element or control declares")
+            already = claimed.get(member)
+            if already and already != name:
+                err("element_in_two_groups",
+                    f"`{member}` sits in `{already}` and `{name}` — an element renders in one place")
+            if name:
+                claimed[member] = name
+
+    # One document both requiring and forbidding a control is not incompleteness — it is the
+    # contract disagreeing with itself, and no amount of code can satisfy it.
+    removed = fm.get("removed") if isinstance(fm.get("removed"), list) else []
+    for index, entry in enumerate(removed):
+        if not isinstance(entry, dict):
+            continue
+        if not entry.get("control"):
+            err("missing_required_field", f"removed[{index}]: `control` is absent")
+        for key in entry:
+            if key not in REMOVED_KEYS:
+                err("unknown_field", f"removed[{index}]: `{key}` is not part of a removed line")
+        name = entry.get("control")
+        if name and name in seen_controls:
+            err("removed_also_required",
+                f"`{name}` is listed in controls and in removed — "
+                "the contract both requires and forbids it")
+
+    return out
+
+
 def collect(paths: list[str]) -> list[str]:
     files: list[str] = []
     for path in paths:
         if os.path.isdir(path):
+            # Both document kinds, deliberately: `validate forms/` used to collect nothing and
+            # print "0 card(s): 0 error(s)" — a green verdict on a directory it had not read.
             files += glob.glob(os.path.join(path, "**", "*.op.md"), recursive=True)
+            files += glob.glob(os.path.join(path, "**", "*.contract.md"), recursive=True)
         else:
             files.append(path)
     return sorted(files)
@@ -335,21 +474,32 @@ def collect(paths: list[str]) -> list[str]:
 
 def run_files(paths: list[str]) -> int:
     files = collect(paths)
-    cards = {}
+    cards: dict = {}
+    forms: dict = {}
     for path in files:
         fm = front_matter(path)
         if fm:
-            cards[fm.get("id")] = (path, fm)
+            target = forms if fm.get("usedesign_form") == 1 else cards
+            target[fm.get("id")] = (path, fm)
     known = set(cards)
+    known_forms = set(forms)
 
     errors = warnings = 0
-    for card_id, (path, fm) in sorted(cards.items()):
-        for finding in validate(fm, os.path.basename(path), known):
+
+    def show(path: str, findings: list[Finding]):
+        nonlocal errors, warnings
+        for finding in findings:
             marker = "ERROR  " if finding.severity == "error" else "warning"
             print(f"  {marker}  {os.path.basename(path)}: {finding}")
             errors += finding.severity == "error"
             warnings += finding.severity == "warning"
-    print(f"\n{len(cards)} card(s): {errors} error(s), {warnings} warning(s)")
+
+    for _, (path, fm) in sorted(cards.items()):
+        show(path, validate(fm, os.path.basename(path), known))
+    for _, (path, fm) in sorted(forms.items()):
+        show(path, validate_form(fm, os.path.basename(path), known_forms))
+    print(f"\n{len(cards)} card(s), {len(forms)} form contract(s): "
+          f"{errors} error(s), {warnings} warning(s)")
     return 1 if errors else 0
 
 
@@ -360,8 +510,12 @@ def run_conformance() -> int:
     for case in manifest["cases"]:
         path = os.path.join(CORPUS, "cases", *case["file"].split("/"))
         fm = front_matter(path)
-        findings = validate(fm, os.path.basename(path)) if fm else [
-            Finding("missing_required_field", "no front matter")]
+        if not fm:
+            findings = [Finding("missing_required_field", "no front matter")]
+        elif fm.get("usedesign_form") == 1:
+            findings = validate_form(fm, os.path.basename(path))
+        else:
+            findings = validate(fm, os.path.basename(path))
         errors = [f for f in findings if f.severity == "error"]
         verdict = "invalid" if errors else "valid"
         codes = sorted({f.code for f in errors})

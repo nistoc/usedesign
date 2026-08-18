@@ -14,7 +14,7 @@ import { codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnin
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { planScaffold, writeScaffold } from "./scaffold.js";
 import { commandPreview } from "./preview.js";
-import { validate, validateSchema } from "./validate.js";
+import { validate, validateForm, validateFormSchema, validateSchema } from "./validate.js";
 
 /**
  * The version is read from package.json, never written here. It was written here once, and the
@@ -30,7 +30,7 @@ function version(): string {
 const USAGE = `usedesign — one description per operation, checked against the repository
 
 Usage:
-  usedesign validate <path…>          validate cards (files or directories)
+  usedesign validate <path…>          validate cards and form contracts (files or directories)
   usedesign check <config>            run the three checks against a usedesign.config.yaml
   usedesign scaffold <openapi.json> --out <dir>
                                       draft a card shell per undescribed route
@@ -61,23 +61,33 @@ function summarise(title: string, findings: Finding[]): number {
 
 function commandValidate(paths: string[], withSchema: boolean): number {
   const files = collectCards(paths);
+  // Two document kinds share one command, told apart by the front-matter marker. Cross-reference
+  // sets are per-kind: a form's `opens` must name a form, never an operation.
   const cards = new Map<string, { path: string; fm: Record<string, any> }>();
+  const forms = new Map<string, { path: string; fm: Record<string, any> }>();
   for (const path of files) {
     const fm = frontMatter(path);
-    if (fm) cards.set(String(fm["id"]), { path, fm });
+    if (fm) (fm["usedesign_form"] === 1 ? forms : cards).set(String(fm["id"]), { path, fm });
   }
   const known = new Set(cards.keys());
+  const knownForms = new Set(forms.keys());
 
   let errorCount = 0;
   let warningCount = 0;
-  for (const [, { path, fm }] of [...cards.entries()].sort()) {
-    const findings = [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known)];
-    const name = path.split(/[\\/]/).pop();
-    print(findings, `${name}: `);
+  const show = (path: string, findings: Finding[]) => {
+    print(findings, `${path.split(/[\\/]/).pop()}: `);
     errorCount += errors(findings).length;
     warningCount += warnings(findings).length;
+  };
+  for (const [, { path, fm }] of [...cards.entries()].sort()) {
+    show(path, [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known)]);
   }
-  console.log(`\n${cards.size} card(s): ${errorCount} error(s), ${warningCount} warning(s)`);
+  for (const [, { path, fm }] of [...forms.entries()].sort()) {
+    show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms)]);
+  }
+  console.log(
+    `\n${cards.size} card(s), ${forms.size} form contract(s): ${errorCount} error(s), ${warningCount} warning(s)`,
+  );
   return errorCount > 0 ? 1 : 0;
 }
 

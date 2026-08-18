@@ -133,12 +133,15 @@ export function loadCardFiles(config: Config, base: string): { cards: [string, C
   return { cards, findings };
 }
 
-/** Collect `*.op.md` under the given files or directories. */
+/** Collect `*.op.md` and `*.contract.md` under the given files or directories. */
 export function collectCards(paths: string[]): string[] {
   const files: string[] = [];
   for (const path of paths) {
-    if (existsSync(path) && statSync(path).isDirectory()) files.push(...expandGlob(path, "**/*.op.md"));
-    else files.push(path);
+    if (existsSync(path) && statSync(path).isDirectory()) {
+      // Both document kinds, deliberately: `validate forms/` used to collect nothing and print
+      // "0 card(s): 0 error(s)" — a green verdict on a directory it had not read.
+      files.push(...expandGlob(path, "**/*.op.md"), ...expandGlob(path, "**/*.contract.md"));
+    } else files.push(path);
   }
   return [...new Set(files)].sort();
 }

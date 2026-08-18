@@ -5,6 +5,7 @@
   "description": "What a screen MUST show, written by the owner — not what the code happens to render. The one artifact in this format whose truth is authored rather than measured: check 5 then keeps the built thing equal to the chosen thing. Lines that do not match the code yet are not errors in the contract; they are the product's TODO list, printed by every build.",
   "type": "object",
   "required": ["usedesign_form", "id", "screen", "presents"],
+  "additionalProperties": false,
   "properties": {
     "usedesign_form": { "const": 1 },
     "id": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+){2,}$" },
@@ -59,8 +60,39 @@
             "description": "Availability that depends on more than the entity state, in words. Check 5 can only verify presence somewhere, not the rule itself — written so the limit is declared, not discovered.",
             "type": "string"
           },
+          "opens": {
+            "description": "The form contract this control opens (a modal, an overlay) — a flat link, not a nested tree: nesting was refuted twice by measurement. The opened form is a contract of its own.",
+            "type": "string"
+          },
           "behaviour": { "type": "string" },
           "placement": { "type": "string" },
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "groups": {
+      "description": "How the owner groups the screen by PURPOSE: headers, footers, tables, toolbars — and which elements and controls belong to each. Array order IS the group order; a separate order key would be a duplicate that drifts. Membership is authored, not yet verified: the form inventory records anchors flat, so check 5 proves a group's anchor exists but not who sits inside it — a declared limit, like shown_when_rule.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["group", "role", "contains"],
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "description": "The container's own data-* anchor (data-section / data-panel-head).",
+            "type": "string",
+            "minLength": 1
+          },
+          "role": {
+            "description": "The group's purpose, not its looks.",
+            "enum": ["header", "footer", "section", "table", "list", "toolbar", "menu"]
+          },
+          "contains": {
+            "description": "Fields and controls of this contract, in display order.",
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" }
+          },
           "note": { "type": "string" }
         }
       }
@@ -71,6 +103,7 @@
       "items": {
         "type": "object",
         "required": ["control"],
+        "additionalProperties": false,
         "properties": {
           "control": { "type": "string" },
           "was": { "type": "string" },
