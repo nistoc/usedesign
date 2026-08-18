@@ -13,6 +13,7 @@ import { CHECKS, checkCoverage, checkForm, checkMaturity, checkRoutes, checkStor
 import { codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { planScaffold, writeScaffold } from "./scaffold.js";
+import { commandPreview } from "./preview.js";
 import { validate, validateSchema } from "./validate.js";
 
 /**
@@ -33,6 +34,8 @@ Usage:
   usedesign check <config>            run the three checks against a usedesign.config.yaml
   usedesign scaffold <openapi.json> --out <dir>
                                       draft a card shell per undescribed route
+  usedesign preview <config> --out <file.html>
+                                      render form contracts as a three-rail wireframe page
   usedesign conformance [--cards|--checks]
                                       run the conformance corpora
   usedesign --help | --version
@@ -81,6 +84,15 @@ function commandValidate(paths: string[], withSchema: boolean): number {
 function commandCheck(configPath: string): number {
   const { config, base } = loadConfig(configPath);
 
+  // `checks: [5]` scopes which checks apply to THIS repository. A frontend serves no routes and
+  // owns no tables; running checks 1–4 there fails on inputs that cannot exist, and a check that
+  // always fails gets ignored. The scope is declared in the config — visible in review — and
+  // within it "cannot run" still means "not passed".
+  const scope = (config as any).checks as number[] | undefined;
+  const inScope = (n: number) => !scope || scope.includes(n);
+  let errorCount = 0;
+
+  if (inScope(1)) {
   const routes = checkRoutes(config, base);
   const s = routes.summary as Record<string, any>;
   console.log(`inventory:  ${s["served"]} route(s) served${s["produced_by"] ? `, produced by ${s["produced_by"]}` : ""}`);
@@ -90,14 +102,18 @@ function commandCheck(configPath: string): number {
     console.log(`              ${pattern} → ${count}`);
   }
   console.log();
-  let errorCount = summarise("check 1 (no wild endpoints)", routes.findings);
+  errorCount += summarise("check 1 (no wild endpoints)", routes.findings);
+  }
 
+  if (inScope(2)) {
   const coverage = checkCoverage(config, base);
   const c = coverage.summary as Record<string, any>;
   console.log(`report:     ${c["report_cases"]} test case(s)`);
   console.log(`steps:      ${c["proven"]} proven, ${c["unproven"]} not\n`);
   errorCount += summarise("check 2 (no unproven steps)", coverage.findings);
+  }
 
+  if (inScope(3)) {
   const maturity = checkMaturity(config, base);
   const m = maturity.summary as Record<string, any>;
   console.log(
@@ -106,7 +122,9 @@ function commandCheck(configPath: string): number {
   );
   console.log(`horizon:    ${m["horizon"]} days\n`);
   errorCount += summarise("check 3 (no inflated maturity)", maturity.findings);
+  }
 
+  if (inScope(4)) {
   const storage = checkStorage(config, base);
   const g = storage.summary as Record<string, any>;
   console.log(
@@ -114,10 +132,12 @@ function commandCheck(configPath: string): number {
       `; ${g["claims"]} claim(s) in cards touching ${g["touched"]}`,
   );
   errorCount += summarise("check 4 (no imagined storage)", storage.findings);
+  }
 
   // Check 5 is opt-in: a backend repository has no forms, and a missing section must not read
-  // as a failure there. Once `forms` appears in the config, absence of the inventory IS one.
-  if ((config as any).forms) {
+  // as a failure there. Naming it in `checks:` or declaring `forms:` opts in; then absence of
+  // the inventory IS a failure.
+  if (scope ? scope.includes(5) : (config as any).forms) {
     const form = checkForm(config, base);
     const f = form.summary as Record<string, any>;
     console.log(
@@ -243,6 +263,16 @@ function main(argv: string[]): number {
         return 2;
       }
       return commandScaffold(free[0]!, outDir, values.get("--config"), flags.includes("--dry-run"), flags.includes("--force"));
+    }
+
+    case "preview": {
+      const out = rest[rest.indexOf("--out") + 1];
+      const free = rest.filter((a, i) => !a.startsWith("--") && rest[i - 1] !== "--out");
+      if (free.length !== 1 || !out || out.startsWith("--")) {
+        console.error("usedesign preview: usage — usedesign preview <usedesign.config.yaml> --out <file.html>");
+        return 2;
+      }
+      return commandPreview(free[0]!, out, loadConfig);
     }
 
     case "conformance": {

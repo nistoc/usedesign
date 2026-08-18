@@ -702,6 +702,56 @@ first run against a real system found nine stores of which **none** was accounte
 and writing four honest claims immediately revealed that publishing an item touches **two** stores,
 not the one the card had named for months.
 
+### 7.5 Check 5 — the form matches its contract
+
+The first check whose reference is **authored rather than measured**. A *form contract*
+(`usedesign_form: 1`, schema `form-contract.schema.json`) states what the owner decided a screen
+must show, per entity state; a *form inventory* (`form-inventory.schema.json`) states what the
+rendered screen actually carries — produced by rendering the real components in a test, never by
+parsing their source. Check 5 holds the two against each other, both ways.
+
+```yaml
+usedesign_form: 1
+id: abdominal.workout.session-nav
+screen: SessionNavPanel
+entity: workout_progress        # the state vocabulary is the entity's, computed from its cards
+presents:
+  - field: session-summary      # the machine anchor: a data-* marker the rendered screen carries
+    shows: итог — статус, подходы, тоннаж
+    when: [finished, partial, abandoned]
+controls:
+  - control: finish-progress
+    calls: abdominal.progress.finish
+    shown_when: [active]
+removed:
+  - control: clear-progress     # a decision is only real while something enforces it
+```
+
+| Finding | Means |
+|---|---|
+| `element_missing` / `control_missing` | the contract is ahead of the code — the product's TODO list, printed by every build |
+| `control_out_of_state` | a control leaked outside its `shown_when` |
+| `removed_control_present` | a control the owner removed came back |
+| `shown_when_conflicts_transition` | the contract shows a control in a state its operation cannot depart from — the reference here is the **card**, so the form and the screen can drift together and still be caught |
+| `undescribed_element` (warning) | rendered, accounted for by nobody — the mirror of a wild endpoint, and the queue of decisions the owner has not made yet |
+| `form_inventory_missing` | cannot run, **NOT considered passed** |
+
+Check 5 is opt-in through `forms:` in the config: a backend repository has no forms and its
+silence is not a failure. What it deliberately cannot see, stated rather than discovered:
+**content** (that the summary includes tonnage — the anchor is visible, the text is not) and
+**behaviour** (that "next" opens strictly the next one) — both belong to ordinary tests, and the
+contract carries them as prose for the human who writes those tests.
+
+The measured rule behind `shown_when`: a control is available exactly in the states of the called
+operation's `data_transition.from`. Two screens, zero exceptions, before it was written down.
+
+### 7.6 Scoping the checks per repository
+
+`checks: [5]` in the config limits which checks run. A frontend repository serves no routes and
+owns no tables; running checks 1–4 there would fail on inputs that cannot exist, and a check that
+always fails gets ignored — the report-mode lesson one level up. Scoping is declared in the
+config, visible in review; **within the declared scope, "cannot run" still means "not passed"**.
+
 ## 8. Maturity of this specification
 
 v0.2 was reached by writing cards for eight real operations of a production system and recording
@@ -719,6 +769,7 @@ where the format broke:
 | 10 | **A screen against a described operation** — one real button traced from control to pixel | One, optional: `covers_outcomes{}` (§5.7) |
 | 11 | **Four more screens** — a form, a service operation, and a bulk pair | None new. Round 10's own rule corrected twice: job states out of the vocabulary, per-item failures in; plus `outcomes_indistinguishable` |
 | 12 | **The layer below** — cards against a live schemaless store | One, optional: `data.storage[]`, plus check 4 (§7.4) |
+| 13 | **The layer above, inverted** — the owner authors form contracts first; the rendered screens answer | Two optional artifact kinds: the form contract and the form inventory, plus check 5 (§7.5) |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

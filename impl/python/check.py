@@ -815,37 +815,47 @@ def main() -> int:
 
     config, base = load_config(args.config)
 
-    route_findings, summary = check(config, base)
-    print(f"inventory:  {summary['served']} route(s) served"
-          + (f", produced by {summary['produced_by']}" if summary["produced_by"] else ""))
-    print(f"cards:      {summary['declared']} REST route(s) declared")
-    print(f"excluded:   {summary['excluded']} route(s)")
-    for pattern, count in summary["hidden_per_rule"].items():
-        print(f"              {pattern} → {count}")
-    print()
-    errors = report("check 1 (no wild endpoints)", route_findings)
+    # `checks: [5]` scopes which checks apply to THIS repository — same rule as the TypeScript twin.
+    scope = config.get("checks")
+    def in_scope(n: int) -> bool:
+        return not scope or n in scope
+    errors = 0
 
-    coverage_findings, coverage = check_coverage(config, base)
-    print(f"report:     {coverage['report_cases']} test case(s)")
-    print(f"steps:      {coverage['proven']} proven, {coverage['unproven']} not")
-    print()
-    errors += report("check 2 (no unproven steps)", coverage_findings)
+    if in_scope(1):
+        route_findings, summary = check(config, base)
+        print(f"inventory:  {summary['served']} route(s) served"
+              + (f", produced by {summary['produced_by']}" if summary["produced_by"] else ""))
+        print(f"cards:      {summary['declared']} REST route(s) declared")
+        print(f"excluded:   {summary['excluded']} route(s)")
+        for pattern, count in summary["hidden_per_rule"].items():
+            print(f"              {pattern} → {count}")
+        print()
+        errors += report("check 1 (no wild endpoints)", route_findings)
 
-    maturity_findings, maturity = check_maturity(config, base)
-    print(f"cards:      {maturity['cards']} card(s), {maturity['paths_checked']} evidence path(s) checked"
-          + ("" if maturity["code_root"] else " — no `code_root`, path check NOT RUN"))
-    print(f"horizon:    {maturity['horizon']} days")
-    print()
-    errors += report("check 3 (no inflated maturity)", maturity_findings)
+    if in_scope(2):
+        coverage_findings, coverage = check_coverage(config, base)
+        print(f"report:     {coverage['report_cases']} test case(s)")
+        print(f"steps:      {coverage['proven']} proven, {coverage['unproven']} not")
+        print()
+        errors += report("check 2 (no unproven steps)", coverage_findings)
 
-    storage_findings, storage = check_storage(config, base)
-    print(f"storage:    {storage['stores']} store(s)"
-          + (f", produced by {storage['produced_by']}" if storage["produced_by"] else "")
-          + f"; {storage['claims']} claim(s) in cards touching {storage['touched']}")
-    errors += report("check 4 (no imagined storage)", storage_findings)
+    if in_scope(3):
+        maturity_findings, maturity = check_maturity(config, base)
+        print(f"cards:      {maturity['cards']} card(s), {maturity['paths_checked']} evidence path(s) checked"
+              + ("" if maturity["code_root"] else " — no `code_root`, path check NOT RUN"))
+        print(f"horizon:    {maturity['horizon']} days")
+        print()
+        errors += report("check 3 (no inflated maturity)", maturity_findings)
 
-    # Check 5 is opt-in: a backend repository has no forms. Same rule as the TypeScript twin.
-    if config.get("forms"):
+    if in_scope(4):
+        storage_findings, storage = check_storage(config, base)
+        print(f"storage:    {storage['stores']} store(s)"
+              + (f", produced by {storage['produced_by']}" if storage["produced_by"] else "")
+              + f"; {storage['claims']} claim(s) in cards touching {storage['touched']}")
+        errors += report("check 4 (no imagined storage)", storage_findings)
+
+    # Check 5 is opt-in: naming it in `checks:` or declaring `forms:` opts in.
+    if (scope and 5 in scope) or (not scope and config.get("forms")):
         form_findings, form = check_form(config, base)
         print(f"forms:      {form['contracts']} contract(s) against {form['screens']} rendered screen(s)"
               + (f", produced by {form['produced_by']}" if form["produced_by"] else ""))
