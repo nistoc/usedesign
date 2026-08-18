@@ -733,6 +733,8 @@ removed:
 | `control_out_of_state` | a control leaked outside its `shown_when` |
 | `removed_control_present` | a control the owner removed came back |
 | `shown_when_conflicts_transition` | the contract shows a control in a state its operation cannot depart from — the reference here is the **card**, so the form and the screen can drift together and still be caught |
+| `member_out_of_group` | the seating chart is wrong: a member renders outside its contracted group — judged only against an inventory that records containers |
+| `group_missing` | a group's anchor exists only in the contract; nothing renders it |
 | `undescribed_element` (warning) | rendered, accounted for by nobody — the mirror of a wild endpoint, and the queue of decisions the owner has not made yet |
 | `form_inventory_missing` | cannot run, **NOT considered passed** |
 
@@ -750,9 +752,16 @@ headers, footers, tables, toolbars, menus, and which elements and controls sit i
 order **is** the group order (a separate order key would be a duplicate that drifts); membership
 is to the **nearest** group — a flat model, not a tree, twice refuted by measurement. A group's
 anchor may coincide with a `presents` field: a container that itself shows content, which is how
-real headers measure. Membership against the code is **authored, not yet verified** — the
-inventory records anchors flat, so check 5 proves a group's anchor exists but not who sits
-inside it; a declared limit, like `shown_when_rule`.
+real headers measure.
+
+Membership is **verified** when the inventory carries `within`: for each anchor, the containers
+it actually rendered inside — the full ancestor chain of container anchors, all instances
+merged. The chain, not the nearest parent, deliberately: a flat contract may name any level,
+and intermediate undescribed containers must not read as misplacement. An older inventory
+without `within` leaves membership **not judged, never failed** — absence of the measurement is
+not evidence. The very first container-aware inventory refuted its own contract: `add-set` was
+contracted into the footer off a line of source, and measured living only in the set table —
+that branch of the footer never renders. The checker's first catch was its author.
 
 ```yaml
 groups:
@@ -806,6 +815,7 @@ where the format broke:
 | 12 | **The layer below** — cards against a live schemaless store | One, optional: `data.storage[]`, plus check 4 (§7.4) |
 | 13 | **The layer above, inverted** — the owner authors form contracts first; the rendered screens answer | Two optional artifact kinds: the form contract and the form inventory, plus check 5 (§7.5) |
 | 14 | **The contract's own shape** — a planted `presnts` typo passed 0.5.0 silently; plus grouping by purpose (headers, footers, tables) | One optional field: `groups[]`; validation of form contracts with named codes (§7.5) |
+| 15 | **The seating chart against the measurement** — the producer records each anchor's container chain; membership becomes checkable and immediately refutes its own author's contract | One optional inventory key: `within`; findings `member_out_of_group`, `group_missing` (§7.5) |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

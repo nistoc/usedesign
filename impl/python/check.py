@@ -668,9 +668,14 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     for form in data.get("forms") or []:
         states = {}
         for s in form.get("states") or []:
+            # `within` is optional: an inventory that predates container recording gets
+            # membership NOT JUDGED, never failed.
+            raw_within = s.get("within")
             states[str(s.get("state"))] = {
                 "fields": {str(x) for x in s.get("fields") or []},
                 "controls": {str(x) for x in s.get("controls") or []},
+                "within": ({str(k): {str(c) for c in v or []} for k, v in raw_within.items()}
+                           if isinstance(raw_within, dict) else None),
             }
         by_screen[str(form.get("screen"))] = states
 
@@ -766,6 +771,41 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                     findings.append(Finding("removed_control_present",
                                             f"{contract_id}: control `{name}` was removed by the "
                                             f"owner's decision yet appears in state `{state}`"))
+
+        # ── group membership ─────────────────────────────────────────────────
+        # The contract seats elements in groups; the inventory's `within` records which
+        # containers each anchor ACTUALLY rendered inside. Judged only where the member renders
+        # and the inventory carries the measurement. The first inventory with containers refuted
+        # its own contract: `add-set` was contracted into the footer and measured living only in
+        # the set table — the checker's first catch was its author.
+        for group in fm.get("groups") or []:
+            gname = str(group.get("group") or "")
+            if not gname:
+                continue
+            anchor_seen = any(
+                gname in rendered["fields"]
+                or (rendered["within"] is not None
+                    and any(gname in chain for chain in rendered["within"].values()))
+                for rendered in states.values())
+            if not anchor_seen:
+                findings.append(Finding("group_missing",
+                                        f"{contract_id}: group `{gname}` is contracted but its "
+                                        "anchor never renders"))
+            for member_raw in group.get("contains") or []:
+                member = str(member_raw)
+                for state, rendered in states.items():
+                    if rendered["within"] is None:
+                        continue
+                    if member not in rendered["fields"] and member not in rendered["controls"]:
+                        continue
+                    chain = rendered["within"].get(member) or set()
+                    if gname not in chain:
+                        inside = ", ".join(sorted(chain))
+                        findings.append(Finding("member_out_of_group",
+                                                f"{contract_id}: `{member}` is contracted into "
+                                                f"`{gname}` but in state `{state}` renders "
+                                                f"inside [{inside}]"))
+                        break
 
     for screen, states in by_screen.items():
         mine = claimed.get(screen)

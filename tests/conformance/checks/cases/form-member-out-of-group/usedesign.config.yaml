@@ -1,0 +1,4 @@
+usedesign_config: 1
+forms:
+  - ./*.contract.md
+form_inventory: form-inventory.json

@@ -11,12 +11,9 @@
             "session-head",
             "session-foot",
             "session-status",
-            "main-progress",
-            "phase-badge"
+            "main-progress"
           ],
-          "controls": [
-            "finish"
-          ],
+          "controls": [],
           "within": {
             "session-head": [],
             "session-foot": [],
@@ -25,26 +22,6 @@
             ],
             "main-progress": [
               "session-foot"
-            ],
-            "phase-badge": [
-              "session-head"
-            ],
-            "finish": [
-              "session-foot"
-            ]
-          }
-        },
-        {
-          "state": "finished",
-          "fields": [
-            "session-head",
-            "session-status"
-          ],
-          "controls": [],
-          "within": {
-            "session-head": [],
-            "session-status": [
-              "session-head"
             ]
           }
         }

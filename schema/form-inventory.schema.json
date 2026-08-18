@@ -26,7 +26,12 @@
               "properties": {
                 "state": { "type": "string", "minLength": 1 },
                 "fields": { "type": "array", "items": { "type": "string" } },
-                "controls": { "type": "array", "items": { "type": "string" } }
+                "controls": { "type": "array", "items": { "type": "string" } },
+                "within": {
+                  "description": "For each anchor, the containers it renders inside — the full ancestor chain of data-section / data-panel-head / data-control anchors, all instances merged. Optional: an inventory without it predates container recording, and group membership is then not judged rather than failed.",
+                  "type": "object",
+                  "additionalProperties": { "type": "array", "items": { "type": "string" } }
+                }
               }
             }
           }

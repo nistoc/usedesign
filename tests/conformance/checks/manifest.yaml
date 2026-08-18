@@ -246,6 +246,14 @@ cases:
       Three ordinary drifts at once: a required element vanished from its state, a control
       leaked into a state outside its shown_when, and a control the owner removed came back.
       Each is a separate finding — a checker that collapses them teaches the wrong lesson.
+  - dir: form-member-out-of-group
+    check: 5
+    expect: fail
+    codes: [group_missing, member_out_of_group]
+    note: >-
+      The seating chart against the measurement: a member contracted into the header renders in
+      the footer, and one group's anchor never renders at all. Judged only because the inventory
+      carries `within` — an older, flat inventory leaves membership NOT JUDGED, never failed.
   - dir: form-shown-when-conflict
     check: 5
     expect: fail

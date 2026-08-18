@@ -103,11 +103,18 @@ export function renderPreviewHtml(data: PreviewData): string {
   .grp .grphead{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;display:flex;justify-content:space-between;gap:8px}
   .grp-header{background:#f2f2ea}
   .grp-footer{background:#f2f2ea;border-top:3px solid var(--line)}
-  .grp-table .el, .grp-list .el{border-style:solid;border-left:3px solid #c9c9bf}
+  /* таблица/список — как таблица: ряды впритык, линия между рядами, чёт/нечет полосой */
+  .grp-table,.grp-list{gap:0;padding:0;overflow:hidden}
+  .grp-table .grphead,.grp-list .grphead{padding:8px 10px;background:#eae8dc;border-bottom:1px solid var(--line)}
+  .grp-table .el,.grp-list .el{border:0;border-top:1px solid #e4e4dc;border-radius:0;background:#fff;margin:0;padding:7px 10px}
+  .grp-table .el:nth-child(odd),.grp-list .el:nth-child(odd){background:#f7f7f1}
+  .grp-table .ctl,.grp-list .ctl{margin:6px 10px;align-self:flex-start}
   .grp-toolbar{flex-direction:row;flex-wrap:wrap;align-items:center}
   .grp-menu{border-style:dashed;align-self:flex-end;max-width:70%}
   .ungrouped{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}
-  .ctl{border:1px solid #22251f;border-radius:8px;padding:6px 12px;background:#fff;font-size:13px}
+  /* кнопка — как кнопка: выпуклость, тень, нажатие */
+  .ctl{border:1px solid #55584f;border-radius:8px;padding:6px 14px;background:linear-gradient(#ffffff,#e8e8e0);box-shadow:0 1px 2px #00000038,inset 0 1px 0 #fff;font-size:13px;cursor:pointer;user-select:none}
+  .ctl:active{transform:translateY(1px);box-shadow:0 0 1px #00000038}
   .ctl.rule{border-style:dashed;color:var(--dim)}
   .ctl.removedghost{border-style:dotted;color:var(--todo);text-decoration:line-through}
   .badge{display:inline-block;font-size:10.5px;border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:1px}
