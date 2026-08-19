@@ -1,0 +1,105 @@
+# Гейт usedesign — образец для GitHub Actions. Скопируйте в .github/workflows/ и поправьте
+# три места, помеченные «ПОД СЕБЯ». Списан с двух живых гейтов, каждая странность здесь —
+# оплаченный урок, не перестраховка.
+#
+# Две ступени, обе обязательны: сначала `validate` — карточка вообще является карточкой,
+# потом `check` — карточка сходится с кодом. Гейт только со второй ступенью держался молча и
+# был бессмысленным: замером доказано, что карточку с выдуманным уровнем зрелости он пропускал.
+#
+# РЕЖИМ ОТЧЁТА: расхождения печатаются в сводку прогона, сборка не валится. Строгий гейт на
+# сотне честно неописанных маршрутов выключили бы в первый же день. Как включить строгость:
+# usedesign_strict: true, когда неописанного останется около нуля.
+
+name: usedesign-gate
+
+on:
+  push:
+    branches: [main, 'feat/**', 'fix/**']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  usedesign_strict: false
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: карточки сходятся с кодом
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Версия закреплена намеренно: гейт, тянущий «последнюю», меняет своё поведение без
+      # единой правки в этом репозитории.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # ── вход №1: отчёт тестов ────────────────────────────────── ПОД СЕБЯ ──
+      # continue-on-error: упавший тест — забота вашего обычного CI. Здесь важно получить отчёт
+      # даже о неудачном прогоне: карточка, чей тест упал, обязана это ПОКАЗАТЬ, а не промолчать
+      # вместе со сборкой.
+      - name: Прогнать тесты, получить JUnit
+        continue-on-error: true
+        run: |
+          # dotnet:  dotnet test --logger "junit;LogFilePath=$GITHUB_WORKSPACE/usedesign/test-report.xml"
+          # jest:    jest --reporters=default --reporters=jest-junit
+          # pytest:  pytest --junitxml=usedesign/test-report.xml
+          echo "ПОД СЕБЯ: команда тестов с JUnit-выводом в usedesign/test-report.xml" && exit 1
+
+      # ── вход №2: перечень маршрутов ──────────────────────────── ПОД СЕБЯ ──
+      # Приложение поднимается и спрашивается О СЕБЕ. Если OpenAPI не отдан — проверка
+      # НЕ ПРОЙДЕНА, а не пропущена: шаг валится.
+      - name: Поднять приложение и снять перечень маршрутов
+        run: |
+          set -euo pipefail
+          # ПОД СЕБЯ: старт приложения + адрес его OpenAPI-документа
+          # <ваша команда старта> & APP_PID=$!
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:8080/openapi/v1.json -o /tmp/openapi.json 2>/dev/null; then break; fi
+            sleep 2
+          done
+          if [ ! -s /tmp/openapi.json ]; then
+            echo "::error::приложение не отдало OpenAPI — проверка №1 НЕ пройдена, а не пропущена"
+            exit 1
+          fi
+          python3 usedesign/tools/inventory-from-openapi.py /tmp/openapi.json usedesign/route-inventory.json
+
+      # ── сверка ─────────────────────────────────────────────────────────────
+      - name: Сверить карточки с кодом
+        run: |
+          # `set +e` обязателен и не перестраховка: раннер запускает шаг как `bash -e`, и
+          # ненулевой код сверщика валил бы шаг МГНОВЕННО — до сводки и до решения о режиме.
+          # Локально не воспроизводится (там оболочка без -e), найдено первым настоящим прогоном.
+          set +e
+          set -uo pipefail
+
+          npx --yes usedesign@0.7.0 validate usedesign/cards/ | tee /tmp/ud-validate.txt
+          VSTATUS=${PIPESTATUS[0]}
+
+          npx --yes usedesign@0.7.0 check usedesign/usedesign.config.yaml | tee /tmp/ud-check.txt
+          STATUS=${PIPESTATUS[0]}
+
+          {
+            echo "## usedesign — сходятся ли карточки с кодом"
+            echo '```'
+            tail -1 /tmp/ud-validate.txt
+            grep -E "^(inventory|cards|report|steps|horizon|excluded):|→ check" /tmp/ud-check.txt || true
+            echo '```'
+            echo
+            echo '```'
+            grep -E "ERROR|warning" /tmp/ud-check.txt | grep -v "wild_endpoint" | head -40 || true
+            echo '```'
+            WILD=$(grep -c "wild_endpoint" /tmp/ud-check.txt || true)
+            echo "Плюс **$WILD** маршрутов, пока не описанных ни одной карточкой — признанная неполнота, не поломка."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ env.usedesign_strict }}" = "true" ]; then
+            [ "$VSTATUS" -eq 0 ] || exit "$VSTATUS"
+            exit $STATUS
+          fi
+          echo "режим отчёта: расхождения показаны, сборка не валится (validate=$VSTATUS, check=$STATUS)"
+          exit 0

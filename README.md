@@ -4,7 +4,7 @@
 
 [![conformance](https://github.com/nistoc/usedesign/actions/workflows/conformance.yml/badge.svg)](https://github.com/nistoc/usedesign/actions/workflows/conformance.yml)
 
-*[Русская версия](README.ru.md)*
+*[Русская версия](README.ru.md)* · **Team quickstart (RU): [starter-kit/](starter-kit/)**
 
 ---
 
@@ -123,6 +123,7 @@ specification is a description like any other, and descriptions drift from what 
 | [design/](design/) | Design notes — questions worked out before they are specified |
 | [impl/](impl/) | Implementations, one directory each |
 | [docs/](docs/) | An animated walkthrough of all of the above |
+| [starter-kit/](starter-kit/) | Team quickstart (RU): config, gate, inventory tool — copy and go |
 
 ## Repository layout
 
@@ -155,7 +156,7 @@ report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 30 card cases and 23 repository cases, verdicts, codes **and warnings**
+- [x] Conformance corpus — 37 card cases and 29 repository cases, verdicts, codes **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))
@@ -164,13 +165,25 @@ report about the same repository.
 - [x] Check 3 designed and prototyped — the implementation path must exist, and the one claim
       nobody can verify expires instead ([design note](design/maturity-evidence.md))
 - [x] `usedesign validate` — cards against the schema **and** the cross-card rules
-- [x] `usedesign check` — the three invariants, holding the 23-case repository corpus
+- [x] Check 4 — no imagined storage: cards' storage claims against the keys and indexes the
+      live store declares about itself (SPEC §7.4)
+- [x] Check 5 — the form matches its contract: the one check whose reference is **authored**,
+      not measured — the owner writes what a screen must show, a test renders the real
+      components, and the errors are the product's TODO list (SPEC §7.5); form contracts are
+      validated with named codes, grouping by purpose included, group membership verified
+      against the rendered container chains
+- [x] `usedesign check` — the five checks, holding the 29-case repository corpus; a repository
+      declares which checks apply to it (`checks: [5]`, SPEC §7.6)
 - [x] `usedesign scaffold` — a draft card per undescribed route, read from the application's own
       OpenAPI. Every draft fails validation on purpose: a shell that validated would look like a
       description while claiming maturity nobody measured
 - [x] A reference implementation in TypeScript, both corpora run in CI on three Node versions,
       plus a job that insists the deliberately rotten fixture still fails
+- [x] `usedesign preview` — form contracts as a three-rail wireframe page: the tree, the text,
+      and a rough canvas with a verdict badge on every element
 - [x] Published to npm with build provenance — `npx usedesign` needs no clone
+- [x] [starter-kit/](starter-kit/) — adopt checks 1–3 in a foreign repository within an hour
+      (RU), with an honest list of what is still raw
 - [ ] `usedesign gen openapi` — derive an API contract from the cards (the opposite direction to
       `scaffold`). Not started
 
