@@ -184,8 +184,10 @@ report about the same repository.
 - [x] Published to npm with build provenance — `npx usedesign` needs no clone
 - [x] [starter-kit/](starter-kit/) — adopt checks 1–3 in a foreign repository within an hour
       (RU), with an honest list of what is still raw
-- [ ] `usedesign gen openapi` — derive an API contract from the cards (the opposite direction to
-      `scaffold`). Not started
+- [x] `usedesign gen openapi` — derive an API contract from the cards, the opposite direction to
+      `scaffold`: a `designed` card yields its contract BEFORE the code exists. Response codes are
+      named by the outcomes and violated steps that declare them; the closed loop is checked by
+      feeding the generated document back to `scaffold`, which must report zero undescribed routes
 
 The checker is the point: a catalogue without one becomes aspiration within months. It exists
 now, on two runtimes, and CI compares what they say about the same repository — because two tools

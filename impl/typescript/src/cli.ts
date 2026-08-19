@@ -13,6 +13,7 @@ import { CHECKS, checkCoverage, checkForm, checkMaturity, checkRoutes, checkStor
 import { codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { planScaffold, writeScaffold } from "./scaffold.js";
+import { commandGen } from "./gen.js";
 import { commandPreview } from "./preview.js";
 import { validate, validateForm, validateFormSchema, validateSchema } from "./validate.js";
 
@@ -36,6 +37,8 @@ Usage:
                                       draft a card shell per undescribed route
   usedesign preview <config> --out <file.html>
                                       render form contracts as a three-rail wireframe page
+  usedesign gen openapi <config> --out <file.json>
+                                      derive an OpenAPI contract from the cards (contract-first)
   usedesign conformance [--cards|--checks]
                                       run the conformance corpora
   usedesign --help | --version
@@ -273,6 +276,16 @@ function main(argv: string[]): number {
         return 2;
       }
       return commandScaffold(free[0]!, outDir, values.get("--config"), flags.includes("--dry-run"), flags.includes("--force"));
+    }
+
+    case "gen": {
+      const out = rest[rest.indexOf("--out") + 1];
+      const free = rest.filter((a, i) => !a.startsWith("--") && rest[i - 1] !== "--out");
+      if (free.length !== 2 || free[0] !== "openapi" || !out || out.startsWith("--")) {
+        console.error("usedesign gen: usage — usedesign gen openapi <usedesign.config.yaml> --out <file.json>");
+        return 2;
+      }
+      return commandGen(free[1]!, out, loadConfig);
     }
 
     case "preview": {
