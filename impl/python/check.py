@@ -772,6 +772,13 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                                             f"{contract_id}: control `{name}` was removed by the "
                                             f"owner's decision yet appears in state `{state}`"))
 
+        # A group's anchor is accounted for BY the group line: the owner named the container
+        # when grouping by it. Warning about it as undescribed would ask the owner to decide
+        # what they already decided — measured 19.08: three of fourteen warnings were this.
+        for group in fm.get("groups") or []:
+            if group.get("group"):
+                mine["fields"].add(str(group.get("group")))
+
         # ── group membership ─────────────────────────────────────────────────
         # The contract seats elements in groups; the inventory's `within` records which
         # containers each anchor ACTUALLY rendered inside. Judged only where the member renders
