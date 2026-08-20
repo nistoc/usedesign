@@ -590,8 +590,9 @@
       ],
       "properties": {
         "entities": {
+          "description": "Domain entities the operation touches. An EXPLICIT empty list means 'touches no storage at all' — a build-stamp endpoint reads process configuration, not records. The list is required so nobody forgets to answer; empty is an answer (issue #2).",
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "items": {
             "type": "string"
           }
@@ -634,7 +635,7 @@
       }
     },
     "provenance": {
-      "description": "What is recorded about who did what, or 'none' for read-only operations.",
+      "description": "What is recorded about who did what. 'none' = nothing recorded AND nothing changed. `records_only: true` = the operation changes no domain state and the audit entry is its ONLY write — the read that records who asked (issue #1: 'none' conflated 'nothing recorded' with 'nothing changed', and the compliance read had no truthful form).",
       "oneOf": [
         {
           "const": "none"
@@ -647,6 +648,9 @@
           "properties": {
             "activity_kind": {
               "type": "string"
+            },
+            "records_only": {
+              "type": "boolean"
             },
             "attributed_to": {
               "type": "string"
@@ -1013,6 +1017,22 @@
             "properties": {
               "provenance": {
                 "const": "none"
+              }
+            }
+          },
+          {
+            "$comment": "The audit-only read: changes no domain state, records who asked. The provenance IS the declared write (issue #1).",
+            "properties": {
+              "provenance": {
+                "type": "object",
+                "required": [
+                  "records_only"
+                ],
+                "properties": {
+                  "records_only": {
+                    "const": true
+                  }
+                }
               }
             }
           }

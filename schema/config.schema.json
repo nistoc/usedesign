@@ -4,15 +4,35 @@
   "title": "usedesign.config.yaml",
   "description": "The one configuration file of the project. Everything else is description. Lives at the root of the checked repository.",
   "type": "object",
-  "required": ["usedesign_config", "cards"],
+  "required": ["usedesign_config"],
   "additionalProperties": false,
   "properties": {
     "usedesign_config": { "const": 1 },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "integer", "minimum": 1, "maximum": 5 },
+      "description": "Which checks apply to THIS repository (SPEC §7.6). A frontend declares [5]; within the declared scope 'cannot run' still means 'not passed'. This key was honoured by the CLI but absent here — a typo silently dropped the scoping (issue #4); the CLI now refuses unknown keys."
+    },
     "cards": {
       "type": "array",
       "minItems": 1,
       "items": { "type": "string" },
-      "description": "Glob patterns locating the operation cards."
+      "description": "Glob patterns locating the operation cards. Optional: a forms-only repository (checks: [5]) has none."
+    },
+    "forms": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "Glob patterns locating the form contracts (check 5)."
+    },
+    "form_inventory": {
+      "type": "string",
+      "description": "Path to the form inventory (schema/form-inventory.schema.json), produced per run by rendering the real components. Without it, check 5 cannot run and is NOT considered passed."
+    },
+    "storage_inventory": {
+      "type": "string",
+      "description": "Path to the storage inventory (schema/storage-inventory.schema.json), produced per run from the live store. Without it, check 4 cannot run and is NOT considered passed."
     },
     "inventory": {
       "type": "string",

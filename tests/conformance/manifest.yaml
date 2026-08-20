@@ -169,6 +169,21 @@ cases:
       nobody notices. Measured on a real screen: 401 and 403 both surfaced as the same «try
       again», so the user who must give consent is told to do the one thing that cannot help.
 
+  - file: valid/no-storage.op.md
+    expect: valid
+    codes: []
+    note: >-
+      Touches no storage at all — the build stamp comes from process configuration (issue #2).
+      `entities: []` is the honest answer, and it is an answer: the list stays required so
+      nobody forgets the question; empty says "none".
+  - file: valid/read-with-audit.op.md
+    expect: valid
+    codes: []
+    note: >-
+      The audit-only read (issue #1): changes no domain state, records who asked. Before
+      `records_only` this card picked between two lies. An implementation reporting
+      write_without_effect here still forces the choice.
+
   # ── form contracts ───────────────────────────────────────────────────────────────────────────
   # The same `validate` command, told apart by `usedesign_form: 1`. Until 0.6.0 these documents
   # had no validator at all: `validate forms/` collected nothing and printed a green

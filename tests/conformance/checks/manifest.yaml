@@ -246,6 +246,16 @@ cases:
       Three ordinary drifts at once: a required element vanished from its state, a control
       leaked into a state outside its shown_when, and a control the owner removed came back.
       Each is a separate finding — a checker that collapses them teaches the wrong lesson.
+  - dir: route-designed-ahead
+    check: 1
+    expect: pass
+    warnings: [route_not_yet_served]
+    note: >-
+      A designed card's route is absent from the inventory — expected, not a phantom (issue #3).
+      Two opposite situations used to share one diagnostic, and the earlier one is exactly what
+      conceived/designed exist to describe. An implementation still reporting phantom_route here
+      makes contract-first red by construction, and a check that is red by construction gets
+      ignored until the real phantom arrives unread.
   - dir: form-member-out-of-group
     check: 5
     expect: fail

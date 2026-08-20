@@ -493,9 +493,18 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   }
 
   // ── effect of a write ──────────────────────────────────────────────────────────────────────
+  // Three truthful forms for a null transition: `mutates` (a write that names its fields),
+  // `provenance: none` (nothing recorded AND nothing changed), or `records_only: true` — the
+  // audit-only read: changes no domain state, records who asked. The third arrived from issue
+  // #1: a compliance read had to pick between two lies, and the smaller lie was still a lie.
   if ("data_transition" in fm && fm["data_transition"] === null) {
-    if (!fm["mutates"] && fm["provenance"] !== "none") {
-      err("write_without_effect", "`data_transition: null` with neither `mutates` nor `provenance: none`");
+    const provenance = fm["provenance"];
+    const recordsOnly = provenance && typeof provenance === "object" && provenance.records_only === true;
+    if (!fm["mutates"] && provenance !== "none" && !recordsOnly) {
+      err(
+        "write_without_effect",
+        "`data_transition: null` with neither `mutates`, `provenance: none`, nor `records_only: true` — the write does not say what it changes",
+      );
     }
   }
 

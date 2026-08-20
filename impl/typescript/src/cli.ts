@@ -109,7 +109,7 @@ function commandCheck(configPath: string): number {
   const routes = checkRoutes(config, base);
   const s = routes.summary as Record<string, any>;
   console.log(`inventory:  ${s["served"]} route(s) served${s["produced_by"] ? `, produced by ${s["produced_by"]}` : ""}`);
-  console.log(`cards:      ${s["declared"]} REST route(s) declared`);
+  console.log(`cards:      ${s["declared"]} REST route(s) declared` + (s["designed_ahead"] ? `, ${s["designed_ahead"]} designed ahead of the code` : ""));
   console.log(`excluded:   ${s["excluded"]} route(s)`);
   for (const [pattern, count] of Object.entries(s["hidden_per_rule"] as Record<string, number>)) {
     console.log(`              ${pattern} → ${count}`);

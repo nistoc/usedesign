@@ -1,0 +1,7 @@
+{
+  "usedesign_inventory": 1,
+  "produced_by": "runtime dump — the application's own route table",
+  "routes": [
+    { "method": "GET", "path": "/records/{id}", "source": "route table" }
+  ]
+}

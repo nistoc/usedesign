@@ -537,10 +537,10 @@ than in the path, this field is the only place it is visible.
 
 | Field | | Meaning |
 |---|:--:|---|
-| `data.entities` | ⬛ | Tables / entities the operation touches |
+| `data.entities` | ⬛ | Tables / entities the operation touches. An EXPLICIT empty list means «touches no storage at all» (a build-stamp endpoint reads process configuration, not records) — required so nobody forgets the question; empty is an answer (issue #2) |
 | `data.fields_touched` | ⬜ | Specific fields |
 | `data.migrations` | ⬜ | Migrations the operation depends on |
-| `provenance` | ⬛ | `{ activity_kind: <kind> }` or `none`. Explicit — otherwise the checker demands an audit test where nothing is recorded |
+| `provenance` | ⬛ | `{ activity_kind: <kind>[, records_only: true] }` or `none`. `none` = nothing recorded AND nothing changed; `records_only: true` = the audit entry is the operation's ONLY write — the read that records who asked. Issue #1 measured the gap: the compliance read had to pick between two lies |
 | `reversibility` | ⬛ | `{ reversible_via: <id> }` · `reversible` · `irreversible` · `not_applicable` |
 | `sensitivity` | ⬜ | `{ response_contains_secret, disclosure, storage, logging_rule }`. `disclosure` ∈ `one_time` · `repeatable` · `never` |
 | `consumer_boundary` | ⬜ | `{ owner, our_role, adr }` — when the scenario belongs to another system |
@@ -629,6 +629,12 @@ The format only pays for itself with an automated checker. Three invariants:
    Routes that are deliberately not operations — health probes, metrics, generated documentation —
    are excluded in [`usedesign.config.yaml`](schema/config.schema.json), and every exclusion states
    a reason and reports what it hid. An exclusion nobody had to justify is one nobody revisits.
+   A declared route ABSENT from the inventory splits by the owners' maturity (issue #3, filed
+   from the first outside pilot): every declaring card below `implemented` →
+   `route_not_yet_served`, a **warning** — designed ahead of the code, the format's own
+   contract-first flow, counted separately in the summary; otherwise `phantom_route`, an error.
+   A check that is red by construction gets ignored, and the real phantom then arrives in a
+   report nobody reads.
 2. **No unproven steps** — every step is covered by at least one test that **exists, ran, passed
    and was not skipped**, or appears in `coverage_gaps`.
    A card naming a test proves nothing on its own: the test may have been renamed last spring, or
@@ -796,6 +802,11 @@ owns no tables; running checks 1–4 there would fail on inputs that cannot exis
 always fails gets ignored — the report-mode lesson one level up. Scoping is declared in the
 config, visible in review; **within the declared scope, "cannot run" still means "not passed"**.
 
+The config's keys are enforced at load, not merely published in `config.schema.json`: a
+misspelled `cheks:` used to be accepted silently — the scoping vanished and the check it was
+meant to skip failed pointing at a different cause (issue #4). Both implementations refuse an
+unknown key, naming it and the known set.
+
 ## 8. Maturity of this specification
 
 v0.2 was reached by writing cards for eight real operations of a production system and recording
@@ -816,6 +827,7 @@ where the format broke:
 | 13 | **The layer above, inverted** — the owner authors form contracts first; the rendered screens answer | Two optional artifact kinds: the form contract and the form inventory, plus check 5 (§7.5) |
 | 14 | **The contract's own shape** — a planted `presnts` typo passed 0.5.0 silently; plus grouping by purpose (headers, footers, tables) | One optional field: `groups[]`; validation of form contracts with named codes (§7.5) |
 | 15 | **The seating chart against the measurement** — the producer records each anchor's container chain; membership becomes checkable and immediately refutes its own author's contract | One optional inventory key: `within`; findings `member_out_of_group`, `group_missing` (§7.5) |
+| 16 | **Foreign ground files its findings** — five issues from the first outside pilot, measured on a live service | `records_only` on provenance (§5.8), `entities: []` (§5.8), `route_not_yet_served` (§7.1), config keys enforced at load (§7.6), the starter kit names its inventory's blind spot |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

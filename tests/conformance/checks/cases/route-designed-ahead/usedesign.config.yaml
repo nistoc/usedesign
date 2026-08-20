@@ -1,0 +1,4 @@
+usedesign_config: 1
+cards:
+  - ./*.op.md
+inventory: route-inventory.json

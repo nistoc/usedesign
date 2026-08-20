@@ -19,7 +19,7 @@
 **Шаг 0. Инструмент не ставится — он зовётся:**
 
 ```bash
-npx usedesign@0.7.0 --help
+npx usedesign@0.8.0 --help
 ```
 
 Версию закрепляйте (`@0.7.0`, не `latest`): проверка, которая молча меняет своё поведение
@@ -29,7 +29,13 @@ npx usedesign@0.7.0 --help
 [usedesign.config.yaml](usedesign.config.yaml) из этой папки и поправьте пути.
 
 **Шаг 2. Перечень маршрутов.** Поднимите своё приложение, снимите его OpenAPI-документ и
-превратите в перечень скриптом [tools/inventory-from-openapi.py](tools/inventory-from-openapi.py):
+превратите в перечень скриптом [tools/inventory-from-openapi.py](tools/inventory-from-openapi.py).
+⚠️ **Граница этого пути** (замерена на живом сервисе): OpenAPI показывает только то, что
+разработчик решил опубликовать — маршрут, скрытый из документации (`ExcludeFromDescription()`
+и родня), в перечень не попадёт, и проверка №1 его не увидит. Честный источник по SPEC —
+собственная таблица маршрутов фреймворка (в ASP.NET — `EndpointDataSource` через служебную
+ручку, живущую только в Development). Скрипт из OpenAPI — дешёвый старт первого часа; перечень
+подписывает свою границу сам:
 
 ```bash
 curl -fsS http://localhost:8080/openapi/v1.json -o /tmp/openapi.json
@@ -45,13 +51,13 @@ python3 usedesign/tools/inventory-from-openapi.py /tmp/openapi.json usedesign/ro
 нём.** Проверьте себя:
 
 ```bash
-npx usedesign@0.7.0 validate usedesign/cards/
-npx usedesign@0.7.0 check usedesign/usedesign.config.yaml
+npx usedesign@0.8.0 validate usedesign/cards/
+npx usedesign@0.8.0 check usedesign/usedesign.config.yaml
 ```
 
 Сотни строк «маршрут не описан никем» в первом прогоне — это норма и есть смысл: теперь
 неописанное ВИДНО. Заготовки для остальных маршрутов генерируются командой
-`npx usedesign@0.7.0 scaffold <openapi.json> --out usedesign/drafts` — каждая заготовка
+`npx usedesign@0.8.0 scaffold <openapi.json> --out usedesign/drafts` — каждая заготовка
 нарочно не проходит валидацию, пока человек её не дозаполнит и не перенесёт в `cards/`.
 
 **Шаг 5. Гейт.** Скопируйте [usedesign-gate.yml](usedesign-gate.yml) в
@@ -70,7 +76,7 @@ npx usedesign@0.7.0 check usedesign/usedesign.config.yaml
   требовательная часть. SPEC §7.5.
 - **Фронтовый репозиторий** объявляет в конфиге `checks: [5]` — проверки маршрутов и хранилища
   там бессмысленны и потому отключены гласно. SPEC §7.6.
-- **Превью контрактов**: `npx usedesign@0.7.0 preview usedesign/usedesign.config.yaml --out
+- **Превью контрактов**: `npx usedesign@0.8.0 preview usedesign/usedesign.config.yaml --out
   preview.html` — страница с деревом форм, текстом контракта и грубым каркасом, где у каждого
   элемента вердикт «есть / нет в коде / вне контракта».
 
@@ -95,4 +101,4 @@ npx usedesign@0.7.0 check usedesign/usedesign.config.yaml
 | Полные правила формата | [SPEC.md](../SPEC.md) |
 | Разобранные карточки | [examples/library/](../examples/library/) |
 | Почему проверки устроены именно так | [design/](../design/) |
-| Что обязан уметь любой сверщик | [tests/conformance/](../tests/conformance/) — 66 случаев |
+| Что обязан уметь любой сверщик | [tests/conformance/](../tests/conformance/) — 69 случаев |

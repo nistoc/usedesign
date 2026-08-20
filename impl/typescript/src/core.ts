@@ -58,10 +58,28 @@ export function frontMatter(path: string): Card | null {
   return parsed && typeof parsed === "object" ? (parsed as Card) : null;
 }
 
+/**
+ * Every key the config may carry. Enforced at load, not merely published in the schema: measured
+ * on issue #4 — `cheks:` was accepted silently, the scoping vanished, and the check it was meant
+ * to skip failed pointing at a completely different cause. A config typo must stop the run with
+ * its own name, because everything downstream inherits its damage.
+ */
+const CONFIG_KEYS = new Set([
+  "usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
+  "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory",
+]);
+
 export function loadConfig(path: string): { config: Config; base: string } {
   const config = parseYaml(readFileSync(path, "utf8")) as Config;
   if (!config || typeof config !== "object" || config.usedesign_config !== 1) {
     throw new Error(`${path}: not a usedesign config (expected \`usedesign_config: 1\`)`);
+  }
+  for (const key of Object.keys(config)) {
+    if (!CONFIG_KEYS.has(key)) {
+      throw new Error(
+        `${path}: \`${key}\` is not a config key — a typo here silently changes what is checked. Known keys: ${[...CONFIG_KEYS].join(", ")}`,
+      );
+    }
   }
   return { config, base: dirname(resolve(path)) };
 }

@@ -68,11 +68,22 @@ def normalise(method: str, path: str) -> tuple[str, str]:
     return method.strip().upper(), shape
 
 
+# Every key the config may carry. Enforced at load, not merely published in the schema:
+# measured on issue #4 — `cheks:` was accepted silently, the scoping vanished, and the check it
+# was meant to skip failed pointing at a completely different cause.
+CONFIG_KEYS = {"usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
+               "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory"}
+
+
 def load_config(path: str) -> tuple[dict, str]:
     with open(path, encoding="utf-8") as handle:
         config = yaml.safe_load(handle)
     if not isinstance(config, dict) or config.get("usedesign_config") != 1:
         sys.exit(f"{path}: not a usedesign config (expected `usedesign_config: 1`)")
+    for key in config:
+        if key not in CONFIG_KEYS:
+            sys.exit(f"{path}: `{key}` is not a config key — a typo here silently changes what "
+                     f"is checked. Known keys: {', '.join(sorted(CONFIG_KEYS))}")
     return config, os.path.dirname(os.path.abspath(path))
 
 
@@ -94,13 +105,15 @@ def load_card_files(config: dict, base: str) -> tuple[list[tuple[str, dict]], li
     return cards, findings
 
 
-def load_cards(config: dict, base: str) -> tuple[dict, list[Finding]]:
-    """Return {(method, shape): [card ids]} for every REST interface the cards declare."""
+def load_cards(config: dict, base: str) -> tuple[dict, dict, list[Finding]]:
+    """Return declared routes, each card's maturity, and findings."""
     declared: dict[tuple[str, str], list[str]] = {}
     dispatch_of: dict[tuple, str] = {}
+    maturity_by_id: dict[str, str] = {}
     cards, findings = load_card_files(config, base)
 
     for card_id, fm in cards:
+        maturity_by_id[card_id] = str(fm.get("maturity") or "")
         for name, iface in (fm.get("interfaces") or {}).items():
             if not isinstance(iface, dict) or iface.get("transport") != "http_rest":
                 continue
@@ -131,7 +144,7 @@ def load_cards(config: dict, base: str) -> tuple[dict, list[Finding]]:
             f"{key[0]} {key[1]} is declared by {len(owners)} cards ({', '.join(owners)}) — "
             "the checker cannot tell them apart",
             "warning"))
-    return declared, findings
+    return declared, maturity_by_id, findings
 
 
 def load_inventory(config: dict, base: str) -> tuple[list[dict], list[Finding], str]:
@@ -179,7 +192,7 @@ def excluded_by(config: dict, method: str, shape: str):
 
 def check(config: dict, base: str) -> tuple[list[Finding], dict]:
     findings: list[Finding] = []
-    declared, card_findings = load_cards(config, base)
+    declared, maturity_by_id, card_findings = load_cards(config, base)
     findings += card_findings
 
     routes, inventory_findings, produced_by = load_inventory(config, base)
@@ -202,11 +215,23 @@ def check(config: dict, base: str) -> tuple[list[Finding], dict]:
                 f"{method} {shape} is served but declared by no card"
                 + (f" (source: {entry['source']})" if entry.get("source") else "")))
 
+    designed_ahead = 0
     for (method, shape), owners in sorted(declared.items()):
         if routes and (method, shape) not in served and not excluded_by(config, method, shape):
-            findings.append(Finding(
-                "phantom_route",
-                f"{method} {shape} is declared by {', '.join(owners)} but is not served"))
+            # Two opposite situations used to share one diagnostic (issue #3): a route that is
+            # GONE is an error; a route DESIGNED AND NOT BUILT YET is what `conceived` and
+            # `designed` exist to describe — contract-first is the format's own flow.
+            ahead = all(maturity_by_id.get(o_, "") in ("conceived", "designed") for o_ in owners)
+            if ahead:
+                designed_ahead += 1
+                findings.append(Finding(
+                    "route_not_yet_served",
+                    f"{method} {shape} is declared by {', '.join(owners)} — designed ahead of "
+                    "the code, expected to be absent", "warning"))
+            else:
+                findings.append(Finding(
+                    "phantom_route",
+                    f"{method} {shape} is declared by {', '.join(owners)} but is not served"))
 
     # An exclusion that hides nothing is dead; one that starts hiding more than it did is worth
     # seeing. Silence is what makes exclusion lists dangerous — see design note §5.

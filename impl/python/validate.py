@@ -304,9 +304,12 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
 
     # ── effect of a write ────────────────────────────────────────────────────
     if "data_transition" in fm and fm["data_transition"] is None:
-        if not fm.get("mutates") and fm.get("provenance") != "none":
+        provenance = fm.get("provenance")
+        records_only = isinstance(provenance, dict) and provenance.get("records_only") is True
+        if not fm.get("mutates") and provenance != "none" and not records_only:
             err("write_without_effect",
-                "`data_transition: null` with neither `mutates` nor `provenance: none`")
+                "`data_transition: null` with neither `mutates`, `provenance: none`, "
+                "nor `records_only: true` — the write does not say what it changes")
 
     # ── cross-card references ────────────────────────────────────────────────
     if known_ids is not None:
