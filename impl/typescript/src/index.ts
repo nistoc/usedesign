@@ -5,3 +5,5 @@ export { validate, validateSchema, schemaPathFor, MATURITY } from "./validate.js
 export { CHECKS, checkRoutes, checkCoverage, checkMaturity, normalise, findCases, evidencePaths } from "./checks.js";
 export type { CheckResult, TestCase } from "./checks.js";
 export { runCardCorpus, runChecksCorpus } from "./conformance.js";
+export { collectScreenState, mergeStates, stateEntry, formInventoryDocument } from "./formInventory.js";
+export type { CollectedState } from "./formInventory.js";
