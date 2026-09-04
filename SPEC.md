@@ -644,6 +644,13 @@ The format only pays for itself with an automated checker. Three invariants:
    absent test: it keeps its name in every report, so name-matching alone would confirm a step
    nobody has exercised in months. Without a report, this check is reported as **not run**, never
    as passed, and the step-level finding degrades to a warning.
+   A test id is matched **exactly** — as `classname.name`, or as the bare `name` — before any
+   shape heuristic (`file:name`, `Class.method`) is tried. Issue #9 measured the cost of the other
+   order: a heuristic consulted first split every name containing a colon at that colon, and a
+   fully proven card was reported as unproven — with the tempting "fix" of deleting the proof.
+   ⚠️ **A green test run is not a fresh report.** Most runners write JUnit only when asked
+   (`--reporter=junit`, `--logger junit`); a plain green run leaves yesterday's file in place, and
+   the check then judges the previous witness. Re-take the report after every change you measure.
    ⚠️ **Freshness is procedural, not mechanical.** A report from three commits ago will happily
    confirm a step whose code changed this morning. Run the check in the same CI job as the suite,
    on the report that job just produced. No checker can enforce this, which is exactly why it is
@@ -741,6 +748,9 @@ removed:
 | `shown_when_conflicts_transition` | the contract shows a control in a state its operation cannot depart from — the reference here is the **card**, so the form and the screen can drift together and still be caught |
 | `member_out_of_group` | the seating chart is wrong: a member renders outside its contracted group — judged only against an inventory that records containers |
 | `group_missing` | a group's anchor exists only in the contract; nothing renders it |
+| `form_screen_missing` | the contract's screen is absent from the inventory — nothing rendered it |
+| `form_not_yet_built` (warning) | the screen is absent and the contract says `maturity: designed` — written ahead of the code, expected; counted separately in the summary |
+| `form_maturity_stale` (warning) | the screen renders but the contract still says `designed` — the contract is behind the code; compared in full all the same |
 | `undescribed_element` (warning) | rendered, accounted for by nobody — the mirror of a wild endpoint, and the queue of decisions the owner has not made yet |
 | `form_inventory_missing` | cannot run, **NOT considered passed** |
 
@@ -776,6 +786,62 @@ groups:
     contains: [main-progress, finish-progress, finish-error]
 ```
 
+**Designed ahead of the screen.** A contract may say `maturity: designed` — written before the
+screen exists, the format's own recommended order of work (issue #8, the forms twin of issue #3).
+Then a screen absent from the inventory is `form_not_yet_built`, a warning, not the error a
+vanished screen earns. Routes borrow their maturity from the card that declares them; a form
+contract has no card to borrow from — and a frontend-only repository (`checks: [5]`) has no cards
+at all — so the flag is explicit. It cannot go stale silently, which is the objection to any
+hand-flipped flag: the day the screen renders, the contract still saying `designed` is reported
+as `form_maturity_stale`, and compared in full all the same. Two values, not the card's six —
+a contract has no evidence axis beyond "does the screen render". Absent means `implemented`.
+
+**Families.** Some screens render one element per item of a list that arrives at runtime — one
+tab per project kind, the set of kinds owned by another service (issue #10). Listing them
+literally makes the contract a second copy of that list, stale the day a kind is added; saying
+nothing earns one `undescribed_element` per tab for elements that are entirely intended. A
+`field_pattern` (or `control_pattern`) states the rule instead: `*` matches any run of
+characters, everything else is literal. Every rendered anchor matching the pattern is accounted
+for; `at_least` (default 1) is the floor per state — a screen that renders *no* tabs because the
+backend returned nothing is a real failure, and before the floor nothing noticed it; `0` says the
+family may honestly be empty. A family may be seated in a group verbatim; then every rendered
+member must sit there. One line names one anchor or one family, never both; a pattern with no
+`*` is refused — a literal wearing the wrong key would silently match one anchor while reading
+as "the set lives elsewhere". Patterns are meant to stay rare and conspicuous, which is why the
+literal key is not glob-capable: making every line a matcher would quietly turn contracts into
+matchers.
+
+```yaml
+presents:
+  - field_pattern: "kind-tab-*"
+    shows: one tab per project kind returned by /bff/project-kinds, with the card count
+    when: [live, kind_empty]
+    at_least: 1
+```
+
+**Screen states versus data states.** `shown_when` names states of the *screen*; a card's
+`data_transition.from` names a state of the *data*. When a screen has more states than the data
+does, the two cannot agree without one of them lying (issue #11): a create form has `absent`, then
+`links_blocked` — a malformed URL typed, the submit greyed out with its reason printed beside it,
+which exists as its own screen state because that is the only way to *prove* the reason is shown
+— and both are `absent` for the data. A `states:` map declares the relation once, at the top;
+the shown_when rule compares **through** it; an unmapped screen state maps to itself, so a
+contract without the map behaves exactly as before. The map cuts both ways: a control offered in
+a post-write screen state (`not_arrived`, mapped to `live`) that calls an operation departing from
+`absent` is a conflict — pressing it there creates a second record, the real defect the map first
+made visible.
+
+```yaml
+states:
+  absent:        { data: absent }
+  links_blocked: { data: absent, note: a malformed URL typed; the submit is greyed out with its reason }
+  not_arrived:   { data: live,   note: "the create succeeded, some typed fields did not land" }
+```
+
+What the format still cannot say, stated rather than discovered: *shown but disabled*. The
+inventory records presence, not enabled-ness; a `disabled_when` would need the producer
+convention to grow a second attribute, and that is a round of its own with a measured case first.
+
 **Validating the contract itself.** Form contracts pass through `validate` like cards do, told
 apart by the `usedesign_form: 1` marker. Measured on 0.5.0, which had no such validation: a
 contract with `presents` misspelled as `presnts` lost its whole "must show" section silently,
@@ -792,7 +858,11 @@ in both implementations, so the two agree on *what* is wrong:
 | `removed_also_required` | one document both requires and forbids a control — self-contradiction, not a TODO |
 | `unknown_group_member` | a group names a member the contract never declares |
 | `element_in_two_groups` | an element renders in one place; two claims cannot both hold |
-| `invalid_enum_value` | a group `role` outside the vocabulary |
+| `invalid_enum_value` | a group `role` or a contract `maturity` outside the vocabulary |
+| `literal_and_pattern` | one line names both an anchor and a family — two claims the inventory cannot tell apart |
+| `pattern_without_wildcard` | a family with no `*` — a literal wearing the wrong key |
+| `malformed_at_least` | the floor is not a non-negative integer, or sits on a single-anchor line |
+| `malformed_states` | `states` is not a map of screen state → `{ data }` |
 | `undescribed_form` (warning) | `opens` points at a contract outside the validated set — honest incompleteness, the counterpart of `undescribed_counterpart` |
 
 ### 7.6 Scoping the checks per repository
@@ -828,6 +898,7 @@ where the format broke:
 | 14 | **The contract's own shape** — a planted `presnts` typo passed 0.5.0 silently; plus grouping by purpose (headers, footers, tables) | One optional field: `groups[]`; validation of form contracts with named codes (§7.5) |
 | 15 | **The seating chart against the measurement** — the producer records each anchor's container chain; membership becomes checkable and immediately refutes its own author's contract | One optional inventory key: `within`; findings `member_out_of_group`, `group_missing` (§7.5) |
 | 16 | **Foreign ground files its findings** — five issues from the first outside pilot, measured on a live service | `records_only` on provenance (§5.8), `entities: []` (§5.8), `route_not_yet_served` (§7.1), config keys enforced at load (§7.6), the starter kit names its inventory's blind spot |
+| 17 | **The pilot's second round** — four issues from check 5 on foreign screens: a contract written ahead of its screen is red by construction; a family of elements named from runtime data cannot be stated; screen states outnumber data states; and a colon in a test name made a proven card read as unproven | `maturity` on the form contract with `form_not_yet_built` / `form_maturity_stale` (§7.5), `field_pattern` / `control_pattern` / `at_least` (§7.5), the `states:` map (§7.5), exact-before-heuristic test-id matching (§7) — all optional |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

@@ -19,10 +19,10 @@
 **Шаг 0. Инструмент не ставится — он зовётся:**
 
 ```bash
-npx usedesign@0.9.0 --help
+npx usedesign@0.10.0 --help
 ```
 
-Версию закрепляйте (`@0.9.0`, не `latest`): проверка, которая молча меняет своё поведение
+Версию закрепляйте (`@0.10.0`, не `latest`): проверка, которая молча меняет своё поведение
 без правки в вашем репозитории, — сама по себе класс дефекта.
 
 **Шаг 1. Каталог и конфиг.** Создайте в корне репозитория `usedesign/`, положите туда
@@ -44,6 +44,10 @@ python3 usedesign/tools/inventory-from-openapi.py /tmp/openapi.json usedesign/ro
 
 **Шаг 3. Отчёт тестов.** Прогоните тесты с JUnit-выводом — его умеют почти все раннеры
 (`dotnet test --logger junit`, `jest --reporters=jest-junit`, `pytest --junitxml=...`).
+⚠️ **Зелёный прогон — ещё не свежий отчёт**: обычный `npm test` / `vitest run` файл JUnit НЕ
+пишет, и проверка судит вчерашнего свидетеля. Ловушка замерена пилотом (issue #9): встречная
+проба «опровергла» гипотезу только потому, что отчёт не был снят заново. Перед каждым замером —
+перегенерируйте отчёт той же командой, что в гейте.
 
 **Шаг 4. Первая карточка.** Возьмите за образец [examples/library/](../examples/library/) —
 пять разобранных карточек живого фасона. Начните с ОДНОЙ операции, которую знаете лучше всего.
@@ -51,13 +55,13 @@ python3 usedesign/tools/inventory-from-openapi.py /tmp/openapi.json usedesign/ro
 нём.** Проверьте себя:
 
 ```bash
-npx usedesign@0.9.0 validate usedesign/cards/
-npx usedesign@0.9.0 check usedesign/usedesign.config.yaml
+npx usedesign@0.10.0 validate usedesign/cards/
+npx usedesign@0.10.0 check usedesign/usedesign.config.yaml
 ```
 
 Сотни строк «маршрут не описан никем» в первом прогоне — это норма и есть смысл: теперь
 неописанное ВИДНО. Заготовки для остальных маршрутов генерируются командой
-`npx usedesign@0.9.0 scaffold <openapi.json> --out usedesign/drafts` — каждая заготовка
+`npx usedesign@0.10.0 scaffold <openapi.json> --out usedesign/drafts` — каждая заготовка
 нарочно не проходит валидацию, пока человек её не дозаполнит и не перенесёт в `cards/`.
 
 **Шаг 5. Гейт.** Скопируйте [usedesign-gate.yml](usedesign-gate.yml) в
@@ -82,7 +86,7 @@ npx usedesign@0.9.0 check usedesign/usedesign.config.yaml
   сверяет ещё и СОСТАВ групп контракта.
 - **Фронтовый репозиторий** объявляет в конфиге `checks: [5]` — проверки маршрутов и хранилища
   там бессмысленны и потому отключены гласно. SPEC §7.6.
-- **Превью контрактов**: `npx usedesign@0.9.0 preview usedesign/usedesign.config.yaml --out
+- **Превью контрактов**: `npx usedesign@0.10.0 preview usedesign/usedesign.config.yaml --out
   preview.html` — страница с деревом форм, текстом контракта и грубым каркасом, где у каждого
   элемента вердикт «есть / нет в коде / вне контракта».
 
@@ -107,4 +111,4 @@ npx usedesign@0.9.0 check usedesign/usedesign.config.yaml
 | Полные правила формата | [SPEC.md](../SPEC.md) |
 | Разобранные карточки | [examples/library/](../examples/library/) |
 | Почему проверки устроены именно так | [design/](../design/) |
-| Что обязан уметь любой сверщик | [tests/conformance/](../tests/conformance/) — 69 случаев |
+| Что обязан уметь любой сверщик | [tests/conformance/](../tests/conformance/) — 80 случаев |

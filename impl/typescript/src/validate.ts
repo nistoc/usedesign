@@ -93,12 +93,45 @@ export function validateFormSchema(fm: Card): Finding[] {
 // not merely that something is.
 
 const FORM_REQUIRED = ["usedesign_form", "id", "screen", "presents"];
-const FORM_KEYS = new Set(["usedesign_form", "id", "screen", "page", "entity", "presents", "controls", "groups", "removed"]);
-const ELEMENT_KEYS = new Set(["field", "shows", "when", "note"]);
-const CONTROL_KEYS = new Set(["control", "calls", "shown_when", "shown_when_rule", "opens", "behaviour", "placement", "note"]);
+const FORM_KEYS = new Set(["usedesign_form", "id", "screen", "page", "entity", "maturity", "states", "presents", "controls", "groups", "removed"]);
+const FORM_MATURITY = ["designed", "implemented"];
+const STATE_KEYS = new Set(["data", "note"]);
+const ELEMENT_KEYS = new Set(["field", "field_pattern", "at_least", "shows", "when", "note"]);
+const CONTROL_KEYS = new Set(["control", "control_pattern", "at_least", "calls", "shown_when", "shown_when_rule", "opens", "behaviour", "placement", "note"]);
 const GROUP_KEYS = new Set(["group", "role", "contains", "note"]);
 const GROUP_ROLES = ["header", "footer", "section", "table", "list", "toolbar", "menu"];
 const REMOVED_KEYS = new Set(["control", "was", "verdict"]);
+
+/**
+ * One line names ONE anchor or ONE family, never both and never neither. A family (issue #10)
+ * is a pattern with `*`; a "pattern" without a wildcard is a literal wearing the wrong key,
+ * and would silently match nothing the literal key would have matched.
+ */
+function anchorOrFamily(
+  line: Record<string, any>,
+  literalKey: string,
+  patternKey: string,
+  where: string,
+  err: (code: string, detail: string) => void,
+): string | undefined {
+  const literal = line[literalKey];
+  const pattern = line[patternKey];
+  if (!literal && !pattern) err("missing_required_field", `${where}: \`${literalKey}\` (or \`${patternKey}\`) is absent`);
+  if (literal && pattern) {
+    err("literal_and_pattern", `${where}: both \`${literalKey}\` and \`${patternKey}\` — one line names one anchor or one family, never both`);
+  }
+  if (pattern && !String(pattern).includes("*")) {
+    err("pattern_without_wildcard", `${where}: \`${pattern}\` has no \`*\` — a family without a wildcard is a literal; write \`${literalKey}:\``);
+  }
+  const atLeast = line["at_least"];
+  if (atLeast !== undefined && (!Number.isInteger(atLeast) || atLeast < 0)) {
+    err("malformed_at_least", `${where}: \`at_least\` must be a non-negative integer, got \`${atLeast}\``);
+  }
+  if (atLeast !== undefined && !pattern) {
+    err("malformed_at_least", `${where}: \`at_least\` belongs to a family line (\`${patternKey}\`) — a single anchor is present or it is not`);
+  }
+  return literal ? String(literal) : pattern ? String(pattern) : undefined;
+}
 
 /**
  * Validate one form contract's *meaning*. `knownForms` enables the cross-contract link warning
@@ -123,17 +156,42 @@ export function validateForm(fm: Card, filename = "", knownForms: Set<string> | 
     err("malformed_form_id", `\`${formId}\` is not <area>.<object>.<name>`);
   }
 
+  // `maturity: designed` marks a contract written before its screen (issue #8) — two values,
+  // not the card's six: a contract has no evidence axis beyond "does the screen render".
+  const maturity = fm["maturity"];
+  if (maturity !== undefined && !FORM_MATURITY.includes(maturity)) {
+    err("invalid_enum_value", `maturity \`${maturity}\` is not one of ${FORM_MATURITY}`);
+  }
+
+  // `states:` maps screen states onto data states (issue #11). A map, keyed by screen state;
+  // every entry names the data state it lives in.
+  const stateMap = fm["states"];
+  if (stateMap !== undefined) {
+    if (!stateMap || typeof stateMap !== "object" || Array.isArray(stateMap)) {
+      err("malformed_states", "`states` must be a map of screen state → { data: <data state> }");
+    } else {
+      for (const [state, spec] of Object.entries<any>(stateMap)) {
+        if (!spec || typeof spec !== "object" || Array.isArray(spec)) {
+          err("missing_required_field", `states.${state}: \`data\` is absent`);
+          continue;
+        }
+        if (!spec["data"]) err("missing_required_field", `states.${state}: \`data\` is absent`);
+        for (const key of Object.keys(spec)) {
+          if (!STATE_KEYS.has(key)) err("unknown_field", `states.${state}: \`${key}\` is not part of a state line`);
+        }
+      }
+    }
+  }
+
   const presents: any[] = Array.isArray(fm["presents"]) ? fm["presents"] : [];
   const seenFields = new Set<string>();
   for (const [index, element] of presents.entries()) {
     if (!element || typeof element !== "object") continue;
-    for (const required of ["field", "shows"]) {
-      if (!element[required]) err("missing_required_field", `presents[${index}]: \`${required}\` is absent`);
-    }
+    if (!element["shows"]) err("missing_required_field", `presents[${index}]: \`shows\` is absent`);
     for (const key of Object.keys(element)) {
       if (!ELEMENT_KEYS.has(key)) err("unknown_field", `presents[${index}]: \`${key}\` is not part of an element line`);
     }
-    const field = element["field"];
+    const field = anchorOrFamily(element, "field", "field_pattern", `presents[${index}]`, err);
     if (field) {
       if (seenFields.has(field)) err("duplicate_element", `\`${field}\` appears more than once in presents`);
       seenFields.add(field);
@@ -144,11 +202,10 @@ export function validateForm(fm: Card, filename = "", knownForms: Set<string> | 
   const seenControls = new Set<string>();
   for (const [index, control] of controls.entries()) {
     if (!control || typeof control !== "object") continue;
-    if (!control["control"]) err("missing_required_field", `controls[${index}]: \`control\` is absent`);
     for (const key of Object.keys(control)) {
       if (!CONTROL_KEYS.has(key)) err("unknown_field", `controls[${index}]: \`${key}\` is not part of a control line`);
     }
-    const name = control["control"];
+    const name = anchorOrFamily(control, "control", "control_pattern", `controls[${index}]`, err);
     if (name) {
       if (seenControls.has(name)) err("duplicate_control", `\`${name}\` appears more than once in controls`);
       seenControls.add(name);

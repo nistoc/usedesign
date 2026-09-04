@@ -15,18 +15,46 @@
       "description": "Whose lifecycle the screen lives against. The state vocabulary is the entity's, computed from the cards that touch it — never declared here, or it would be a duplicate that drifts.",
       "type": "string"
     },
+    "maturity": {
+      "description": "`designed` marks a contract written BEFORE its screen — the format's own order of work (issue #8). Then a screen absent from the inventory is `form_not_yet_built`, a warning, not the error a vanished screen earns; and a screen that DOES render while the contract still says designed is reported too, so the flag cannot go stale silently. Absent = implemented.",
+      "enum": ["designed", "implemented"]
+    },
+    "states": {
+      "description": "Screen states mapped onto data states (issue #11): a create form has `absent`, then `links_blocked` (a malformed URL typed, the submit greyed out with its reason) — both `absent` for the data. Check 5 compares shown_when with the card's data_transition.from THROUGH this map; an unmapped screen state maps to itself.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["data"],
+        "additionalProperties": false,
+        "properties": {
+          "data": { "type": "string", "minLength": 1 },
+          "note": { "type": "string" }
+        }
+      }
+    },
     "presents": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["field", "shows"],
+        "required": ["shows"],
+        "oneOf": [{ "required": ["field"] }, { "required": ["field_pattern"] }],
         "additionalProperties": false,
         "properties": {
           "field": {
             "description": "The machine anchor: a data-field/data-section marker the rendered screen carries. The contract names the anchor; the form inventory proves it.",
             "type": "string",
             "minLength": 1
+          },
+          "field_pattern": {
+            "description": "A FAMILY of anchors whose names come from runtime data — one tab per project kind, one row per item (issue #10). `*` matches any run of characters. Every rendered anchor matching the pattern is accounted for; `at_least` keeps the family from silently becoming empty. Rare and conspicuous by design: it says the set of names lives elsewhere, on purpose.",
+            "type": "string",
+            "pattern": "\\*"
+          },
+          "at_least": {
+            "description": "The family's floor per state: fewer matching anchors than this is `element_missing`. Default 1; 0 = the family may legitimately be empty.",
+            "type": "integer",
+            "minimum": 0
           },
           "shows": { "type": "string", "minLength": 1 },
           "when": {
@@ -43,10 +71,16 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["control"],
+        "oneOf": [{ "required": ["control"] }, { "required": ["control_pattern"] }],
         "additionalProperties": false,
         "properties": {
           "control": { "type": "string", "minLength": 1 },
+          "control_pattern": {
+            "description": "A family of controls named from runtime data — the control twin of field_pattern. `*` matches any run of characters; `at_least` is the floor in every shown_when state.",
+            "type": "string",
+            "pattern": "\\*"
+          },
+          "at_least": { "type": "integer", "minimum": 0 },
           "calls": {
             "description": "The operation card this control invokes, or null for local behaviour. Naming a card lets check 5 compare shown_when with the operation's data_transition.from — the measured rule: a control is available exactly in the states its operation departs from.",
             "oneOf": [{ "type": "string" }, { "type": "null" }]
@@ -88,7 +122,7 @@
             "enum": ["header", "footer", "section", "table", "list", "toolbar", "menu"]
           },
           "contains": {
-            "description": "Fields and controls of this contract, in display order.",
+            "description": "Fields and controls of this contract, in display order. A family (a declared field_pattern / control_pattern, verbatim) seats every rendered member of the family.",
             "type": "array",
             "minItems": 1,
             "items": { "type": "string" }

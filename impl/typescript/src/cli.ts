@@ -155,6 +155,7 @@ function commandCheck(configPath: string): number {
     const f = form.summary as Record<string, any>;
     console.log(
       `forms:      ${f["contracts"]} contract(s) against ${f["screens"]} rendered screen(s)` +
+        (f["designed_ahead"] ? `, ${f["designed_ahead"]} designed ahead of the code` : "") +
         (f["produced_by"] ? `, produced by ${f["produced_by"]}` : ""),
     );
     errorCount += summarise("check 5 (the form matches its contract)", form.findings);

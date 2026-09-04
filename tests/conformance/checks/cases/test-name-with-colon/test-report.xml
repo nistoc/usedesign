@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="web" tests="3">
+  <testsuite name="web">
+    <testcase classname="web/src/Archive.test.tsx" name="archive &gt; hide: without a reason the button stays dark"/>
+    <testcase classname="web/src/Archive.test.tsx" name="archive &gt; hide: with a reason a POST leaves for the card"/>
+    <testcase classname="web/src/Archive.test.tsx" name="archive &gt; hide: a third case no card names"/>
+  </testsuite>
+</testsuites>

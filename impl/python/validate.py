@@ -334,14 +334,46 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
 # hand-rolled with named codes so both implementations agree on WHAT is wrong.
 
 FORM_REQUIRED = ["usedesign_form", "id", "screen", "presents"]
-FORM_KEYS = {"usedesign_form", "id", "screen", "page", "entity", "presents", "controls",
-             "groups", "removed"}
-ELEMENT_KEYS = {"field", "shows", "when", "note"}
-CONTROL_KEYS = {"control", "calls", "shown_when", "shown_when_rule", "opens",
-                "behaviour", "placement", "note"}
+FORM_KEYS = {"usedesign_form", "id", "screen", "page", "entity", "maturity", "states",
+             "presents", "controls", "groups", "removed"}
+FORM_MATURITY = ["designed", "implemented"]
+STATE_KEYS = {"data", "note"}
+ELEMENT_KEYS = {"field", "field_pattern", "at_least", "shows", "when", "note"}
+CONTROL_KEYS = {"control", "control_pattern", "at_least", "calls", "shown_when",
+                "shown_when_rule", "opens", "behaviour", "placement", "note"}
 GROUP_KEYS = {"group", "role", "contains", "note"}
 GROUP_ROLES = ["header", "footer", "section", "table", "list", "toolbar", "menu"]
 REMOVED_KEYS = {"control", "was", "verdict"}
+
+
+def anchor_or_family(line: dict, literal_key: str, pattern_key: str, where: str, err) -> str | None:
+    """One line names ONE anchor or ONE family (issue #10), never both and never neither.
+
+    A "pattern" without a wildcard is a literal wearing the wrong key, and would silently
+    match nothing the literal key would have matched.
+    """
+    literal = line.get(literal_key)
+    pattern = line.get(pattern_key)
+    if not literal and not pattern:
+        err("missing_required_field", f"{where}: `{literal_key}` (or `{pattern_key}`) is absent")
+    if literal and pattern:
+        err("literal_and_pattern",
+            f"{where}: both `{literal_key}` and `{pattern_key}` — one line names one anchor "
+            "or one family, never both")
+    if pattern and "*" not in str(pattern):
+        err("pattern_without_wildcard",
+            f"{where}: `{pattern}` has no `*` — a family without a wildcard is a literal; "
+            f"write `{literal_key}:`")
+    at_least = line.get("at_least")
+    if at_least is not None and (isinstance(at_least, bool)
+                                 or not isinstance(at_least, int) or at_least < 0):
+        err("malformed_at_least",
+            f"{where}: `at_least` must be a non-negative integer, got `{at_least}`")
+    if at_least is not None and not pattern:
+        err("malformed_at_least",
+            f"{where}: `at_least` belongs to a family line (`{pattern_key}`) — a single anchor "
+            "is present or it is not")
+    return str(literal) if literal else (str(pattern) if pattern else None)
 
 
 def validate_form(fm: dict, filename: str = "",
@@ -367,18 +399,39 @@ def validate_form(fm: dict, filename: str = "",
     if form_id and not OPERATION_ID.match(str(form_id)):
         err("malformed_form_id", f"`{form_id}` is not <area>.<object>.<name>")
 
+    # `maturity: designed` marks a contract written before its screen (issue #8) — two values,
+    # not the card's six: a contract has no evidence axis beyond "does the screen render".
+    maturity = fm.get("maturity")
+    if maturity is not None and maturity not in FORM_MATURITY:
+        err("invalid_enum_value", f"maturity `{maturity}` is not one of {FORM_MATURITY}")
+
+    # `states:` maps screen states onto data states (issue #11).
+    if "states" in fm:
+        state_map = fm.get("states")
+        if not isinstance(state_map, dict):
+            err("malformed_states", "`states` must be a map of screen state → { data: <data state> }")
+        else:
+            for state, spec in state_map.items():
+                if not isinstance(spec, dict):
+                    err("missing_required_field", f"states.{state}: `data` is absent")
+                    continue
+                if not spec.get("data"):
+                    err("missing_required_field", f"states.{state}: `data` is absent")
+                for key in spec:
+                    if key not in STATE_KEYS:
+                        err("unknown_field", f"states.{state}: `{key}` is not part of a state line")
+
     presents = fm.get("presents") if isinstance(fm.get("presents"), list) else []
     seen_fields: set[str] = set()
     for index, element in enumerate(presents):
         if not isinstance(element, dict):
             continue
-        for required in ("field", "shows"):
-            if not element.get(required):
-                err("missing_required_field", f"presents[{index}]: `{required}` is absent")
+        if not element.get("shows"):
+            err("missing_required_field", f"presents[{index}]: `shows` is absent")
         for key in element:
             if key not in ELEMENT_KEYS:
                 err("unknown_field", f"presents[{index}]: `{key}` is not part of an element line")
-        field = element.get("field")
+        field = anchor_or_family(element, "field", "field_pattern", f"presents[{index}]", err)
         if field:
             if field in seen_fields:
                 err("duplicate_element", f"`{field}` appears more than once in presents")
@@ -389,12 +442,10 @@ def validate_form(fm: dict, filename: str = "",
     for index, control in enumerate(controls):
         if not isinstance(control, dict):
             continue
-        if not control.get("control"):
-            err("missing_required_field", f"controls[{index}]: `control` is absent")
         for key in control:
             if key not in CONTROL_KEYS:
                 err("unknown_field", f"controls[{index}]: `{key}` is not part of a control line")
-        name = control.get("control")
+        name = anchor_or_family(control, "control", "control_pattern", f"controls[{index}]", err)
         if name:
             if name in seen_controls:
                 err("duplicate_control", f"`{name}` appears more than once in controls")

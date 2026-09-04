@@ -1,0 +1,14 @@
+{
+  "usedesign_form_inventory": 1,
+  "produced_by": "runtime dump — components rendered per state by a test",
+  "forms": [
+    {
+      "screen": "CreateCardRail",
+      "states": [
+        { "state": "absent", "fields": ["card-form"], "controls": ["submit-new-card"] },
+        { "state": "links_blocked", "fields": ["card-form", "links-reason"], "controls": ["submit-new-card"] },
+        { "state": "not_arrived", "fields": ["card-form", "not-arrived-notice"], "controls": [] }
+      ]
+    }
+  ]
+}

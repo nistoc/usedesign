@@ -117,6 +117,8 @@ export function renderPreviewHtml(data: PreviewData): string {
   .ctl:active{transform:translateY(1px);box-shadow:0 0 1px #00000038}
   .ctl.rule{border-style:dashed;color:var(--dim)}
   .ctl.removedghost{border-style:dotted;color:var(--todo);text-decoration:line-through}
+  .el.family{border-style:double;border-width:3px}
+  .ctl.family{border-style:double}
   .badge{display:inline-block;font-size:10.5px;border-radius:999px;padding:1px 7px;margin-left:6px;vertical-align:1px}
   .b-ok{background:#e3f2e6;color:var(--ok)}
   .b-todo{background:#fbe4e0;color:var(--todo)}
@@ -259,17 +261,28 @@ function renderDoc() {
   const { c } = current();
   if (!c) { $('doc').innerHTML = '<p>Контрактов не найдено.</p>'; return; }
   let h = '<dl class="kv" data-group="identity">';
-  for (const [k, v] of [['id', c.id], ['screen', c.screen], ['page', c.page], ['entity', c.entity]])
+  for (const [k, v] of [['id', c.id], ['screen', c.screen], ['page', c.page], ['entity', c.entity],
+                        ['maturity', c.maturity === 'designed' ? 'designed — написан раньше экрана' : c.maturity]])
     if (v) h += '<dt>' + k + '</dt><dd>' + v + '</dd>';
   h += '</dl>';
+  if (c.states && typeof c.states === 'object') {
+    h += '<dl class="kv"><dt>states — состояния экрана → состояния данных</dt></dl>';
+    for (const [s, spec] of Object.entries(c.states))
+      h += '<div class="item" data-item="state-map"><div class="name">' + s + ' <span class="meta">→ ' + ((spec && spec.data) || '?') + '</span></div>' +
+        (spec && spec.note ? '<div class="meta">' + spec.note + '</div>' : '') + '</div>';
+  }
+  const familyMeta = (p) => p === undefined ? '' : ' <span class="meta">· семейство, не меньше ' + (p === null ? 1 : p) + '</span>';
   h += '<dl class="kv"><dt>presents — что человек обязан видеть</dt></dl>';
   for (const p of c.presents || [])
-    h += '<div class="item" data-item="presents"><div class="name">' + p.field + (p.when ? ' <span class="meta">· ' + p.when.join(', ') + '</span>' : '') +
+    h += '<div class="item" data-item="presents"><div class="name">' + (p.field || p.field_pattern) +
+      (p.field_pattern ? familyMeta(p.at_least === undefined ? null : p.at_least) : '') +
+      (p.when ? ' <span class="meta">· ' + p.when.join(', ') + '</span>' : '') +
       '</div><div class="shows">' + p.shows + '</div>' + (p.note ? '<div class="meta">' + p.note + '</div>' : '') + '</div>';
   if ((c.controls || []).length) {
     h += '<dl class="kv"><dt>controls</dt></dl>';
     for (const k of c.controls || [])
-      h += '<div class="item" data-item="control"><div class="name">' + k.control +
+      h += '<div class="item" data-item="control"><div class="name">' + (k.control || k.control_pattern) +
+        (k.control_pattern ? familyMeta(k.at_least === undefined ? null : k.at_least) : '') +
         (k.shown_when ? ' <span class="meta">· ' + k.shown_when.join(', ') + '</span>' : '') + '</div>' +
         (k.calls ? '<div class="meta">calls: ' + k.calls + '</div>' : '') +
         (k.opens ? '<div class="meta">opens: ' + k.opens + '</div>' : '') +
@@ -304,8 +317,25 @@ function renderWire() {
   // Каркас рисуется ПО ГРУППАМ контракта: порядок групп = порядок на панели, роль группы —
   // подпись и грубый вид (шапка/подвал/таблица/кнопки/меню). Всё, что владелец не сгруппировал,
   // честно падает в «вне групп» — не спрятано и не разложено за него.
-  const fieldByName = new Map((c.presents || []).map((p) => [p.field, p]));
-  const controlByName = new Map((c.controls || []).map((k) => [k.control, k]));
+  // Семейство (field_pattern / control_pattern): «*» — любая последовательность символов.
+  // Без регулярных выражений нарочно: шаблон один и простой, а страница — строка в шаблоне TS.
+  const globMatch = (pattern, name) => {
+    const parts = pattern.split('*');
+    if (parts.length === 1) return pattern === name;
+    if (!name.startsWith(parts[0])) return false;
+    let pos = parts[0].length;
+    for (let i = 1; i < parts.length - 1; i++) {
+      const at = name.indexOf(parts[i], pos);
+      if (at < 0) return false;
+      pos = at + parts[i].length;
+    }
+    const last = parts[parts.length - 1];
+    return name.length - pos >= last.length && name.endsWith(last);
+  };
+  const keyOfField = (p) => p.field || p.field_pattern;
+  const keyOfControl = (k) => k.control || k.control_pattern;
+  const fieldByName = new Map((c.presents || []).map((p) => [keyOfField(p), p]));
+  const controlByName = new Map((c.controls || []).map((k) => [keyOfControl(k), k]));
   const grouped = new Set();
   for (const g of c.groups || []) {
     for (const m of g.contains || []) grouped.add(m);
@@ -313,18 +343,33 @@ function renderWire() {
     // элемент рисуется первым внутри своей группы, а не вторым экземпляром «вне групп».
     if (fieldByName.has(g.group)) grouped.add(g.group);
   }
-  const claimedF = new Set((c.presents || []).map((p) => p.field));
-  const claimedC = new Set((c.controls || []).map((k) => k.control));
+  // Якорь группы учтён самой строкой группы — как и у сверщика; иначе контейнер, который
+  // владелец назвал, рисовался бы «вне контракта».
+  const claimedF = new Set([...(c.presents || []).filter((p) => p.field).map((p) => p.field), ...(c.groups || []).map((g) => g.group)]);
+  const claimedC = new Set((c.controls || []).filter((k) => k.control).map((k) => k.control));
+  const familiesF = (c.presents || []).filter((p) => p.field_pattern).map((p) => p.field_pattern);
+  const familiesC = (c.controls || []).filter((k) => k.control_pattern).map((k) => k.control_pattern);
 
+  // Вердикт семейства — счётом: сколько якорей подошло под шаблон против порога at_least.
+  const familyVerdict = (pattern, floor, names) => {
+    const n = names.filter((x) => globMatch(pattern, x)).length;
+    return n >= floor ? badge('ok', 'есть ×' + n) : badge('todo', 'нет в коде' + (n ? ' (×' + n + ' из ' + floor + ')' : ''));
+  };
   const fieldBox = (p) => {
     if (p.when && !p.when.includes(state)) return '';
-    const v = !now ? '' : now.fields.includes(p.field) ? badge('ok', 'есть') : badge('todo', 'нет в коде');
-    return '<div class="el" data-item="wire-field" data-anchor="' + p.field + '"><div class="name">' + p.field + v + '</div><div class="shows">' + p.shows + '</div></div>';
+    const key = keyOfField(p);
+    const v = !now ? '' : p.field_pattern
+      ? familyVerdict(p.field_pattern, p.at_least === undefined ? 1 : p.at_least, now.fields)
+      : now.fields.includes(p.field) ? badge('ok', 'есть') : badge('todo', 'нет в коде');
+    return '<div class="el' + (p.field_pattern ? ' family' : '') + '" data-item="wire-field" data-anchor="' + key + '"><div class="name">' + key + v + '</div><div class="shows">' + p.shows + '</div></div>';
   };
   const controlChip = (k) => {
     if (k.shown_when && !k.shown_when.includes(state)) return '';
-    const v = !now ? '' : now.controls.includes(k.control) ? badge('ok', 'есть') : badge('todo', 'нет в коде');
-    return '<span class="ctl' + (k.shown_when ? '' : ' rule') + '" data-item="wire-control" data-anchor="' + k.control + '">' + k.control + v + '</span>';
+    const key = keyOfControl(k);
+    const v = !now ? '' : k.control_pattern
+      ? familyVerdict(k.control_pattern, k.at_least === undefined ? 1 : k.at_least, now.controls)
+      : now.controls.includes(k.control) ? badge('ok', 'есть') : badge('todo', 'нет в коде');
+    return '<span class="ctl' + (k.shown_when ? '' : ' rule') + (k.control_pattern ? ' family' : '') + '" data-item="wire-control" data-anchor="' + key + '">' + key + v + '</span>';
   };
   const member = (name) =>
     fieldByName.has(name) ? fieldBox(fieldByName.get(name)) :
@@ -340,8 +385,8 @@ function renderWire() {
       '<div class="grphead"><span>' + g.group + '</span><span>' + (ROLE_LABEL[g.role] || g.role) + '</span></div>' + inner + '</div>';
   }
 
-  const looseFields = (c.presents || []).filter((p) => !grouped.has(p.field)).map(fieldBox).join('');
-  let looseControls = (c.controls || []).filter((k) => !grouped.has(k.control)).map(controlChip).join('');
+  const looseFields = (c.presents || []).filter((p) => !grouped.has(keyOfField(p))).map(fieldBox).join('');
+  let looseControls = (c.controls || []).filter((k) => !grouped.has(keyOfControl(k))).map(controlChip).join('');
   for (const r of c.removed || []) {
     claimedC.add(r.control);
     if (now && now.controls.includes(r.control))
@@ -354,8 +399,8 @@ function renderWire() {
   }
   h += '</div>';
   if (now) {
-    const extraF = now.fields.filter((f) => !claimedF.has(f));
-    const extraC = now.controls.filter((f) => !claimedC.has(f));
+    const extraF = now.fields.filter((f) => !claimedF.has(f) && !familiesF.some((p) => globMatch(p, f)));
+    const extraC = now.controls.filter((f) => !claimedC.has(f) && !familiesC.some((p) => globMatch(p, f)));
     if (extraF.length || extraC.length) {
       h += '<div class="extras" data-group="wire-extras"><dl class="kv"><dt>отрендерено, но владелец не решал</dt></dl>';
       for (const f of extraF) h += '<div class="el"><div class="name">' + f + badge('extra', 'вне контракта') + '</div></div>';

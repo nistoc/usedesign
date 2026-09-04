@@ -1,0 +1,54 @@
+{
+  "usedesign_form_inventory": 1,
+  "produced_by": "runtime dump \u2014 components rendered per state by a test",
+  "forms": [
+    {
+      "screen": "SessionPanel",
+      "states": [
+        {
+          "state": "active",
+          "fields": [
+            "session-head",
+            "session-foot",
+            "session-status",
+            "main-progress",
+            "phase-badge"
+          ],
+          "controls": [
+            "finish"
+          ],
+          "within": {
+            "session-head": [],
+            "session-foot": [],
+            "session-status": [
+              "session-head"
+            ],
+            "main-progress": [
+              "session-foot"
+            ],
+            "phase-badge": [
+              "session-head"
+            ],
+            "finish": [
+              "session-foot"
+            ]
+          }
+        },
+        {
+          "state": "finished",
+          "fields": [
+            "session-head",
+            "session-status"
+          ],
+          "controls": [],
+          "within": {
+            "session-head": [],
+            "session-status": [
+              "session-head"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

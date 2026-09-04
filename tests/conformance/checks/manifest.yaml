@@ -274,3 +274,62 @@ cases:
       called operation's data_transition.from. The inventory agrees with the contract here —
       the conflict is between the contract and the CARD, which is what makes it worth its own
       code: the form and the screen can drift together.
+  - dir: test-name-with-colon
+    check: 2
+    expect: pass
+    codes: []
+    note: >-
+      Two test ids carry a colon INSIDE the name — one bare, one in the file-and-name shape whose
+      name part itself has a colon — and both exist verbatim in the report (issue #9). An
+      implementation that consults the file-and-name heuristic BEFORE the exact match splits the
+      id at its own colon and reports a fully proven step as unproven — with the tempting fix of
+      deleting the proof from the card.
+  - dir: form-designed-ahead
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built, form_maturity_stale]
+    note: >-
+      The forms twin of route-designed-ahead (issue #8). A contract marked `maturity: designed`
+      whose screen nothing rendered is expected, not a vanished screen — a warning, counted
+      separately. And the flag cannot go stale silently: the second contract says `designed`
+      while its screen renders, and is told so — then compared in full all the same.
+  - dir: form-family
+    check: 5
+    expect: pass
+    codes: []
+    note: >-
+      One tab per project kind, the kinds owned by another service and read at runtime (issue
+      #10). `field_pattern` states the rule, not the list: every rendered tab is accounted for by
+      the family line (no undescribed_element for them), the floor `at_least` holds in both states,
+      the control family `row-open-*` meets its floor of 2 in `live`, and the family sits inside
+      its contracted toolbar. An implementation reading the pattern as a literal name fails here
+      with element_missing in every state.
+  - dir: form-family-empty
+    check: 5
+    expect: fail
+    codes: [element_missing, control_missing]
+    note: >-
+      The same contract against a screen where the family went empty: no tab at all in
+      `kind_empty` (a backend that returned nothing — a real failure nothing used to notice), and
+      one row control where the floor says two. Both are counted against the floor, not
+      against a name.
+  - dir: form-state-map
+    check: 5
+    expect: pass
+    codes: []
+    note: >-
+      Three screen states over two data states (issue #11). The submit is shown in `absent` and
+      `links_blocked`; the create operation departs from `absent`; through the contract's
+      `states:` map both screen states ARE `absent` for the data, so the shown_when rule holds
+      and neither side has to lie. An implementation comparing screen states to the card
+      directly fails here with shown_when_conflicts_transition.
+  - dir: form-state-map-conflict
+    check: 5
+    expect: fail
+    codes: [shown_when_conflicts_transition]
+    note: >-
+      The map cuts both ways: the same contract also shows the submit in `not_arrived`, a
+      post-write screen state mapped to data state `live`, which the create operation cannot
+      depart from — pressing it there creates a second record. The inventory agrees with the
+      contract; the conflict is between the contract and the card, through the map.

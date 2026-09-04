@@ -21,6 +21,7 @@ import os
 import re
 import sys
 from datetime import date
+from typing import Any
 from xml.etree import ElementTree
 
 try:
@@ -73,6 +74,11 @@ def normalise(method: str, path: str) -> tuple[str, str]:
 # was meant to skip failed pointing at a completely different cause.
 CONFIG_KEYS = {"usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
                "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory"}
+
+
+def family_regex(pattern: str) -> re.Pattern:
+    """A family pattern (issue #10): `*` matches any run of characters, the rest is literal."""
+    return re.compile("^" + ".*".join(re.escape(part) for part in pattern.split("*")) + "$")
 
 
 def load_config(path: str) -> tuple[dict, str]:
@@ -370,15 +376,24 @@ def index_report(cases: list[TestCase]) -> tuple[dict, dict]:
 
 def find_cases(test_id: str, by_full: dict, by_name: dict) -> list[TestCase]:
     """Resolve a card's test id to report entries. Full-id matching only — never a substring."""
+    # Exact matches first, in BOTH indexes. The "file:name" shape is a heuristic, and a
+    # heuristic consulted before the exact match ate every name containing a colon (issue #9):
+    # the id was split at its own colon, looked up by its tail, and reported as unproven.
     if test_id in by_full:
         return by_full[test_id]
-    if ":" in test_id:                                  # file-and-name shape
-        file_part, name_part = test_id.rsplit(":", 1)
-        candidates = by_name.get(name_part, [])
-        narrowed = [c for c in candidates if file_part in (c.classname or "")]
-        return narrowed or candidates
     if test_id in by_name:
         return by_name[test_id]
+    if ":" in test_id:                                  # file-and-name shape
+        # Every colon is a candidate split, left to right, first hit wins: the name part may
+        # itself carry colons.
+        at = test_id.find(":")
+        while at != -1:
+            candidates = by_name.get(test_id[at + 1:], [])
+            if candidates:
+                file_part = test_id[:at]
+                narrowed = [c for c in candidates if file_part in (c.classname or "")]
+                return narrowed or candidates
+            at = test_id.find(":", at + 1)
     if "." in test_id:                                  # runners disagree about `classname`
         return by_name.get(test_id.rsplit(".", 1)[1], [])
     return []
@@ -718,20 +733,72 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     if not contracts:
         findings.append(Finding("form_contracts_missing", "the `forms` patterns matched no contract"))
 
-    claimed: dict[str, dict[str, set]] = {}
+    claimed: dict[str, dict[str, Any]] = {}
+    designed_ahead = 0
 
     for contract_id, fm in contracts:
         screen = str(fm.get("screen") or "")
         states = by_screen.get(screen)
+        # A contract may be written before its screen and say so with `maturity: designed`
+        # (issue #8): then an absent screen is a warning, not the error a vanished screen earns.
+        # The flag cannot go stale silently — a screen that renders while the contract still
+        # says designed is reported too.
+        maturity = str(fm.get("maturity") or "implemented")
         if states is None:
-            findings.append(Finding("form_screen_missing",
-                                    f"{contract_id}: screen `{screen}` is absent from the "
-                                    "inventory — nothing rendered it"))
+            if maturity == "designed":
+                designed_ahead += 1
+                findings.append(Finding("form_not_yet_built",
+                                        f"{contract_id}: screen `{screen}` is absent from the "
+                                        "inventory — designed ahead of the code "
+                                        "(`maturity: designed`)", "warning"))
+            else:
+                findings.append(Finding("form_screen_missing",
+                                        f"{contract_id}: screen `{screen}` is absent from the "
+                                        "inventory — nothing rendered it"))
             continue
+        if maturity == "designed":
+            findings.append(Finding("form_maturity_stale",
+                                    f"{contract_id}: screen `{screen}` is rendered but the "
+                                    "contract still says `maturity: designed` — the contract "
+                                    "is behind the code", "warning"))
         every_state = list(states.keys())
-        mine = claimed.setdefault(screen, {"fields": set(), "controls": set()})
+        mine = claimed.setdefault(screen, {"fields": set(), "controls": set(),
+                                           "field_families": [], "control_families": []})
+
+        # Screen state → data state through the contract's `states:` map (issue #11);
+        # identity when unmapped.
+        state_map = fm.get("states") if isinstance(fm.get("states"), dict) else {}
+
+        def data_of(state: str, _map=state_map) -> str:
+            spec = _map.get(state)
+            return str(spec["data"]) if isinstance(spec, dict) and spec.get("data") else state
+
+        def count_of(regex: re.Pattern, names: set) -> int:
+            return sum(1 for n in names if regex.match(n))
 
         for entry in fm.get("presents") or []:
+            pattern = str(entry.get("field_pattern") or "")
+            if pattern:
+                # A family (issue #10): every matching anchor is accounted for; `at_least`
+                # keeps the family from silently becoming empty.
+                regex = family_regex(pattern)
+                raw_floor = entry.get("at_least")
+                at_least = raw_floor if isinstance(raw_floor, int) and not isinstance(raw_floor, bool) else 1
+                mine["field_families"].append(regex)
+                for state in entry.get("when") or every_state:
+                    rendered = states.get(state)
+                    if rendered is None:
+                        findings.append(Finding("form_state_missing",
+                                                f"{contract_id}: `{pattern}` is required in state "
+                                                f"`{state}`, which the inventory never rendered"))
+                    else:
+                        count = count_of(regex, rendered["fields"])
+                        if count < at_least:
+                            findings.append(Finding("element_missing",
+                                                    f"{contract_id}: `{pattern}` must match at least "
+                                                    f"{at_least} element(s) in state `{state}` and "
+                                                    f"matches {count}"))
+                continue
             field = str(entry.get("field") or "")
             mine["fields"].add(field)
             for state in entry.get("when") or every_state:
@@ -746,9 +813,28 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                                             f"`{state}` and is not"))
 
         for control in fm.get("controls") or []:
-            name = str(control.get("control") or "")
-            mine["controls"].add(name)
+            pattern = str(control.get("control_pattern") or "")
+            regex = family_regex(pattern) if pattern else None
+            raw_floor = control.get("at_least")
+            at_least = raw_floor if isinstance(raw_floor, int) and not isinstance(raw_floor, bool) else 1
+            name = pattern or str(control.get("control") or "")
+            if regex is not None:
+                mine["control_families"].append(regex)
+            else:
+                mine["controls"].add(name)
             shown_when = control.get("shown_when")
+
+            # For a literal both questions are "is it there"; for a family they differ: enough
+            # members for the floor, versus any member at all (which is what leaks out of state).
+            def enough(rendered: dict, _regex=regex, _name=name, _floor=at_least) -> bool:
+                if _regex is None:
+                    return _name in rendered["controls"]
+                return count_of(_regex, rendered["controls"]) >= _floor
+
+            def any_of(rendered: dict, _regex=regex, _name=name) -> bool:
+                if _regex is None:
+                    return _name in rendered["controls"]
+                return count_of(_regex, rendered["controls"]) > 0
 
             if shown_when:
                 for state in shown_when:
@@ -757,16 +843,21 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                         findings.append(Finding("form_state_missing",
                                                 f"{contract_id}: control `{name}` is required in "
                                                 f"state `{state}`, which the inventory never rendered"))
-                    elif name not in rendered["controls"]:
-                        findings.append(Finding("control_missing",
-                                                f"{contract_id}: control `{name}` must be "
-                                                f"available in state `{state}` and is not"))
+                    elif not enough(rendered):
+                        if regex is not None:
+                            detail = (f"{contract_id}: `{name}` must match at least {at_least} "
+                                      f"control(s) in state `{state}` and matches "
+                                      f"{count_of(regex, rendered['controls'])}")
+                        else:
+                            detail = (f"{contract_id}: control `{name}` must be "
+                                      f"available in state `{state}` and is not")
+                        findings.append(Finding("control_missing", detail))
                 for state, rendered in states.items():
-                    if state not in shown_when and name in rendered["controls"]:
+                    if state not in shown_when and any_of(rendered):
                         findings.append(Finding("control_out_of_state",
                                                 f"{contract_id}: control `{name}` appears in "
                                                 f"state `{state}`, outside its declared `shown_when`"))
-            elif not any(name in rendered["controls"] for rendered in states.values()):
+            elif at_least > 0 and not any(any_of(rendered) for rendered in states.values()):
                 findings.append(Finding("control_missing",
                                         f"{contract_id}: control `{name}` appears in no state at all"))
 
@@ -781,12 +872,15 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                     transition = card.get("data_transition")
                     origin = str(transition.get("from") or "") if isinstance(transition, dict) else ""
                     if origin and origin not in ("none", "any"):
-                        mismatch = [s for s in shown_when if s != origin]
-                        if mismatch or origin not in shown_when:
+                        mismatch = [s for s in shown_when if data_of(s) != origin]
+                        if mismatch or not any(data_of(s) == origin for s in shown_when):
+                            mapped = ""
+                            if any(data_of(s) != s for s in shown_when):
+                                mapped = f" (data states [{', '.join(data_of(s) for s in shown_when)}])"
                             findings.append(Finding(
                                 "shown_when_conflicts_transition",
                                 f"{contract_id}: control `{name}` is shown in "
-                                f"[{', '.join(shown_when)}] but `{calls}` departs from `{origin}`"))
+                                f"[{', '.join(shown_when)}]{mapped} but `{calls}` departs from `{origin}`"))
 
         for entry in fm.get("removed") or []:
             name = str(entry.get("control") or "")
@@ -825,20 +919,31 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                                         "anchor never renders"))
             for member_raw in group.get("contains") or []:
                 member = str(member_raw)
+                # A family seated in a group: every rendered member of the family must sit there.
+                regex = family_regex(member) if "*" in member else None
                 for state, rendered in states.items():
                     if rendered["within"] is None:
                         continue
-                    if member not in rendered["fields"] and member not in rendered["controls"]:
-                        continue
-                    chain = rendered["within"].get(member) or set()
-                    if gname not in chain:
+                    if regex is not None:
+                        present = sorted(a for a in rendered["fields"] | rendered["controls"]
+                                         if regex.match(a))
+                    elif member in rendered["fields"] or member in rendered["controls"]:
+                        present = [member]
+                    else:
+                        present = []
+                    offender = next((a for a in present
+                                     if gname not in (rendered["within"].get(a) or set())), None)
+                    if offender is not None:
+                        chain = rendered["within"].get(offender) or set()
                         inside = ", ".join(sorted(chain))
                         findings.append(Finding("member_out_of_group",
-                                                f"{contract_id}: `{member}` is contracted into "
+                                                f"{contract_id}: `{offender}` is contracted into "
                                                 f"`{gname}` but in state `{state}` renders "
                                                 f"inside [{inside}]"))
                         break
 
+    # The mirror of a wild endpoint: rendered, accounted for by nobody. A family line accounts
+    # for every anchor it matches — that is the whole point of declaring one.
     for screen, states in by_screen.items():
         mine = claimed.get(screen)
         if mine is None:
@@ -846,19 +951,22 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
         seen: set[str] = set()
         for rendered in states.values():
             for field in rendered["fields"]:
-                if field not in mine["fields"] and f"f:{field}" not in seen:
+                if (field not in mine["fields"] and f"f:{field}" not in seen
+                        and not any(r.match(field) for r in mine["field_families"])):
                     seen.add(f"f:{field}")
                     findings.append(Finding("undescribed_element",
                                             f"{screen}: `{field}` is rendered but no contract "
                                             "line accounts for it", "warning"))
             for control in rendered["controls"]:
-                if control not in mine["controls"] and f"c:{control}" not in seen:
+                if (control not in mine["controls"] and f"c:{control}" not in seen
+                        and not any(r.match(control) for r in mine["control_families"])):
                     seen.add(f"c:{control}")
                     findings.append(Finding("undescribed_element",
                                             f"{screen}: control `{control}` is rendered but no "
                                             "contract line accounts for it", "warning"))
 
     return findings, {"contracts": len(contracts), "screens": len(by_screen),
+                      "designed_ahead": designed_ahead,
                       "produced_by": data.get("produced_by", "")}
 
 
@@ -930,6 +1038,7 @@ def main() -> int:
     if (scope and 5 in scope) or (not scope and config.get("forms")):
         form_findings, form = check_form(config, base)
         print(f"forms:      {form['contracts']} contract(s) against {form['screens']} rendered screen(s)"
+              + (f", {form['designed_ahead']} designed ahead of the code" if form.get("designed_ahead") else "")
               + (f", produced by {form['produced_by']}" if form["produced_by"] else ""))
         errors += report("check 5 (the form matches its contract)", form_findings)
 

@@ -234,3 +234,34 @@ cases:
       One element claimed by two groups. A rendered element sits in exactly one place; no
       screen can satisfy the contract, so the error is the contract's — the same family as
       requiring and forbidding one control.
+  - file: valid/forms/family-and-states.contract.md
+    expect: valid
+    note: >-
+      Round 17 in one document: `maturity: designed` (issue #8), a `states:` map from screen
+      states to data states (issue #11), and anchor FAMILIES — `field_pattern` / `control_pattern`
+      with `at_least`, a family seated in a group verbatim (issue #10). All optional; a contract
+      without them behaves exactly as before.
+  - file: invalid/forms/pattern-without-wildcard.contract.md
+    expect: invalid
+    codes: [pattern_without_wildcard]
+    note: >-
+      A "family" with no `*` is a literal wearing the wrong key. Accepted, it would silently
+      match exactly one anchor while reading as "the set lives elsewhere".
+  - file: invalid/forms/literal-and-pattern.contract.md
+    expect: invalid
+    codes: [literal_and_pattern]
+    note: >-
+      One line names one anchor or one family, never both — the inventory cannot tell two claims
+      on one line apart, so the line is refused rather than guessed at.
+  - file: invalid/forms/maturity-outside-vocabulary.contract.md
+    expect: invalid
+    codes: [invalid_enum_value]
+    note: >-
+      A form contract's maturity is two-valued (designed / implemented); a card's `tested` means
+      nothing here — there is no evidence axis beyond "does the screen render".
+  - file: invalid/forms/state-without-data.contract.md
+    expect: invalid
+    codes: [missing_required_field]
+    note: >-
+      Every `states:` entry must name its data state; an entry with only a note maps nowhere,
+      and the checker would silently fall back to identity for it.
