@@ -122,7 +122,7 @@ specification is a description like any other, and descriptions drift from what 
 | [tests/conformance/](tests/conformance/) | Shared corpus every implementation must pass |
 | [design/](design/) | Design notes — questions worked out before they are specified |
 | [impl/](impl/) | Implementations, one directory each |
-| [docs/](docs/) | An animated walkthrough of all of the above |
+| [docs/](docs/) | An animated walkthrough of all of the above — and [architecture.html](docs/architecture.html), an interactive map of how the pieces fit |
 | [starter-kit/](starter-kit/) | Team quickstart (RU): config, gate, inventory tool — copy and go |
 
 ## Repository layout

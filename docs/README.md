@@ -1,7 +1,10 @@
 # docs/
 
 A single self-contained HTML presentation of the Operation Card format:
-[`index.html`](index.html).
+[`index.html`](index.html) — and, beside it, [`architecture.html`](architecture.html): an interactive map of
+how the pieces fit (three repositories, two gates, two checkers, one corpus), generated from
+[`architecture.archify.json`](architecture.archify.json) with Archify. Regenerate the map from the JSON;
+never edit the HTML by hand.
 
 - No CDN, no external stylesheets, no web fonts, no remote images, no network calls.
   All CSS and JS are inline; every graphic is inline SVG or CSS.

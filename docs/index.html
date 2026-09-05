@@ -401,7 +401,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
 
   <header class="topbar">
     <span class="brand">usedesign<span class="dot">.</span></span>
-    <span data-i18n="x-01" class="brand-sub">Operation Card — SPEC v0.2 (draft)</span>
+    <span data-i18n="x-01" class="brand-sub">Operation Card — SPEC v0.2 · usedesign 0.15.0</span>
     <span class="spacer"></span>
     <span class="counter" aria-live="polite"><b id="cur">1</b> / <span id="total">20</span></span>
     <button class="btn btn-lang" id="lang" type="button" title="Switch language (L)" aria-label="Switch language to Russian">RU</button>
@@ -417,7 +417,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
         <h1 class="wordmark anim">usedesign<span>.</span></h1>
         <p data-i18n="s1-02" class="tagline anim">One description per operation. Every screen, contract, test and migration points back to it.</p>
         <div class="badges anim">
-          <span data-i18n="s1-03" class="tag a">SPEC v0.2 · draft</span>
+          <span data-i18n="s1-03" class="tag a">SPEC v0.2 · usedesign 0.15.0 on npm · 21 rounds</span>
           <span data-i18n="s1-04" class="tag">Apache 2.0</span>
           <span data-i18n="s1-05" class="tag">YAML front matter + Markdown</span>
           <span data-i18n="s1-06" class="tag">github.com/nistoc/usedesign</span>
@@ -1128,13 +1128,15 @@ svg.diagram{ width:100%; height:auto; display:block; }
     <section class="slide" id="s17" aria-label="Slide 17: the three checks">
       <div class="wrap narrow">
         <p data-i18n="s17-01" class="kicker green anim">16 — enforcement</p>
-        <h2 data-i18n="s17-02" class="title anim">The three checks</h2>
-        <p data-i18n="s17-03" class="lede anim">The format only pays for itself with an automated checker. Three invariants, each measured against something the repository states rather than something the checker guesses:</p>
+        <h2 data-i18n="s17-02" class="title anim">The five checks</h2>
+        <p data-i18n="s17-03" class="lede anim">The format only pays for itself with an automated checker. Five invariants, each measured against something the repository states <em class="hl">about itself at run time</em> rather than something the checker guesses — sources are never parsed:</p>
 
         <ol class="numlist mt-l">
           <li data-i18n="s17-04" class="anim"><strong>No wild endpoints</strong>Every route the code registers is declared by some card. The repository publishes a <em class="hl">route inventory</em> — a runtime dump of its own route table — and the checker compares sets. It never parses your framework, which is why routes generated from a template are caught rather than missed.</li>
           <li data-i18n="s17-05" class="anim"><strong>No unproven steps</strong>Every step is covered by a test that <em class="hl">exists, ran, passed and was not skipped</em> — or appears in <code class="mono">coverage_gaps</code>. Read from a JUnit report of the run being checked. A skipped test is an error, and a louder one than an absent test: it keeps its name in every report.</li>
           <li data-i18n="s17-06" class="anim"><strong>No inflated maturity</strong>Three claims of different natures. The <code class="mono">implemented</code> path must exist; <code class="mono">tested</code> must have a named test that passes; <code class="mono">deployed</code> cannot be verified by anyone — so it <em class="hl">expires</em> instead.</li>
+          <li data-i18n="s17-04b" class="anim"><strong>No imagined storage</strong>Every store a card claims to touch exists, with the key it names. The repository publishes a <em class="hl">storage inventory</em> taken from the live store — and stores no card mentions are listed, not hidden.</li>
+          <li data-i18n="s17-04c" class="anim"><strong>The form matches its contract</strong>The product owner writes what a screen <em class="hl">must</em> show and when; a test renders the real components per state and dumps the DOM. The checker compares fields, controls, groups and visibility — including whether a control is shown exactly in the states its operation departs from.</li>
         </ol>
 
         <div class="card warn mt-l anim">
@@ -1150,7 +1152,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
       <div class="wrap">
         <p data-i18n="s18-01" class="kicker anim">17 — maturity of the spec itself</p>
         <h2 data-i18n="s18-02" class="title anim">How this was hardened</h2>
-        <p data-i18n="s18-03" class="lede anim">v0.2 was reached by writing cards for <strong>eight real operations of a production system</strong> and recording where the format broke. It broke in seven places, over two rounds, and was extended each time.</p>
+        <p data-i18n="s18-03" class="lede anim">v0.2 was reached by writing cards for <strong>eight real operations of a production system</strong> and recording where the format broke. Since then: twenty-one rounds, two products with gates in CI, and one pilot on a stack the format had never seen.</p>
 
         <div class="mt-l anim">
           <table class="plain">
@@ -1188,6 +1190,26 @@ svg.diagram{ width:100%; height:auto; display:block; }
                 <td data-i18n="s18-27">Repairing round 7, then pointing the tool at <em class="hl">a system it had never seen</em></td>
                 <td data-i18n="s18-28"><strong>Three</strong>, plus a normalisation bug that made the checker <em class="hl2">silently wrong</em> — and a rule of my own fitted to its single example</td>
               </tr>
+              <tr>
+                <td data-i18n="s18-30">10–12</td>
+                <td data-i18n="s18-31">A screen traced from control to pixel against a described operation; four more screens; then the layer below — cards against a <em class="hl">live schemaless store</em></td>
+                <td data-i18n="s18-32">One optional field each: <code>covers_outcomes</code>, <code>data.storage[]</code> — and check 4</td>
+              </tr>
+              <tr>
+                <td data-i18n="s18-33">13–16</td>
+                <td data-i18n="s18-34">The layer above, inverted: the owner writes form contracts first and the rendered screens answer; then a pilot on <em class="hl">a foreign stack</em> — seven issues in one afternoon</td>
+                <td data-i18n="s18-35">Two artifact kinds and check 5; <code>groups[]</code>, <code>opens</code>, contract <code>maturity</code>, a producer recipe — all optional</td>
+              </tr>
+              <tr>
+                <td data-i18n="s18-36">17–18</td>
+                <td data-i18n="s18-37">The pilot's second round, four issues; the lifecycle cards of a live service</td>
+                <td data-i18n="s18-38">Families, a screen-state map, <code>from</code> as a set, <code>etag_optional</code> — all optional</td>
+              </tr>
+              <tr>
+                <td data-i18n="s18-39">19–21</td>
+                <td data-i18n="s18-40">Dogfood on the owner's own product: a frontend gate without its sibling, a hand-kept test count, a write with no state change</td>
+                <td data-i18n="s18-41"><strong>None.</strong> Three warnings the checker owed: <code>no_cards_found</code>, <code>tested_count_mismatch</code>, <code>reversibility_overstated</code> learning <code>mutates</code></td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1199,7 +1221,76 @@ svg.diagram{ width:100%; height:auto; display:block; }
 
         <div class="card accent mt anim">
           <h3 data-i18n="s18-13">Criterion for v1.0</h3>
-          <p data-i18n="s18-14" class="mt-s" style="font-size:1.02rem">Not <em class="hl2">“no more breakage”</em> — untouched areas will always break something — but <em class="hl">a round that changes only optional fields, never required ones.</em></p>
+          <p data-i18n="s18-14" class="mt-s" style="font-size:1.02rem">Not <em class="hl2">“no more breakage”</em> — untouched areas will always break something — but <em class="hl">a round that changes only optional fields</em>. It has held from round 8 to round 21: fourteen rounds of optional-only changes. v1.0 is still not declared — one product and one pilot are two stacks, and every new stack so far broke something.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 18a · WHERE IT STANDS ══════════════ -->
+    <section class="slide" id="s18a" aria-label="Slide: where it stands, September 2026">
+      <div class="wrap">
+        <p data-i18n="sA-01" class="kicker green anim">18 — where it stands</p>
+        <h2 data-i18n="sA-02" class="title anim">Where it stands — September 2026</h2>
+        <p data-i18n="sA-03" class="lede anim">Numbers read from the repositories and the registry, not from memory. What this deck promised, against what exists.</p>
+
+        <div class="grid g-side mt-l">
+          <div class="anim">
+            <table class="plain">
+              <thead>
+                <tr><th data-i18n="sA-04">Promised in this deck</th><th data-i18n="sA-05">What exists</th></tr>
+              </thead>
+              <tbody>
+                <tr><td data-i18n="sA-06">Specification and schema</td><td data-i18n="sA-07">SPEC v0.2 through 21 rounds; three schemas</td></tr>
+                <tr><td data-i18n="sA-08">Three checks</td><td data-i18n="sA-09"><strong>Five:</strong> routes, steps, maturity, storage, forms</td></tr>
+                <tr><td data-i18n="sA-10">A CLI: <code>validate</code>, <code>gen openapi</code>, <code>check</code></td><td data-i18n="sA-11"><code>validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code> · <code>conformance</code>. <em class="hl2">gen openapi</em> never built — the direction reversed: the route inventory is <em class="hl">taken from</em> OpenAPI</td></tr>
+                <tr><td data-i18n="sA-12">A second implementation</td><td data-i18n="sA-13">A Python prototype; the same codes on 87 corpus cases</td></tr>
+                <tr><td data-i18n="sA-14">Published</td><td data-i18n="sA-15">14 versions, 0.2.0 → 0.15.0, with provenance; publish is green only once the registry serves the box</td></tr>
+                <tr><td data-i18n="sA-16">Never promised here</td><td data-i18n="sA-17">Form contracts and check 5; a starter kit; drafts from OpenAPI; a foreign pilot</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="stack">
+            <div class="card accent anim">
+              <h3 data-i18n="sA-18">One product, two repositories</h3>
+              <p data-i18n="sA-19" class="sub mt-s"><strong>Server:</strong> 12 cards over 113 routes, 415 tests behind them, every cited step proven; 101 routes undescribed — the gate <em class="hl">reports</em>, it does not fail. <strong>Frontend:</strong> 3 contracts, a strict gate at zero findings, reading the server’s cards.</p>
+            </div>
+            <div class="card warn anim">
+              <h3 data-i18n="sA-20">How complete is it?</h3>
+              <p data-i18n="sA-21" class="sub mt-s"><strong>Format:</strong> 0.x — the v1.0 criterion has held fourteen rounds; declaring it is a decision. <strong>Tool:</strong> five checks, two implementations, 87 cases. <strong>First product:</strong> 11% of routes described. <em class="hl">Adoption is the unfinished part, not the tool.</em></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 18b · ELSEWHERE ══════════════ -->
+    <section class="slide" id="s18b" aria-label="Slide: does it transfer">
+      <div class="wrap">
+        <p data-i18n="sB-01" class="kicker amber anim">19 — elsewhere</p>
+        <h2 data-i18n="sB-02" class="title anim">Does it transfer? What broke, what still can</h2>
+        <p data-i18n="sB-03" class="lede anim">One foreign pilot, eleven issues in two rounds, all closed — and each was a real hole, not a matter of taste.</p>
+
+        <div class="grid g-side mt-l">
+          <div class="stack">
+            <div class="card ok anim">
+              <h3 data-i18n="sB-04">What transferred as it is</h3>
+              <p data-i18n="sB-05" class="sub mt-s">Cards and checks 1–3 need only an OpenAPI document and a JUnit report — any stack has both. The forms producer recipe took a foreign React stack in one afternoon once issue #7 was closed. The corpus turned every fix into a rule, not a patch.</p>
+            </div>
+            <div class="card anim">
+              <h3 data-i18n="sB-06">What every new stack will need</h3>
+              <p data-i18n="sB-07" class="sub mt-s">Check 4 needs live access to the store from CI; check 5 needs a test that renders <em class="hl">your</em> real components per state. Both are second-wave on purpose.</p>
+            </div>
+          </div>
+          <div class="card warn anim">
+            <h3 data-i18n="sB-08">Blind spots that are still open</h3>
+            <ul class="mt-s">
+              <li data-i18n="sB-09"><strong>Form, not honesty.</strong> A valid card can lie: a step “proven” by a test of another route passed all five checks — twice in one day on a live service. Only review catches it.</li>
+              <li data-i18n="sB-10"><strong>Cards rot from new tests too.</strong> Two of three “unproven” steps were proven by tests written after the card; red meant “nobody told the card”.</li>
+              <li data-i18n="sB-11"><strong>The tool names, it does not decide.</strong> Silent rollbacks, a race window, a missing status check — all surface as warnings; the decisions stay with the owner.</li>
+              <li data-i18n="sB-12"><strong>Two stacks is not many.</strong> Every new stack so far broke something optional; the next one will too. That is the design, and the cost.</li>
+            </ul>
+          </div>
         </div>
       </div>
     </section>
@@ -1207,7 +1298,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
     <!-- ══════════════ 19 · TECHNOLOGY ══════════════ -->
     <section class="slide" id="s19" aria-label="Slide 19: technology and design choices">
       <div class="wrap">
-        <p data-i18n="s19-01" class="kicker anim">18 — technology</p>
+        <p data-i18n="s19-01" class="kicker anim">20 — technology</p>
         <h2 data-i18n="s19-02" class="title anim">Boring on purpose</h2>
 
         <div class="grid g-side mt-l">
@@ -1218,8 +1309,8 @@ svg.diagram{ width:100%; height:auto; display:block; }
               <p data-i18n="s19-05" class="sub mt-s">The prior art was studied before any of this was written, and the choice follows from it: <em class="hl">a new language would add a seventh format to the six that already exist</em>, instead of tying them together.</p>
             </div>
             <div class="card accent anim">
-              <h3 data-i18n="s19-06">OpenAPI is generated from the cards</h3>
-              <p data-i18n="s19-07" class="sub mt-s">This is not a replacement for an API specification and not a competitor to one. An API spec describes endpoints; a card describes an operation, which may span several endpoints, a screen, a background worker and a migration. The contract is <em class="hl">derived</em> from the card — so the two cannot drift.</p>
+              <h3 data-i18n="s19-06">OpenAPI is not generated from the cards</h3>
+              <p data-i18n="s19-07" class="sub mt-s">That was the plan; the direction reversed. A card describes an operation, which may span several endpoints, a screen, a worker and a migration — but the checker takes the route inventory <em class="hl">from</em> the product’s OpenAPI document or route table. The format never parses sources; it reads only what the system states about itself.</p>
             </div>
             <div class="card anim">
               <h3 data-i18n="s19-08">JSON Schema, draft 2020-12</h3>
@@ -1230,8 +1321,8 @@ svg.diagram{ width:100%; height:auto; display:block; }
               <p data-i18n="s19-11" class="sub mt-s">Cross-card rules: step references that must resolve, coverage of every step, per-transport overrides, routes in the code with no card. A schema validates one file; these span the catalogue.</p>
             </div>
             <div class="card flat anim">
-              <h3 data-i18n="s19-12">Planned CLI in TypeScript / Node</h3>
-              <p data-i18n="s19-13" class="sub mt-s">The repository is already set up for Node. Three verbs: <code class="mono">validate</code>, <code class="mono">gen openapi</code>, <code class="mono">check</code>.</p>
+              <h3 data-i18n="s19-12">The CLI, as built</h3>
+              <p data-i18n="s19-13" class="sub mt-s">TypeScript on Node, one box: <code class="mono">validate</code>, <code class="mono">check</code>, <code class="mono">preview</code>, <code class="mono">scaffold</code>, <code class="mono">conformance</code>. A Python prototype reads the same specification; the corpus keeps the two in step.</p>
             </div>
           </div>
 
@@ -1257,22 +1348,42 @@ svg.diagram{ width:100%; height:auto; display:block; }
       </div>
     </section>
 
+    <!-- ══════════════ 19a · ARCHITECTURE ══════════════ -->
+    <section class="slide" id="s19a" aria-label="Slide: architecture map">
+      <div class="wrap">
+        <p data-i18n="sC-01" class="kicker anim">21 — architecture</p>
+        <h2 data-i18n="sC-02" class="title anim">How the pieces fit</h2>
+        <p data-i18n="sC-03" class="lede anim">An interactive map of the parts and of what each one compares with what — published next to this deck.</p>
+        <div class="grid g-side mt-l">
+          <div class="card accent anim">
+            <h3 data-i18n="sC-04">Open the map</h3>
+            <p class="repo mt-s"><a href="architecture.html">architecture.html</a></p>
+            <p data-i18n="sC-05" class="sub mt-s">Three repositories on one page: the format with its two checkers and the corpus; a server with operation cards; a frontend with form contracts. Pan, zoom, trace a relationship, switch the theme.</p>
+          </div>
+          <ul class="mt-s anim">
+            <li data-i18n="sC-06"><strong>Two gates, one box.</strong> Each product repository runs <code class="mono">npx usedesign@&lt;pin&gt;</code> from the registry; nothing is installed, the version is frozen per repository.</li>
+            <li data-i18n="sC-07"><strong>Evidence is what the product says about itself.</strong> A route inventory, a JUnit report, a live-store inventory, real components rendered per state. Sources are never parsed.</li>
+            <li data-i18n="sC-08"><strong>Two readings, one corpus.</strong> The TypeScript box and the Python prototype must report the same codes on 87 cases before anything is published.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <!-- ══════════════ 20 · ROADMAP + CTA ══════════════ -->
     <section class="slide" id="s20" aria-label="Slide 20: roadmap and the repository">
       <div class="wrap">
-        <p data-i18n="s20-01" class="kicker anim">19 — where this goes</p>
+        <p data-i18n="s20-01" class="kicker anim">22 — where this goes</p>
         <h2 data-i18n="s20-02" class="title anim">Roadmap</h2>
 
         <div class="grid g-side mt-l">
           <ul class="roadmap">
-            <li data-i18n="s20-03" class="done anim"><span class="box">✓</span><span><strong>Specification and schema</strong><br><span class="sub small">SPEC v0.2 and the JSON Schema for the front matter</span></span></li>
-            <li data-i18n="s20-04" class="done anim"><span class="box">✓</span><span><strong>Worked examples</strong><br><span class="sub small">Five cards over a fictional library system</span></span></li>
-            <li data-i18n="s20-04b" class="done anim"><span class="box">✓</span><span><strong>Conformance corpus; all three checks designed</strong><br><span class="sub small">24 card cases and 23 repository cases, agreeing on verdicts, codes <em>and warnings</em>. Run for real against an unfamiliar system: 113 routes from its own OpenAPI, 403 tests from an actual run</span></span></li>
-            <li data-i18n="s20-05" class="done anim"><span class="box">✓</span><span><code>usedesign validate</code><br><span class="sub small">Cards against the schema <em>and</em> the cross-card rules — the schema catches 7 of the 10 invalid corpus cases, the rules catch the other 3</span></span></li>
-            <li data-i18n="s20-07" class="done anim"><span class="box">✓</span><span><code>usedesign check</code><br><span class="sub small">The three invariants, holding all 23 repository cases</span></span></li>
-            <li data-i18n="s20-07b" class="done anim"><span class="box">✓</span><span><strong>A reference implementation, and CI</strong><br><span class="sub small">TypeScript on three Node versions, the Python prototype beside it, and a job that insists the rotten fixture still fails</span></span></li>
-            <li data-i18n="s20-05b" class="done anim"><span class="box">✓</span><span><strong>Published, with build provenance</strong><br><span class="sub small"><code>npx usedesign</code> — nothing to install. Running in a real project's CI, where it collapsed three setup steps into one line</span></span></li>
-            <li data-i18n="s20-06" class="anim"><span class="box"></span><span><code>usedesign gen openapi</code><br><span class="sub small">Derive an API contract from the cards. Not started</span></span></li>
+            <li data-i18n="s20-03" class="done anim"><span class="box">✓</span><span><strong>Specification, schema, examples, starter kit</strong><br><span class="sub small">SPEC v0.2 through 21 rounds; three schemas; five cards over a fictional library</span></span></li>
+            <li data-i18n="s20-04b" class="done anim"><span class="box">✓</span><span><strong>Two implementations, one corpus, CI</strong><br><span class="sub small">TypeScript on three Node versions and a Python prototype agree on 48 + 39 cases; all five checks</span></span></li>
+            <li data-i18n="s20-05" class="done anim"><span class="box">✓</span><span><code>usedesign validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code><br><span class="sub small">Named codes; five invariants; a frontend gate sees the server’s cards</span></span></li>
+            <li data-i18n="s20-05b" class="done anim"><span class="box">✓</span><span><strong>Published, with build provenance</strong><br><span class="sub small">14 versions, 0.2.0 → 0.15.0; the run waits for the box</span></span></li>
+            <li data-i18n="s20-06" class="anim"><span class="box">✗</span><span><code>usedesign gen openapi</code><br><span class="sub small">Dropped — the direction reversed: the inventory is taken from OpenAPI</span></span></li>
+            <li data-i18n="s20-06b" class="anim"><span class="box"></span><span><strong>v1.0</strong><br><span class="sub small">Criterion held fourteen rounds; declaring it is the owner’s call</span></span></li>
+            <li data-i18n="s20-06c" class="anim"><span class="box"></span><span><strong>101 routes of the first product</strong><br><span class="sub small">Adoption, not the tool: ten named first, four done</span></span></li>
           </ul>
 
           <div class="stack">
@@ -1286,8 +1397,9 @@ svg.diagram{ width:100%; height:auto; display:block; }
               <div class="badges" style="margin-top:14px">
                 <span data-i18n="s20-11" class="tag a">SPEC.md — the format and why each field exists</span>
                 <span data-i18n="s20-12" class="tag">schema/ — JSON Schema</span>
-                <span data-i18n="s20-13" class="tag">examples/ — five cards</span>
+                <span data-i18n="s20-13" class="tag">examples/ — five cards · starter-kit/</span>
                 <span data-i18n="s20-14" class="tag">Apache 2.0</span>
+                <span data-i18n="s20-14b" class="tag b">docs/architecture.html — the map</span>
               </div>
             </div>
             <p data-i18n="s20-15" class="sub small anim">One description per operation. Every screen, contract, test and migration points back to it.</p>
@@ -1313,11 +1425,11 @@ svg.diagram{ width:100%; height:auto; display:block; }
 /* Russian strings. Keys match data-i18n attributes; a missing key keeps the English text.
    Code blocks (YAML / JSON) and format field names are deliberately not translated. */
 window.USEDESIGN_RU = {
-'x-01': 'Карточка операции — SPEC v0.2 (черновик)',
+'x-01': 'Карточка операции — SPEC v0.2 · usedesign 0.15.0',
 
 's1-01': 'Формат описания того, что система умеет',
 's1-02': 'Одно описание на операцию. Каждый экран, контракт, тест и миграция ссылаются на него.',
-'s1-03': 'SPEC v0.2 · черновик',
+'s1-03': 'SPEC v0.2 · usedesign 0.15.0 в npm · 21 заход',
 's1-04': 'Лицензия Apache 2.0',
 's1-05': 'YAML-шапка + Markdown',
 's1-07': '<kbd>→</kbd><kbd>Space</kbd> вперёд',
@@ -1573,8 +1685,8 @@ window.USEDESIGN_RU = {
 's16-14': 'Никто не просыпается с желанием проверить расчёты, поэтому своего сценария у него нет — вместо него объявлен <code class="mono">serves_step</code>. <code class="mono">provenance: none</code> сказано явно, и это избавляет проверяющего от требования аудиторского теста, которого быть не должно.',
 
 's17-01': '16 — принуждение',
-'s17-02': 'Три проверки',
-'s17-03': 'Формат окупается только с автоматическим проверяющим. Три инварианта, и каждый сверяется с тем, что репозиторий предъявляет сам, а не с тем, о чём проверяющий догадывается:',
+'s17-02': 'Пять проверок',
+'s17-03': 'Формат окупается только с автоматическим проверяющим. Пять инвариантов, и каждый сверяется с тем, что репозиторий предъявляет <em class="hl">о себе сам во время работы</em>, а не с догадками проверяющего — исходники не разбираются никогда:',
 's17-04': '<strong>Нет необъявленных маршрутов</strong>Каждый маршрут, который регистрирует код, объявлен какой-то карточкой. Репозиторий предъявляет <em class="hl">перечень маршрутов</em> — дамп собственной таблицы маршрутов, — а проверяющий сравнивает множества. Он не разбирает ваш фреймворк, поэтому маршруты, рождённые шаблоном, ловятся, а не теряются.',
 's17-05': '<strong>Нет недоказанных шагов</strong>Каждый шаг покрыт тестом, который <em class="hl">существует, выполнился, прошёл и не был пропущен</em>, — либо назван в <code class="mono">coverage_gaps</code>. Читается из JUnit-отчёта того самого прогона. Пропущенный тест — ошибка, и громче отсутствующего: он сохраняет имя в каждом отчёте.',
 's17-06': '<strong>Нет зрелости выше доказательств</strong>Три утверждения разной природы. Путь из <code class="mono">implemented</code> обязан существовать; для <code class="mono">tested</code> обязан пройти названный тест; <code class="mono">deployed</code> не может подтвердить никто — поэтому оно <em class="hl">истекает</em>.',
@@ -1583,7 +1695,7 @@ window.USEDESIGN_RU = {
 
 's18-01': '17 — зрелость самой спецификации',
 's18-02': 'Как это закалялось',
-'s18-03': 'Версия 0.2 получена так: карточки писались на <strong>восемь реальных операций боевой системы</strong>, и каждое место, где формат ломался, записывалось. Сломался в семи местах, за два захода, и каждый раз достраивался. Следующие три захода строили проверки — то есть <em class="hl">пользовались</em> карточками, а не писали новые, — и не потребовали ни одного нового обязательного поля.',
+'s18-03': 'Версия 0.2 получена так: карточки писались на <strong>восемь реальных операций боевой системы</strong>, и каждое место, где формат ломался, записывалось. С тех пор — двадцать один заход, два продукта с гейтами в CI и один пилот на стеке, которого формат никогда не видел.',
 's18-04': 'Заход',
 's18-05': 'Что прогоняли',
 's18-06': 'Каких полей формату не хватило',
@@ -1603,41 +1715,99 @@ window.USEDESIGN_RU = {
 's18-15': 'А потом спецификацию сверили с ней самой',
 's18-16': 'Перед публикацией её проверили по её же схеме и примерам — тем упражнением, которого она требует от всех остальных. Она не прошла в семи местах уже другого рода: поле есть в схеме и в примере, но не описано нигде; правило сказано прозой, но схемой не проверяется; один термин написан двумя способами в двух файлах. Все семь исправлены. <em class="hl">Это и есть аргумент за то, чтобы проверяющий вообще был.</em>',
 's18-13': 'Критерий версии 1.0',
-'s18-14': '<strong>Не</strong> <em class="hl2">«поломки кончились»</em> — непройденные области всегда что-нибудь сломают, — а <em class="hl">заход, который меняет только опциональные поля и не трогает обязательные.</em>',
+'s18-14': '<strong>Не</strong> <em class="hl2">«поломки кончились»</em> — непройденные области всегда что-нибудь сломают, — а <em class="hl">заход, который меняет только необязательные поля</em>. Держится с восьмого захода по двадцать первый: четырнадцать заходов подряд. Версия 1.0 всё ещё не объявлена — один продукт и один пилот это два стека, и каждый новый стек пока что-нибудь ломал.',
 
-'s19-01': '18 — технологии',
+'s19-01': '20 — технологии',
 's19-02': 'Скучно — намеренно',
 's19-03': 'YAML-шапка + Markdown',
 's19-04': 'Ни нового языка, ни компилятора, ни рантайма, ни привязки к вендору. Это уже умеет отрисовать любой редактор, и YAML-парсер уже есть в любом CI.',
 's19-05': 'Существующие подходы изучались до того, как было написано хоть что-то, и выбор следует из этого: <em class="hl">новый язык добавил бы седьмой формат к шести имеющимся</em> вместо того, чтобы связать их.',
-'s19-06': 'OpenAPI порождается из карточек',
-'s19-07': 'Это не замена спецификации API и не конкурент ей. Спецификация описывает эндпоинты; карточка описывает операцию, которая может охватывать несколько эндпоинтов, экран, фонового воркера и миграцию. Контракт <em class="hl">выводится</em> из карточки — поэтому им нечем разойтись.',
+'s19-06': 'OpenAPI из карточек не порождается',
+'s19-07': 'Так планировалось; направление развернулось. Карточка описывает операцию, которая может охватывать несколько эндпоинтов, экран, фоновую задачу и миграцию, — но проверяющий берёт перечень маршрутов <em class="hl">из</em> OpenAPI-документа или таблицы маршрутов продукта. Формат никогда не разбирает исходники; он читает только то, что система предъявляет о себе сама.',
 's19-08': 'JSON Schema, draft 2020-12',
 's19-09': 'Шапка проверяется схемой, которая выражает и условные правила: заявить <code class="mono">tested</code> нельзя без записанного теста, а запись без перехода стадии обязана сказать, что именно она меняет.',
 's19-10': 'Чего схема выразить не может — забота проверяющего',
 's19-11': 'Межкарточные правила: ссылки на шаги должны разрешаться, каждый шаг — быть покрытым, переопределения на транспорт — учитываться, маршруты в коде — иметь карточку. Схема проверяет один файл; эти правила живут поперёк каталога.',
-'s19-12': 'Планируемый CLI на TypeScript / Node',
-'s19-13': 'Репозиторий уже настроен под Node. Три глагола: <code class="mono">validate</code>, <code class="mono">gen openapi</code>, <code class="mono">check</code>.',
+'s19-12': 'CLI, каким он получился',
+'s19-13': 'TypeScript на Node, одна коробка: <code class="mono">validate</code>, <code class="mono">check</code>, <code class="mono">preview</code>, <code class="mono">scaffold</code>, <code class="mono">conformance</code>. Прототип на Python читает ту же спецификацию; корпус держит обоих в ногу.',
 's19-14': '<span class="fn">schema/operation-card.schema.json</span> · условное правило',
 
-'s20-01': '19 — куда это идёт',
+'s20-01': '22 — куда это идёт',
 's20-02': 'Дорожная карта',
-'s20-03': '<span class="box">✓</span><span><strong>Спецификация и схема</strong><br><span class="sub small">SPEC v0.2 и JSON Schema для шапки карточки</span></span>',
-'s20-04': '<span class="box">✓</span><span><strong>Разобранные примеры</strong><br><span class="sub small">Пять карточек на выдуманной библиотечной системе</span></span>',
-'s20-04b': '<span class="box">✓</span><span><strong>Корпус соответствия; все три проверки</strong><br><span class="sub small">24 случая по карточкам и 23 по репозиторию — вердикты, коды <em>и предупреждения</em>. Прогнан по-настоящему на чужой системе: 113 маршрутов из её собственного OpenAPI, 403 теста из живого прогона</span></span>',
-'s20-05': '<span class="box">✓</span><span><code>usedesign validate</code><br><span class="sub small">Карточки по схеме <em>и</em> по межкарточным правилам — схема ловит 7 из 10 невалидных случаев корпуса, правила ловят остальные 3</span></span>',
-'s20-07': '<span class="box">✓</span><span><code>usedesign check</code><br><span class="sub small">Три инварианта, держат все 23 случая по репозиторию</span></span>',
-'s20-07b': '<span class="box">✓</span><span><strong>Эталонная реализация и CI</strong><br><span class="sub small">TypeScript на трёх версиях Node, рядом прототип на Python и работа, которая требует, чтобы гнилой стенд по-прежнему падал</span></span>',
-'s20-05b': '<span class="box">✓</span><span><strong>Опубликован, с подписью происхождения</strong><br><span class="sub small"><code>npx usedesign</code> — ставить нечего. Работает в CI настоящего проекта, где заменил три шага настройки одной строкой</span></span>',
-'s20-06': '<span class="box"></span><span><code>usedesign gen openapi</code><br><span class="sub small">Вывод контракта API из карточек. Не начато</span></span>',
+'s20-03': '<span class="box">✓</span><span><strong>Спецификация, схема, примеры, стартовый набор</strong><br><span class="sub small">SPEC v0.2 через 21 заход; три схемы; пять карточек на выдуманной библиотеке</span></span>',
+'s20-04': '<span class="box">✓</span><span><strong>Примеры и стартовый набор</strong><br><span class="sub small">Пять карточек на выдуманной библиотеке; первый час команды</span></span>',
+'s20-04b': '<span class="box">✓</span><span><strong>Две реализации, один корпус, CI</strong><br><span class="sub small">TypeScript на трёх версиях Node и прототип на Python согласны на 48 + 39 случаях; все пять проверок</span></span>',
+'s20-05': '<span class="box">✓</span><span><code>usedesign validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code><br><span class="sub small">Именованные коды; пять инвариантов; гейт фронта видит карточки сервера</span></span>',
+'s20-07': '<span class="box">✓</span><span><code>usedesign check</code><br><span class="sub small">Пять инвариантов; гейт фронта видит карточки сервера через соседний checkout</span></span>',
+'s20-07b': '<span class="box">✓</span><span><strong>Эталонная реализация и CI</strong><br><span class="sub small">TypeScript на трёх версиях Node; рядом прототип на Python</span></span>',
+'s20-05b': '<span class="box">✓</span><span><strong>Опубликован, с подписью происхождения</strong><br><span class="sub small">14 версий, 0.2.0 → 0.15.0; прогон ждёт коробку</span></span>',
+'s20-06': '<span class="box">✗</span><span><code>usedesign gen openapi</code><br><span class="sub small">Снято — направление развернулось: перечень берётся из OpenAPI</span></span>',
 's20-08': 'Проверяющий был смыслом — и он есть',
 's20-09': 'Каталог без него превращается в благие намерения за считанные месяцы. Теперь реализаций две, на двух средах, и CI сличает, что они говорят об одном репозитории, — потому что два инструмента, согласные, что «что-то сломано», но расходящиеся в том, ЧТО именно, — это начало диалектов. Схему до появления второй реализации ни разу не прогоняли по корпусу. Она сошлась с ним полностью.',
 's20-10': 'Прочитайте, сломайте, расскажите где',
 's20-11': 'SPEC.md — формат и обоснование каждого поля',
 's20-12': 'schema/ — JSON Schema',
-'s20-13': 'examples/ — пять карточек',
+'s20-13': 'examples/ — пять карточек · starter-kit/',
 's20-14': 'Apache 2.0',
 's20-15': 'Одно описание на операцию. Каждый экран, контракт, тест и миграция ссылаются на него.',
+'s17-04b': '<strong>Нет выдуманного хранилища</strong>Каждое хранилище, которое карточка заявляет, существует и с тем ключом, который она называет. Репозиторий предъявляет <em class="hl">перечень хранилищ</em>, снятый с живой базы, — а хранилища, о которых не говорит ни одна карточка, перечисляются, а не прячутся.',
+'s17-04c': '<strong>Форма сходится с контрактом</strong>Владелец продукта пишет, что экран <em class="hl">обязан</em> показывать и когда; тест рендерит настоящие компоненты по состояниям и снимает DOM. Проверяющий сверяет поля, контролы, группы и видимость — в том числе показан ли контрол ровно в тех состояниях, из которых уходит его операция.',
+'s18-30': '10–12',
+'s18-31': 'Экран, прослеженный от контрола до пикселя, против описанной операции; ещё четыре экрана; затем слой ниже — карточки против <em class="hl">живого бессхемного хранилища</em>',
+'s18-32': 'По одному необязательному полю: <code>covers_outcomes</code>, <code>data.storage[]</code> — и проверка №4',
+'s18-33': '13–16',
+'s18-34': 'Слой выше, перевёрнутый: владелец пишет контракты форм первым, отрендеренные экраны отвечают; затем пилот на <em class="hl">чужом стеке</em> — семь issue за один вечер',
+'s18-35': 'Два вида артефактов и проверка №5; <code>groups[]</code>, <code>opens</code>, <code>maturity</code> у контракта, рецепт производителя — всё необязательное',
+'s18-36': '17–18',
+'s18-37': 'Второй заход пилота, четыре issue; карточки жизненного цикла живого сервиса',
+'s18-38': 'Семейства, карта состояний экрана, <code>from</code> как множество, <code>etag_optional</code> — всё необязательное',
+'s18-39': '19–21',
+'s18-40': 'Обкатка на собственном продукте владельца: гейт фронта без соседнего репозитория, счёт тестов, ведённый руками, запись без смены состояния',
+'s18-41': '<strong>Ни одного.</strong> Три предупреждения, которые проверяющий задолжал: <code>no_cards_found</code>, <code>tested_count_mismatch</code>, <code>reversibility_overstated</code>, выучивший <code>mutates</code>',
+'sA-01': '18 — где это сейчас',
+'sA-02': 'Где это сейчас — сентябрь 2026',
+'sA-03': 'Числа сняты с репозиториев и реестра, не из памяти. Что обещала эта колода — против того, что есть.',
+'sA-04': 'Обещано в этой колоде',
+'sA-05': 'Что есть',
+'sA-06': 'Спецификация и схема',
+'sA-07': 'SPEC v0.2 через 21 заход; три схемы',
+'sA-08': 'Три проверки',
+'sA-09': '<strong>Пять:</strong> маршруты, шаги, зрелость, хранилище, формы',
+'sA-10': 'CLI: <code>validate</code>, <code>gen openapi</code>, <code>check</code>',
+'sA-11': '<code>validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code> · <code>conformance</code>. <em class="hl2">gen openapi</em> не построен — направление развернулось: перечень маршрутов <em class="hl">берётся из</em> OpenAPI',
+'sA-12': 'Вторая реализация',
+'sA-13': 'Прототип на Python; одни коды на 87 случаях корпуса',
+'sA-14': 'Опубликован',
+'sA-15': '14 версий, 0.2.0 → 0.15.0, с подписью происхождения; публикация зелёная, только когда реестр отдаёт коробку',
+'sA-16': 'Здесь не обещалось',
+'sA-17': 'Контракты форм и проверка №5; стартовый набор; заготовки из OpenAPI; чужой пилот',
+'sA-18': 'Один продукт, два репозитория',
+'sA-19': '<strong>Сервер:</strong> 12 карточек на 113 маршрутов, за ними 415 тестов, каждый названный шаг доказан; 101 маршрут не описан — гейт <em class="hl">отчитывается</em>, а не валит сборку. <strong>Фронт:</strong> 3 контракта, строгий гейт с нулём находок, читает карточки сервера.',
+'sA-20': 'Насколько это завершено?',
+'sA-21': '<strong>Формат:</strong> 0.x — критерий 1.0 держится четырнадцать заходов; объявить — решение. <strong>Инструмент:</strong> пять проверок, две реализации, 87 случаев. <strong>Первый продукт:</strong> описано 11% маршрутов. <em class="hl">Незавершённое — внедрение, а не инструмент.</em>',
+'sB-01': '19 — в других местах',
+'sB-02': 'Переносится ли? Что сломалось и что ещё может',
+'sB-03': 'Один чужой пилот, одиннадцать issue за два захода, все закрыты — и каждый был настоящей дырой, а не делом вкуса.',
+'sB-04': 'Что перенеслось как есть',
+'sB-05': 'Карточки и проверки 1–3 требуют только документ OpenAPI и отчёт JUnit — это есть у любого стека. Рецепт производителя для форм взял чужой React-стек за один вечер, как только закрыли issue #7. Корпус превратил каждую починку в правило, а не в заплатку.',
+'sB-06': 'Что понадобится каждому новому стеку',
+'sB-07': 'Проверке №4 нужен живой доступ к хранилищу из CI; проверке №5 — тест, который рендерит <em class="hl">ваши</em> настоящие компоненты по состояниям. Обе — вторая волна не случайно.',
+'sB-08': 'Слепые пятна, которые ещё открыты',
+'sB-09': '<strong>Форма, не честность.</strong> Валидная карточка может врать: шаг, «доказанный» тестом другого маршрута, прошёл все пять проверок — дважды за один день на живом сервисе. Ловит только ревью.',
+'sB-10': '<strong>Карточки протухают и от новых тестов.</strong> Два из трёх «недоказанных» шагов были доказаны тестами, написанными после карточки; красное значило «карточке не сказали».',
+'sB-11': '<strong>Инструмент называет, но не решает.</strong> Немые откаты, окно гонки, непроверенный статус — всё всплывает предупреждениями; решения остаются за владельцем.',
+'sB-12': '<strong>Два стека — это немного.</strong> Каждый новый стек пока ломал что-нибудь необязательное; следующий тоже сломает. Это и замысел, и цена.',
+'sC-01': '21 — архитектура',
+'sC-02': 'Как сложены части',
+'sC-03': 'Интерактивная карта частей и того, что с чем сверяется, — опубликована рядом с этой колодой.',
+'sC-04': 'Открыть карту',
+'sC-05': 'Три репозитория на одной странице: формат с двумя проверяющими и корпусом; сервер с карточками операций; фронт с контрактами форм. Панорамирование, масштаб, трассировка связи, смена темы.',
+'sC-06': '<strong>Два гейта, одна коробка.</strong> Каждый репозиторий продукта запускает <code class="mono">npx usedesign@&lt;pin&gt;</code> из реестра; ничего не ставится, версия закреплена на репозиторий.',
+'sC-07': '<strong>Доказательство — то, что продукт говорит о себе.</strong> Перечень маршрутов, отчёт JUnit, перечень живого хранилища, настоящие компоненты, отрендеренные по состояниям. Исходники не разбираются никогда.',
+'sC-08': '<strong>Два чтения, один корпус.</strong> Коробка на TypeScript и прототип на Python обязаны давать одни коды на 87 случаях, прежде чем что-либо публикуется.',
+'s20-06b': '<span class="box"></span><span><strong>Версия 1.0</strong><br><span class="sub small">Критерий держится четырнадцать заходов; объявить — решение владельца</span></span>',
+'s20-06c': '<span class="box"></span><span><strong>101 маршрут первого продукта</strong><br><span class="sub small">Внедрение, а не инструмент: десять первых названы, четыре описаны</span></span>',
+'s20-14b': 'docs/architecture.html — карта',
 's20-16': '<kbd>←</kbd><kbd>→</kbd> навигация · <kbd>T</kbd> тема · <kbd>L</kbd> язык'
 };
 

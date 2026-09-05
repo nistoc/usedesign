@@ -1,0 +1,342 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "usedesign — how the pieces fit",
+    "locale": "en",
+    "output": "architecture.html",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1300,
+      700
+    ],
+    "views": [
+      {
+        "id": "authoring",
+        "label": "Authoring",
+        "focus": [
+          "author",
+          "cards",
+          "contracts"
+        ],
+        "note": "One card per operation, one contract per screen — written by measuring the code, never from memory."
+      },
+      {
+        "id": "checking",
+        "label": "Checking in CI",
+        "focus": [
+          "cards",
+          "inventories",
+          "gate-server",
+          "contracts",
+          "forms-inventory",
+          "gate-front"
+        ],
+        "note": "Each gate compares the descriptions with what the product states about itself at run time; sources are never parsed."
+      },
+      {
+        "id": "lockstep",
+        "label": "Two readings, one corpus",
+        "focus": [
+          "ts",
+          "py",
+          "corpus",
+          "npm"
+        ],
+        "note": "Two checkers must report the same codes on every corpus case; publish is green only once the registry serves the box."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "ts",
+      "type": "backend",
+      "label": "Reference checker",
+      "sublabel": "TypeScript · schemas ship in the box",
+      "pos": [
+        300,
+        56
+      ],
+      "size": [
+        260,
+        64
+      ],
+      "tag": "npx usedesign"
+    },
+    {
+      "id": "corpus",
+      "type": "database",
+      "label": "Conformance corpus",
+      "sublabel": "48 + 39 cases, both readings",
+      "pos": [
+        640,
+        56
+      ],
+      "size": [
+        240,
+        64
+      ]
+    },
+    {
+      "id": "py",
+      "type": "backend",
+      "label": "Prototype checker",
+      "sublabel": "Python, no schema library",
+      "pos": [
+        960,
+        56
+      ],
+      "size": [
+        220,
+        64
+      ]
+    },
+    {
+      "id": "npm",
+      "type": "cloud",
+      "label": "npm registry",
+      "sublabel": "0.15.0 · build provenance",
+      "pos": [
+        520,
+        210
+      ],
+      "size": [
+        240,
+        64
+      ]
+    },
+    {
+      "id": "forms-inventory",
+      "type": "database",
+      "label": "Rendered forms",
+      "sublabel": "components rendered per state",
+      "pos": [
+        40,
+        350
+      ],
+      "size": [
+        220,
+        64
+      ]
+    },
+    {
+      "id": "contracts",
+      "type": "database",
+      "label": "Form contracts",
+      "sublabel": "forms/*.contract.md",
+      "pos": [
+        40,
+        470
+      ],
+      "size": [
+        220,
+        64
+      ]
+    },
+    {
+      "id": "gate-front",
+      "type": "security",
+      "label": "Frontend gate",
+      "sublabel": "strict · check 5",
+      "pos": [
+        380,
+        410
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "gate-server",
+      "type": "security",
+      "label": "Server gate",
+      "sublabel": "report mode · checks 1–4",
+      "pos": [
+        740,
+        410
+      ],
+      "size": [
+        220,
+        64
+      ]
+    },
+    {
+      "id": "inventories",
+      "type": "database",
+      "label": "Product self-descriptions",
+      "sublabel": "routes · tests · live storage",
+      "pos": [
+        1040,
+        350
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "cards",
+      "type": "database",
+      "label": "Operation cards",
+      "sublabel": "cards/*.op.md",
+      "pos": [
+        1040,
+        470
+      ],
+      "size": [
+        200,
+        64
+      ]
+    },
+    {
+      "id": "author",
+      "type": "external",
+      "label": "Author",
+      "sublabel": "human + LLM, by measurement",
+      "pos": [
+        550,
+        600
+      ],
+      "size": [
+        220,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "usedesign repository — format, two checkers, corpus",
+      "wraps": [
+        "ts",
+        "corpus",
+        "py"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "product: frontend repository",
+      "wraps": [
+        "forms-inventory",
+        "contracts",
+        "gate-front"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "product: server repository",
+      "wraps": [
+        "gate-server",
+        "inventories",
+        "cards"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "author-writes-contracts",
+      "from": "author",
+      "to": "contracts",
+      "label": "one contract per screen"
+    },
+    {
+      "id": "author-writes-cards",
+      "from": "author",
+      "to": "cards",
+      "label": "one card per operation",
+      "variant": "emphasis"
+    },
+    {
+      "id": "corpus-binds-ts",
+      "from": "corpus",
+      "to": "ts",
+      "label": "same codes"
+    },
+    {
+      "id": "corpus-binds-py",
+      "from": "corpus",
+      "to": "py",
+      "label": "same codes"
+    },
+    {
+      "id": "ts-published",
+      "from": "ts",
+      "to": "npm",
+      "label": "publish; run waits for the box",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "npm-to-front-gate",
+      "from": "npm",
+      "to": "gate-front",
+      "label": "npx usedesign@pin",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": -40
+    },
+    {
+      "id": "npm-to-server-gate",
+      "from": "npm",
+      "to": "gate-server",
+      "label": "npx usedesign@pin",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": -40
+    },
+    {
+      "id": "forms-checked",
+      "from": "forms-inventory",
+      "to": "gate-front",
+      "label": "DOM per state"
+    },
+    {
+      "id": "contracts-checked",
+      "from": "contracts",
+      "to": "gate-front",
+      "label": "check 5",
+      "variant": "emphasis"
+    },
+    {
+      "id": "inventories-checked",
+      "from": "inventories",
+      "to": "gate-server",
+      "label": "runtime dumps"
+    },
+    {
+      "id": "cards-checked",
+      "from": "cards",
+      "to": "gate-server",
+      "label": "checks 1–4",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "What is compared with what",
+      "items": [
+        "Cards vs the route inventory, the JUnit report and the live store; contracts vs real components rendered per state",
+        "Sources are never parsed — only what the system states about itself"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Two readings, one corpus",
+      "items": [
+        "TypeScript reference and Python prototype must report the same codes on 87 cases",
+        "A new case must fail on the previous published box"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Where it runs",
+      "items": [
+        "npx usedesign@<pin> in each product's CI — nothing installed, version frozen per repository; the frontend gate reads the server's cards via a sibling checkout",
+        "Publish is green only when the registry actually serves the box"
+      ]
+    }
+  ]
+}

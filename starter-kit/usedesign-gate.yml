@@ -90,10 +90,10 @@ jobs:
           set +e
           set -uo pipefail
 
-          npx --yes usedesign@0.14.0 validate usedesign/cards/ | tee /tmp/ud-validate.txt
+          npx --yes usedesign@0.15.0 validate usedesign/cards/ | tee /tmp/ud-validate.txt
           VSTATUS=${PIPESTATUS[0]}
 
-          npx --yes usedesign@0.14.0 check usedesign/usedesign.config.yaml | tee /tmp/ud-check.txt
+          npx --yes usedesign@0.15.0 check usedesign/usedesign.config.yaml | tee /tmp/ud-check.txt
           STATUS=${PIPESTATUS[0]}
 
           {
