@@ -501,10 +501,30 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   for (const failure of fm["per_item"]?.failures ?? []) {
     if (failure?.code) outcomeVocabulary.set(failure.code, "per_item failure");
   }
+  // Round 23 wrote two read cards whose screens could describe every refusal and not the one
+  // ending the user came for. A read has no `data_transition.to`, and with a single ending it has
+  // no `outcomes[]` either — the list exists only for endings that differ in shape — so the
+  // vocabulary held the failures and nothing else, and "the panel shows the plan" went into
+  // `note`, where nothing checks it. `ok` is the name of that default success. It is in the
+  // vocabulary exactly when the operation names no success of its own; beside named successes it
+  // is the residue of a template, and the map must say which named ending the user sees.
+  const namedSuccesses = [...outcomeVocabulary]
+    .filter(([, where]) => where === "outcomes" || where === "data_transition.to")
+    .map(([id]) => id);
+  const hasDefaultSuccess = namedSuccesses.length === 0;
   for (const [name, iface] of Object.entries<any>(interfaces)) {
     const covers = iface?.covers_outcomes;
     if (!covers || typeof covers !== "object") continue;
     for (const key of Object.keys(covers)) {
+      if (key === "ok") {
+        if (!hasDefaultSuccess) {
+          err(
+            "ok_reserved",
+            `interface \`${name}\`: \`ok\` is reserved for the default success, and this operation names its successes: ${namedSuccesses.map((i) => `\`${i}\``).join(", ")} — write those instead`,
+          );
+        }
+        continue;
+      }
       if (!outcomeVocabulary.has(key)) {
         err(
           "covers_unknown_outcome",
@@ -520,6 +540,18 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
         );
       } else if (covers[id] === null) {
         warn("outcome_unshown", `interface \`${name}\`: outcome \`${id}\` is declared not shown to the user`);
+      }
+    }
+    // A warning, not an error: cards written before round 23 had no way to name the success,
+    // and a gate must not turn red on them for a word that did not exist when they were written.
+    if (hasDefaultSuccess) {
+      if (!("ok" in covers)) {
+        warn(
+          "default_success_uncovered",
+          `interface \`${name}\`: the default success has no line in covers_outcomes — write \`ok:\`, even as null`,
+        );
+      } else if (covers["ok"] === null) {
+        warn("outcome_unshown", `interface \`${name}\`: outcome \`ok\` is declared not shown to the user`);
       }
     }
 

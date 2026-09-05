@@ -294,3 +294,27 @@ cases:
       `data_transition: null` with a non-empty `mutates[]` is a write without a state change, not a
       read; `reversible` is a claim about that write and earns no `reversibility_overstated`. The
       same card without `mutates` still warns (valid/read-only-claiming-reversible).
+
+  # ── Round 23: the default success has a name ──────────────────────────────────────────────────
+  - file: valid/ui-covers-default-success.op.md
+    expect: valid
+    codes: []
+    warnings: []
+    note: >-
+      A read with one ending: no `outcomes[]` (the list is for endings that differ in shape) and
+      no `data_transition.to`. `ok` is the reserved name of that default success, so the screen
+      can say what it shows when the call succeeds — not only how it fails.
+  - file: valid/ui-default-success-uncovered.op.md
+    expect: valid
+    codes: []
+    warnings: [default_success_uncovered]
+    note: >-
+      The same read whose map lists the refusal and not the success. A warning, not an error:
+      cards written before round 23 had no way to name it, and a gate must not turn red on them.
+  - file: invalid/ok-with-named-outcomes.op.md
+    expect: invalid
+    codes: [ok_reserved]
+    note: >-
+      `ok` beside named successes is the residue of a template: the operation ends in `finished`
+      or `partial`, and the map must say which the user sees. On 0.15.0 this card was already
+      an error (`covers_unknown_outcome`); the new code names the cause, and the case pins it.

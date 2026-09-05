@@ -438,6 +438,18 @@ outcome must appear in it: a missing one is `outcome_not_covered` (an error), wh
 explicitly mapped to null is `outcome_unshown` (a warning). The asymmetry is the point — the
 field forbids **silent** gaps, not honest ones.
 
+**The default success has a name: `ok`.** Round 23 wrote two read cards whose screens could
+describe every refusal and not the one ending the user came for. A read has no
+`data_transition.to`, and with a single ending it has no `outcomes[]` either — the list exists
+only for endings that differ in shape (§5.2a) — so the vocabulary held the failures and nothing
+else, and "the panel shows the plan" had to go into `note`, where nothing checks it. `ok` is in
+the vocabulary exactly when the operation names no success of its own; then a map without it is
+`default_success_uncovered` (a warning, not an error: cards written before this round had no way
+to name the success, and a gate must not turn red on them for a word that did not exist), and
+`ok:` mapped to null is `outcome_unshown` like any other outcome. On an operation that *does* name
+its successes, `ok` is the residue of a template and is `ok_reserved`, an error — the map must
+say which of the named endings the user sees.
+
 **The vocabulary is what this invocation can end with.** Job states are *not* in it, and the
 line is not taste: a per-item failure arrives in this call's response while the user is looking
 at the screen, whereas a job state is the record's later life, watched through `observe_via` by
@@ -918,6 +930,8 @@ where the format broke:
 | 19 | **The frontend gate without its sibling** — the first run with `cards:` declared but the server checkout absent: every `calls:` read as undescribed, a fact about the checkout in the words of a fact about the cards | None. Check 5 names the cause once: `no_cards_found` as a warning, only when `cards:` was declared (§7.6) |
 | 20 | **A number in prose** — `tested: 5 tests` kept by hand while `tests[]` grew, three times in one day | None. `tested_count_mismatch`, a warning, only when the prose opens with a digit (§5.2) |
 | 21 | **Four cards of the workout screen** — a read with two endings, a create with a race window, and two writes that change fields but not the state | None. `reversibility_overstated` now respects `mutates`: a null transition with named fields is a write, not a read |
+| 22 | **A tombstone on foreign ground** — the pilot's backend role wrote its first card unaided: a soft delete with no precondition where its neighbours require one; the card demanded three tests | None. Three questions recorded, not fields: `none_by_design` asserts an intent where only an absence was measured; `to: deleted` names a tombstone as a state; `tested: N` restates what `tests[]` already counts |
+| 23 | **Four reads and a create on the athlete's path** — two reads with a single ending could name every refusal and not the success; one create is called from three places, one of them without a human | One, optional: the reserved key `ok` in `covers_outcomes{}` (§5.7), with `default_success_uncovered` (warning) and `ok_reserved` (error). Recorded, not fixed: `interfaces.ui` fits one control |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

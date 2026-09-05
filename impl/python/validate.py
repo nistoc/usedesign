@@ -267,11 +267,27 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     for failure in (fm.get("per_item") or {}).get("failures") or []:
         if failure.get("code"):
             outcome_vocabulary[failure["code"]] = "per_item failure"
+    # Round 23 wrote two read cards whose screens could describe every refusal and not the one
+    # ending the user came for. A read has no `data_transition.to`, and with a single ending no
+    # `outcomes[]` either — the list exists only for endings that differ in shape — so the
+    # vocabulary held the failures and nothing else. `ok` is the name of that default success.
+    # It is in the vocabulary exactly when the operation names no success of its own; beside
+    # named successes it is the residue of a template.
+    named_successes = [oid for oid, where in outcome_vocabulary.items()
+                       if where in ("outcomes", "data_transition.to")]
+    has_default_success = not named_successes
     for name, iface in interfaces.items():
         covers = iface.get("covers_outcomes")
         if not isinstance(covers, dict):
             continue
         for key in covers:
+            if key == "ok":
+                if not has_default_success:
+                    named = ", ".join(f"`{i}`" for i in named_successes)
+                    err("ok_reserved",
+                        f"interface `{name}`: `ok` is reserved for the default success, and this "
+                        f"operation names its successes: {named} — write those instead")
+                continue
             if key not in outcome_vocabulary:
                 err("covers_unknown_outcome",
                     f"interface `{name}`: covers_outcomes names `{key}`, which no outcome, "
@@ -284,6 +300,16 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
             elif covers[oid] is None:
                 warn("outcome_unshown",
                      f"interface `{name}`: outcome `{oid}` is declared not shown to the user")
+        # A warning, not an error: cards written before round 23 had no way to name the success,
+        # and a gate must not turn red on them for a word that did not exist when they were written.
+        if has_default_success:
+            if "ok" not in covers:
+                warn("default_success_uncovered",
+                     f"interface `{name}`: the default success has no line in covers_outcomes — "
+                     "write `ok:`, even as null")
+            elif covers["ok"] is None:
+                warn("outcome_unshown",
+                     f"interface `{name}`: outcome `ok` is declared not shown to the user")
 
         # Shown, but shown as the same thing. Between "the user sees it" and "the user sees
         # nothing" sits the state nobody notices: two different endings wearing one sentence.
