@@ -88,6 +88,30 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPMJS_USEDESIGN_PACKAGES_TOKEN }}
 
+      # «Опубликовано» ещё не значит «доступно»: реестр обрабатывает пакет минуты, и ОБА его лица
+      # отстают по-разному — 0.12.0: метаданные сразу, архив через ~6 мин; 0.13.0: и метаданные,
+      # и архив через ~8 мин. Зелёный прогон обязан значить «коробка ставится и отвечает у
+      # постороннего ИЗ РЕЕСТРА», иначе тот, кто поднимает пин по зелёному, получает 404.
+      - name: Коробка доступна из реестра
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
+        run: |
+          set -uo pipefail
+          PKG="$(node -p "require('./package.json').version")"
+          mkdir -p /tmp/regprobe && cd /tmp/regprobe
+          START=$(date +%s)
+          for i in $(seq 1 45); do
+            SAID="$(npx --yes "usedesign@$PKG" --version 2>/dev/null || true)"
+            case "$SAID" in
+              *"$PKG"*)
+                echo "коробка usedesign@$PKG отвечает из реестра через $(( $(date +%s) - START )) с: $SAID"
+                echo "- доступна из реестра через $(( $(date +%s) - START )) с" >> "$GITHUB_STEP_SUMMARY"
+                exit 0 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::usedesign@$PKG опубликована, но за 15 минут так и не стала доступна из реестра — пин по этому прогону поднимать НЕЛЬЗЯ"
+          exit 1
+
       - name: Сводка
         if: always()
         run: |
