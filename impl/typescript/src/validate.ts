@@ -563,7 +563,11 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // said it — because the field is required and, until round 7, had no honest value for them.
   // A warning, not an error: the reading is a judgement about the card's own claims, and a
   // checker that hard-fails on judgement gets switched off.
-  if (fm["data_transition"] === null && fm["provenance"] === "none" && fm["reversibility"] === "reversible") {
+  // `mutates` is the format's own word for "writes without a state change" (round 21: a card
+  // for logging a set — transition null, mutates seven fields — was called read-only here).
+  const mutates = fm["mutates"];
+  const writesWithoutTransition = Array.isArray(mutates) && mutates.length > 0;
+  if (fm["data_transition"] === null && !writesWithoutTransition && fm["provenance"] === "none" && fm["reversibility"] === "reversible") {
     warn("reversibility_overstated", "read-only operation claims `reversible`; nothing was done, so nothing can be undone");
   }
 

@@ -286,3 +286,11 @@ cases:
       `maturity_evidence.tested` opens with a number that differs from the length of `tests[]`.
       Advisory prose stays valid; a number in it is a claim and is compared. Free text without a
       leading number is never compared.
+  - file: valid/mutates-without-transition-reversible.op.md
+    expect: valid
+    codes: []
+    warnings: []
+    note: >-
+      `data_transition: null` with a non-empty `mutates[]` is a write without a state change, not a
+      read; `reversible` is a claim about that write and earns no `reversibility_overstated`. The
+      same card without `mutates` still warns (valid/read-only-claiming-reversible).

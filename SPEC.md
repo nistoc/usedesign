@@ -559,6 +559,9 @@ than in the path, this field is the only place it is visible.
 > **A format that demands an answer must offer one that is true**, or it manufactures the exact
 > falsehood it exists to prevent. Claiming `reversible` on an operation that writes nothing is now
 > a warning (`reversibility_overstated`).
+> A null transition alone does not make an operation read-only: when `mutates` names the fields
+> written, the operation did something, and `reversible` is a claim about it, not an overstatement
+> (round 21 — the card for logging a set).
 >
 > **Why `sensitivity` matters.** An operation that returns a secret once states one rule for three
 > consumers at the same time: the UI must not show it twice, the gateway must not log it, the test
@@ -914,6 +917,7 @@ where the format broke:
 | 18 | **Two lies the vocabulary forced** — writing the lifecycle cards of a live service: an operation departing from any of three states could only say `from: any` (which switches the shown_when rule off), and a surface that honours a revision without requiring it had to claim either `etag_required` or `none_by_design` | `data_transition.from` as a set (§5.2, §7.5); `etag_optional` (§5.4); the starter kit shows a frontend gate how to see a sibling repository's cards — all optional |
 | 19 | **The frontend gate without its sibling** — the first run with `cards:` declared but the server checkout absent: every `calls:` read as undescribed, a fact about the checkout in the words of a fact about the cards | None. Check 5 names the cause once: `no_cards_found` as a warning, only when `cards:` was declared (§7.6) |
 | 20 | **A number in prose** — `tested: 5 tests` kept by hand while `tests[]` grew, three times in one day | None. `tested_count_mismatch`, a warning, only when the prose opens with a digit (§5.2) |
+| 21 | **Four cards of the workout screen** — a read with two endings, a create with a race window, and two writes that change fields but not the state | None. `reversibility_overstated` now respects `mutates`: a null transition with named fields is a write, not a read |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

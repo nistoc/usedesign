@@ -314,7 +314,11 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     # An operation that produces no effect has nothing to reverse. Saying `reversible` there
     # answers a different question than the one asked, and both read-only cards in this project
     # said it — the field is required and, until round 7, had no honest value for them.
+    # `mutates` is the format's own word for "writes without a state change" (round 21: a card
+    # for logging a set — transition null, mutates seven fields — was called read-only here).
+    writes_without_transition = bool(fm.get("mutates"))
     if (fm.get("data_transition", False) is None
+            and not writes_without_transition
             and fm.get("provenance") == "none"
             and fm.get("reversibility") == "reversible"):
         warn("reversibility_overstated",
