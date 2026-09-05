@@ -318,3 +318,11 @@ cases:
       `ok` beside named successes is the residue of a template: the operation ends in `finished`
       or `partial`, and the map must say which the user sees. On 0.15.0 this card was already
       an error (`covers_unknown_outcome`); the new code names the cause, and the case pins it.
+  - file: valid/ui-several-screens.op.md
+    expect: valid
+    codes: []
+    warnings: []
+    note: >-
+      One operation, two screens: `ui` and `ui-day-menu`, each with its own control and its own
+      map, checked separately. The format accepted this from the start — 0.15.0 passes it too —
+      so this case is a guard, not a probe: it pins what §5.7 failed to say for two rounds.

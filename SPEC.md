@@ -404,6 +404,7 @@ interfaces:
           contract_version: <media type>, source }
   rpc:  { transport: json_rpc, tool, scope_required, source }
   ui:   { transport: ui, screen, control, covers_steps[], covers_outcomes{}, source }
+  ui-<caller>: { the same shape — one entry per calling screen when several call the operation }
 ```
 
 At least one interface is required. Each interface declares its `transport`
@@ -412,6 +413,15 @@ for protocols whose errors are numeric RPC codes.
 
 `ui.covers_steps` is the mechanism that makes UI/API drift visible: if a screen claims to cover a
 step that does not exist, the checker fails.
+
+**One operation, several screens.** The map is open: `rest`, `rpc` and `ui` are the usual names,
+not the only ones. When several screens call one operation, each gets its own entry — `ui`,
+`ui-copy`, `ui-background` — with its own `control`, `covers_steps[]` and `covers_outcomes{}`,
+and every rule below runs per entry, so `outcomes_indistinguishable` names the screen it is true
+of. Round 23 measured a create called from three places — a form, a "copy to mine" button, and a
+background job with no human behind it — and had written all three into one `control` as prose,
+twice in a row, because this section showed three fixed keys. The keys were never fixed; the
+document said less than the schema did.
 
 **`covers_outcomes{}` — what the user of this interface sees for each declared outcome.** Round 10
 traced one real button through its screen, its store, and back: of the four outcomes the server
@@ -931,7 +941,7 @@ where the format broke:
 | 20 | **A number in prose** — `tested: 5 tests` kept by hand while `tests[]` grew, three times in one day | None. `tested_count_mismatch`, a warning, only when the prose opens with a digit (§5.2) |
 | 21 | **Four cards of the workout screen** — a read with two endings, a create with a race window, and two writes that change fields but not the state | None. `reversibility_overstated` now respects `mutates`: a null transition with named fields is a write, not a read |
 | 22 | **A tombstone on foreign ground** — the pilot's backend role wrote its first card unaided: a soft delete with no precondition where its neighbours require one; the card demanded three tests | None. Three questions recorded, not fields: `none_by_design` asserts an intent where only an absence was measured; `to: deleted` names a tombstone as a state; `tested: N` restates what `tests[]` already counts |
-| 23 | **Four reads and a create on the athlete's path** — two reads with a single ending could name every refusal and not the success; one create is called from three places, one of them without a human | One, optional: the reserved key `ok` in `covers_outcomes{}` (§5.7), with `default_success_uncovered` (warning) and `ok_reserved` (error). Recorded, not fixed: `interfaces.ui` fits one control |
+| 23 | **Four reads and a create on the athlete's path** — two reads with a single ending could name every refusal and not the success; one create is called from three places, one of them without a human | One, optional: the reserved key `ok` in `covers_outcomes{}` (§5.7), with `default_success_uncovered` (warning) and `ok_reserved` (error). And a repair to this document, not the format: the interfaces map was always open — one `ui-<caller>` entry per calling screen — but §5.7 showed three fixed keys, and two rounds read it as one screen per operation |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
