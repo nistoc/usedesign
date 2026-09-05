@@ -349,3 +349,14 @@ cases:
     note: >-
       The same contract also offers resume in `active`, which the operation does not depart from —
       a set is judged member by member, and one state outside it is a conflict.
+  - dir: form-cards-glob-empty
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [no_cards_found, form_calls_undescribed]
+    note: >-
+      `cards:` is declared but the glob matches nothing — a frontend gate whose sibling checkout
+      of the server repository did not happen (no read token). Every `calls:` then reads as
+      "undescribed", which is a fact about the checkout, not the cards; the checker names the
+      cause once, as a warning, before the consequences. Without `cards:` in the config there is
+      nothing to name and no warning.

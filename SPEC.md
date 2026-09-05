@@ -881,6 +881,14 @@ misspelled `cheks:` used to be accepted silently — the scoping vanished and th
 meant to skip failed pointing at a different cause (issue #4). Both implementations refuse an
 unknown key, naming it and the known set.
 
+A frontend repository may still list `cards:` — pointing at a sibling checkout of the server
+repository, which a gate performs only when it holds a read token (the starter kit shows the
+step). When that checkout did not happen the glob matches nothing, and every `calls:` in every
+contract turns into `form_calls_undescribed` — a fact about the checkout wearing the words of a
+fact about the cards. Check 5 therefore says `no_cards_found` once, as a warning, before those
+consequences, and only when `cards:` was declared: a config without the key has nothing to
+find and earns no warning.
+
 ## 8. Maturity of this specification
 
 v0.2 was reached by writing cards for eight real operations of a production system and recording
@@ -904,6 +912,7 @@ where the format broke:
 | 16 | **Foreign ground files its findings** — five issues from the first outside pilot, measured on a live service | `records_only` on provenance (§5.8), `entities: []` (§5.8), `route_not_yet_served` (§7.1), config keys enforced at load (§7.6), the starter kit names its inventory's blind spot |
 | 17 | **The pilot's second round** — four issues from check 5 on foreign screens: a contract written ahead of its screen is red by construction; a family of elements named from runtime data cannot be stated; screen states outnumber data states; and a colon in a test name made a proven card read as unproven | `maturity` on the form contract with `form_not_yet_built` / `form_maturity_stale` (§7.5), `field_pattern` / `control_pattern` / `at_least` (§7.5), the `states:` map (§7.5), exact-before-heuristic test-id matching (§7) — all optional |
 | 18 | **Two lies the vocabulary forced** — writing the lifecycle cards of a live service: an operation departing from any of three states could only say `from: any` (which switches the shown_when rule off), and a surface that honours a revision without requiring it had to claim either `etag_required` or `none_by_design` | `data_transition.from` as a set (§5.2, §7.5); `etag_optional` (§5.4); the starter kit shows a frontend gate how to see a sibling repository's cards — all optional |
+| 19 | **The frontend gate without its sibling** — the first run with `cards:` declared but the server checkout absent: every `calls:` read as undescribed, a fact about the checkout in the words of a fact about the cards | None. Check 5 names the cause once: `no_cards_found` as a warning, only when `cards:` was declared (§7.6) |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

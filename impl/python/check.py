@@ -719,7 +719,14 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
             }
         by_screen[str(form.get("screen"))] = states
 
-    cards, _ = load_card_files(config, base)
+    # A frontend repository may declare `cards:` pointing at a sibling checkout that is not
+    # always there; then the glob matches nothing and every `calls:` reads as "undescribed" —
+    # a fact about the checkout, not the cards. Named once.
+    cards, card_findings = load_card_files(config, base)
+    if config.get("cards") and any(f.code == "no_cards_found" for f in card_findings):
+        findings.append(Finding("no_cards_found",
+                                "the `cards` patterns matched nothing — every `calls:` below is "
+                                "unverifiable here, not undescribed", "warning"))
     card_by_id = dict(cards)
 
     contracts: list[tuple[str, dict]] = []

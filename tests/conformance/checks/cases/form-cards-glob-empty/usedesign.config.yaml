@@ -1,0 +1,7 @@
+usedesign_config: 1
+checks: [5]
+cards:
+  - ../server-not-checked-out/cards/*.op.md
+forms:
+  - ./*.contract.md
+form_inventory: form-inventory.json
