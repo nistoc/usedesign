@@ -144,7 +144,7 @@ Legend: ⬛ required · ⬜ optional · 🔶 conditionally required
 ```yaml
 maturity_evidence:
   implemented: src/loans/CheckoutHandler.ts        # or a list, for an operation spanning files
-  tested: 7 tests                                  # advisory prose — not the enforced evidence
+  tested: 7 tests                                  # advisory prose; a leading number is compared with tests[]
   deployed: { env: production, since: 2026-07-12 }  # or a bare env name, which never expires
 ```
 
@@ -913,6 +913,7 @@ where the format broke:
 | 17 | **The pilot's second round** — four issues from check 5 on foreign screens: a contract written ahead of its screen is red by construction; a family of elements named from runtime data cannot be stated; screen states outnumber data states; and a colon in a test name made a proven card read as unproven | `maturity` on the form contract with `form_not_yet_built` / `form_maturity_stale` (§7.5), `field_pattern` / `control_pattern` / `at_least` (§7.5), the `states:` map (§7.5), exact-before-heuristic test-id matching (§7) — all optional |
 | 18 | **Two lies the vocabulary forced** — writing the lifecycle cards of a live service: an operation departing from any of three states could only say `from: any` (which switches the shown_when rule off), and a surface that honours a revision without requiring it had to claim either `etag_required` or `none_by_design` | `data_transition.from` as a set (§5.2, §7.5); `etag_optional` (§5.4); the starter kit shows a frontend gate how to see a sibling repository's cards — all optional |
 | 19 | **The frontend gate without its sibling** — the first run with `cards:` declared but the server checkout absent: every `calls:` read as undescribed, a fact about the checkout in the words of a fact about the cards | None. Check 5 names the cause once: `no_cards_found` as a warning, only when `cards:` was declared (§7.6) |
+| 20 | **A number in prose** — `tested: 5 tests` kept by hand while `tests[]` grew, three times in one day | None. `tested_count_mismatch`, a warning, only when the prose opens with a digit (§5.2) |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
@@ -996,6 +997,12 @@ teaches people to trust it further than they should.
 Four new checks came with them, and all four need nothing but the card itself:
 `undeclared_response` · `continuation_without_outcome` · `decorative_parameter_not_in_path` ·
 `reversibility_overstated`.
+
+A fifth arrived in round 20, from the same family — a number in advisory prose is still a claim:
+`maturity_evidence.tested` that opens with a digit is compared with the length of `tests[]`, and a
+difference is `tested_count_mismatch`, a warning. Free text without a leading number is never
+compared. The count had been kept in step by hand three times in one day on a live service before
+the rule existed; hand-kept numbers rot exactly like a version pin in a README.
 
 **What repairing cost the existing corpus: nothing.** No required field changed, and every card
 written before round 7 still validates. By the v1.0 criterion this round qualifies — but it would

@@ -129,6 +129,13 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
                         f"`{maturity}` claimed without `maturity_evidence.{key}`")
     if maturity in ("tested", "in_production") and not tests:
         err("maturity_without_tests", f"`{maturity}` claimed with an empty `tests[]`")
+    # `maturity_evidence.tested` is advisory prose — but a leading number is a claim that rots by
+    # hand ("5 tests" kept after the sixth was cited); the product's cards were kept in step by hand three times in one day.
+    tested_prose = evidence.get("tested") if isinstance(evidence, dict) else None
+    tested_match = re.match(r"\s*(\d+)", str(tested_prose)) if isinstance(tested_prose, (int, str)) else None
+    if tested_match and int(tested_match.group(1)) != len(tests):
+        warn("tested_count_mismatch",
+             f"maturity_evidence.tested says {tested_match.group(1)}, tests[] lists {len(tests)} — the count went stale")
 
     # ── concurrency ──────────────────────────────────────────────────────────
     concurrency = fm.get("concurrency") or {}

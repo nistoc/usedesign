@@ -338,6 +338,14 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   if (maturity && ["tested", "in_production"].includes(maturity) && tests.length === 0) {
     err("maturity_without_tests", `\`${maturity}\` claimed with an empty \`tests[]\``);
   }
+  // `maturity_evidence.tested` is advisory prose — but when it opens with a number, the number is a
+  // claim, and it rots by hand: cards keep "5 tests" after the sixth was cited, or after one was
+  // dropped. The format's own example library was clean when this arrived; the product's cards had been kept in step by hand three times in one day.
+  const testedProse = evidence["tested"];
+  const testedMatch = typeof testedProse === "number" ? [null, String(testedProse)] : /^\s*(\d+)/.exec(String(testedProse ?? ""));
+  if (testedMatch && Number(testedMatch[1]) !== tests.length) {
+    warn("tested_count_mismatch", `maturity_evidence.tested says ${testedMatch[1]}, tests[] lists ${tests.length} — the count went stale`);
+  }
 
   // ── concurrency ────────────────────────────────────────────────────────────────────────────
   const concurrency: Record<string, unknown> = fm["concurrency"] ?? {};

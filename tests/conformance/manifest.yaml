@@ -278,3 +278,11 @@ cases:
     note: >-
       A one-element `from` set is a string wearing brackets — two spellings of one fact drift
       apart in tooling that reads one and not the other. The author writes the string.
+  - file: valid/tested-count-stale.op.md
+    expect: valid
+    codes: []
+    warnings: [tested_count_mismatch]
+    note: >-
+      `maturity_evidence.tested` opens with a number that differs from the length of `tests[]`.
+      Advisory prose stays valid; a number in it is a claim and is compared. Free text without a
+      leading number is never compared.
