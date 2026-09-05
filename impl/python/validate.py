@@ -32,7 +32,7 @@ REQUIRED = ["id", "title", "actors", "maturity", "steps",
             "concurrency", "interfaces", "data", "provenance", "reversibility"]
 MATURITY = ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"]
 CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header",
-                     "idempotency_by_formula", "none_by_design"]
+                     "idempotency_by_formula", "none_by_design", "none_unexplained"]
 TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"]
 TEST_LEVELS = ["unit", "integration", "ui", "contract"]
 
@@ -146,6 +146,14 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         err("relaxation_without_rationale", f"mode `{mode}` weakens protection without a rationale")
     if mode == "idempotency_by_formula" and not concurrency.get("formula"):
         err("missing_required_field", "idempotency_by_formula without `formula`")
+    # Round 24: a soft delete that reads no If-Match between two neighbours that require one,
+    # with nothing in the code to say why. `none_by_design` asserts an intent nobody measured;
+    # this mode records the absence and keeps it visible in every run until it is explained.
+    if mode == "none_unexplained":
+        warn("concurrency_unexplained",
+             "concurrency.mode is `none_unexplained` — no precondition is read and the code gives "
+             "no reason; a measured absence, kept visible until it is explained (`none_by_design`) "
+             "or closed (an `etag_*` mode)")
 
     # ── interfaces ───────────────────────────────────────────────────────────
     interfaces = fm.get("interfaces") or {}

@@ -326,3 +326,21 @@ cases:
       One operation, two screens: `ui` and `ui-day-menu`, each with its own control and its own
       map, checked separately. The format accepted this from the start — 0.15.0 passes it too —
       so this case is a guard, not a probe: it pins what §5.7 failed to say for two rounds.
+
+  # ── Round 24: a measured absence of a precondition has a name ─────────────────────────────────
+  - file: valid/concurrency-none-unexplained.op.md
+    expect: valid
+    codes: []
+    warnings: [concurrency_unexplained]
+    note: >-
+      A soft delete that reads no If-Match between two neighbours that require one, with no
+      comment and no flag to say why. `none_by_design` would assert an intent nobody measured;
+      `none_unexplained` records the absence and warns in every run until it is explained.
+  - file: invalid/none-unexplained-without-rationale.op.md
+    expect: invalid
+    codes: [relaxation_without_rationale]
+    note: >-
+      The sixth mode needs its measurement: which neighbours require a precondition, what was
+      searched and not found. Without `rationale` the label records nothing. A guard, not a
+      probe: 0.15.0 rejects this card too (for the enum, and for the rationale) — the case pins
+      the rationale rule on the new mode, not the mode itself.

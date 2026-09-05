@@ -156,7 +156,7 @@ report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 52 card cases and 39 repository cases, verdicts, codes **and warnings**
+- [x] Conformance corpus — 54 card cases and 39 repository cases, verdicts, codes **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))

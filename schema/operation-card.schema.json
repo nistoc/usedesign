@@ -279,7 +279,8 @@
           "enum": [
             "etag_required", "etag_optional", "idempotency_by_header",
             "idempotency_by_formula",
-            "none_by_design"
+            "none_by_design",
+            "none_unexplained"
           ]
         },
         "rationale": {

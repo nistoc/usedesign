@@ -17,7 +17,7 @@ export const REPO = join(HERE, "..", "..", "..");
 
 const REQUIRED = ["id", "title", "actors", "maturity", "steps", "concurrency", "interfaces", "data", "provenance", "reversibility"];
 export const MATURITY = ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"];
-const CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header", "idempotency_by_formula", "none_by_design"];
+const CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header", "idempotency_by_formula", "none_by_design", "none_unexplained"];
 const TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"];
 const TEST_LEVELS = ["unit", "integration", "ui", "contract"];
 
@@ -358,6 +358,16 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   }
   if (mode === "idempotency_by_formula" && !concurrency["formula"]) {
     err("missing_required_field", "idempotency_by_formula without `formula`");
+  }
+  // Round 24, from the first card a pilot's backend role wrote unaided: a soft delete that reads
+  // no If-Match between two neighbours that require one, with nothing in the code to say why.
+  // `none_by_design` asserts an intent nobody measured; this mode records the absence and keeps
+  // it in every run's output until someone explains it or adds a precondition.
+  if (mode === "none_unexplained") {
+    warn(
+      "concurrency_unexplained",
+      "concurrency.mode is `none_unexplained` — no precondition is read and the code gives no reason; a measured absence, kept visible until it is explained (`none_by_design`) or closed (an `etag_*` mode)",
+    );
   }
 
   // ── interfaces ─────────────────────────────────────────────────────────────────────────────

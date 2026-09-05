@@ -347,6 +347,14 @@ concurrency:
 | `idempotency_by_header` | Caller supplies an idempotency key |
 | `idempotency_by_formula` | The server derives the key from the payload |
 | `none_by_design` | No protection needed — the operation is idempotent by construction |
+| `none_unexplained` | No precondition is read, and the code gives no reason. A measured absence, not a design: the card says what it saw, and the `rationale` records the measurement — which neighbours require one, what was searched. Always a warning (`concurrency_unexplained`), so the gate keeps the debt visible until someone explains it (then `none_by_design`) or adds one (then an `etag_*` mode) |
+
+**Why the sixth mode exists.** Round 22 was the first card a pilot's backend role wrote unaided:
+a soft delete that reads no `If-Match`, between two neighbouring deletes that require it, with
+no comment and no flag to say why. The five modes offered `none_by_design` — an assertion of
+intent where only an absence had been measured — and the author wrote it, then wrote the
+contradiction into `rationale`, the one field nothing checks. The mode was added so that a
+measured absence has a name of its own, and so that the gate, not prose, carries it forward.
 
 `on_duplicate` is required for the two idempotency modes, and **permitted for `etag_required`**:
 a stale revision is a collision outcome the caller must handle, and stating it is more useful
@@ -942,6 +950,7 @@ where the format broke:
 | 21 | **Four cards of the workout screen** — a read with two endings, a create with a race window, and two writes that change fields but not the state | None. `reversibility_overstated` now respects `mutates`: a null transition with named fields is a write, not a read |
 | 22 | **A tombstone on foreign ground** — the pilot's backend role wrote its first card unaided: a soft delete with no precondition where its neighbours require one; the card demanded three tests | None. Three questions recorded, not fields: `none_by_design` asserts an intent where only an absence was measured; `to: deleted` names a tombstone as a state; `tested: N` restates what `tests[]` already counts |
 | 23 | **Four reads and a create on the athlete's path** — two reads with a single ending could name every refusal and not the success; one create is called from three places, one of them without a human | One, optional: the reserved key `ok` in `covers_outcomes{}` (§5.7), with `default_success_uncovered` (warning) and `ok_reserved` (error). And a repair to this document, not the format: the interfaces map was always open — one `ui-<caller>` entry per calling screen — but §5.7 showed three fixed keys, and two rounds read it as one screen per operation |
+| 24 | **Round 22's first question, answered** — a soft delete with no precondition and no reason in the code could only claim `none_by_design`, an intent nobody measured | One, optional: `concurrency.mode: none_unexplained` (§5.4), always warning `concurrency_unexplained` so the gate carries the debt instead of the prose |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
