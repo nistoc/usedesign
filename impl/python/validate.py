@@ -31,7 +31,7 @@ CORPUS = os.path.join(REPO, "tests", "conformance")
 REQUIRED = ["id", "title", "actors", "maturity", "steps",
             "concurrency", "interfaces", "data", "provenance", "reversibility"]
 MATURITY = ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"]
-CONCURRENCY_MODES = ["etag_required", "idempotency_by_header",
+CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header",
                      "idempotency_by_formula", "none_by_design"]
 TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"]
 TEST_LEVELS = ["unit", "integration", "ui", "contract"]
@@ -93,6 +93,17 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     maturity = fm.get("maturity")
     if maturity is not None and maturity not in MATURITY:
         err("invalid_enum_value", f"maturity `{maturity}` is not one of {MATURITY}")
+
+    # `data_transition.from` may be a SET (round 18): an operation departing from any of several
+    # states. One state is written as a string; a one-element set is that string wearing brackets.
+    transition_value = fm.get("data_transition")
+    from_value = transition_value.get("from") if isinstance(transition_value, dict) else None
+    if isinstance(from_value, list):
+        if len(from_value) < 2:
+            err("malformed_transition",
+                "`data_transition.from` as a set needs at least two states — one state is written as a string")
+        if len({str(s) for s in from_value}) != len(from_value):
+            err("malformed_transition", "`data_transition.from` lists the same state twice")
 
     # ── steps ────────────────────────────────────────────────────────────────
     steps = fm.get("steps") or []

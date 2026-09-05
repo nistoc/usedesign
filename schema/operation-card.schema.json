@@ -149,8 +149,9 @@
           "additionalProperties": false,
           "properties": {
             "from": {
-              "type": "string"
-            },
+            "description": "The state the operation departs from — or a SET of states when it departs from any of several (resume from finished | partial | abandoned). One state is a string; a set has at least two.",
+            "oneOf": [{ "type": "string" }, { "type": "array", "minItems": 2, "uniqueItems": true, "items": { "type": "string" } }]
+          },
             "to": {
               "oneOf": [
                 {
@@ -276,8 +277,7 @@
       "properties": {
         "mode": {
           "enum": [
-            "etag_required",
-            "idempotency_by_header",
+            "etag_required", "etag_optional", "idempotency_by_header",
             "idempotency_by_formula",
             "none_by_design"
           ]

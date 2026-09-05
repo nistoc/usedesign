@@ -17,7 +17,7 @@ export const REPO = join(HERE, "..", "..", "..");
 
 const REQUIRED = ["id", "title", "actors", "maturity", "steps", "concurrency", "interfaces", "data", "provenance", "reversibility"];
 export const MATURITY = ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"];
-const CONCURRENCY_MODES = ["etag_required", "idempotency_by_header", "idempotency_by_formula", "none_by_design"];
+const CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header", "idempotency_by_formula", "none_by_design"];
 const TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"];
 const TEST_LEVELS = ["unit", "integration", "ui", "contract"];
 
@@ -299,6 +299,16 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   const maturity: string | undefined = fm["maturity"];
   if (maturity !== undefined && !MATURITY.includes(maturity)) {
     err("invalid_enum_value", `maturity \`${maturity}\` is not one of ${MATURITY}`);
+  }
+
+  // `data_transition.from` may be a SET (round 18): an operation that departs from any of several
+  // states — resume from finished | partial | abandoned. Measured on a live service, where the only
+  // honest alternative was `from: any`, which switches the shown_when rule off. One state is written
+  // as a string; a one-element set is that string wearing brackets.
+  const fromValue = fm["data_transition"] && typeof fm["data_transition"] === "object" ? fm["data_transition"].from : undefined;
+  if (Array.isArray(fromValue)) {
+    if (fromValue.length < 2) err("malformed_transition", "`data_transition.from` as a set needs at least two states — one state is written as a string");
+    if (new Set(fromValue.map(String)).size !== fromValue.length) err("malformed_transition", "`data_transition.from` lists the same state twice");
   }
 
   // ── steps ──────────────────────────────────────────────────────────────────────────────────

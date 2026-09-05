@@ -137,7 +137,7 @@ Legend: ⬛ required · ⬜ optional · 🔶 conditionally required
 |---|:--:|---|
 | `maturity` | ⬛ | `conceived` · `designed` · `implemented` · `tested` · `in_production` · `deprecated` |
 | `maturity_evidence` | 🔶 | Required from `implemented` upward — **a level may not be claimed without its evidence**. A `conceived` or `designed` operation has nothing to prove yet. The three keys are not the same kind of claim; see below |
-| `data_transition` | ⬜ | `{ from, to }` — axis C. `null` for read-only operations and for writes that do not change state. `to` may be **a set of states** with `determined_by`, for operations whose destination comes from the record's own history |
+| `data_transition` | ⬜ | `{ from, to }` — axis C. `null` for read-only operations and for writes that do not change state. `to` may be **a set of states** with `determined_by`, for operations whose destination comes from the record's own history; `from` may be **a set** too — the operation departs from any of them (resume from `finished | partial | abandoned`), which is what `from: any` used to hide |
 | `mutates` | 🔶 | Fields changed, when `data_transition` is null but the operation still writes |
 | `since` | ⬜ | `{ migration, note }` — axis D. The one place where migrations stop being orphans |
 
@@ -333,7 +333,7 @@ number. The tidiness is visible; the damage is not.
 
 ```yaml
 concurrency:
-  mode: <one of the four below>    # ⬛
+  mode: <one of the five below>    # ⬛
   rationale: <why>                 # 🔶 required for every mode except the strictest
   formula: <…>                     # 🔶 for idempotency_by_formula
   on_duplicate: <…>                # 🔶 for both idempotency modes; allowed for etag_required
@@ -343,6 +343,7 @@ concurrency:
 | Mode | Meaning |
 |---|---|
 | `etag_required` | Caller must send the current revision; mismatch is rejected |
+| `etag_optional` | The revision is honoured **when sent** — mismatch is rejected — but a request without one is accepted. The honest state of a surface being migrated to `etag_required` one flag at a time; measured on a live service where every write was exactly this and the vocabulary offered only a lie in each direction |
 | `idempotency_by_header` | Caller supplies an idempotency key |
 | `idempotency_by_formula` | The server derives the key from the payload |
 | `none_by_design` | No protection needed — the operation is idempotent by construction |
@@ -762,6 +763,9 @@ contract carries them as prose for the human who writes those tests.
 
 The measured rule behind `shown_when`: a control is available exactly in the states of the called
 operation's `data_transition.from`. Two screens, zero exceptions, before it was written down.
+When `from` is a set, every `shown_when` state must belong to it and at least one must; `from:
+any` and `from: none` switch the rule off — `any` being the honest word for an operation that
+does not check where it departs from.
 
 **Grouping by purpose.** A contract may carry `groups:` — how the owner groups the screen:
 headers, footers, tables, toolbars, menus, and which elements and controls sit in each. Array
@@ -899,6 +903,7 @@ where the format broke:
 | 15 | **The seating chart against the measurement** — the producer records each anchor's container chain; membership becomes checkable and immediately refutes its own author's contract | One optional inventory key: `within`; findings `member_out_of_group`, `group_missing` (§7.5) |
 | 16 | **Foreign ground files its findings** — five issues from the first outside pilot, measured on a live service | `records_only` on provenance (§5.8), `entities: []` (§5.8), `route_not_yet_served` (§7.1), config keys enforced at load (§7.6), the starter kit names its inventory's blind spot |
 | 17 | **The pilot's second round** — four issues from check 5 on foreign screens: a contract written ahead of its screen is red by construction; a family of elements named from runtime data cannot be stated; screen states outnumber data states; and a colon in a test name made a proven card read as unproven | `maturity` on the form contract with `form_not_yet_built` / `form_maturity_stale` (§7.5), `field_pattern` / `control_pattern` / `at_least` (§7.5), the `states:` map (§7.5), exact-before-heuristic test-id matching (§7) — all optional |
+| 18 | **Two lies the vocabulary forced** — writing the lifecycle cards of a live service: an operation departing from any of three states could only say `from: any` (which switches the shown_when rule off), and a surface that honours a revision without requiring it had to claim either `etag_required` or `none_by_design` | `data_transition.from` as a set (§5.2, §7.5); `etag_optional` (§5.4); the starter kit shows a frontend gate how to see a sibling repository's cards — all optional |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

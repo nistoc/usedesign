@@ -1,0 +1,15 @@
+{
+  "usedesign_form_inventory": 1,
+  "produced_by": "runtime dump — components rendered per state by a test",
+  "forms": [
+    {
+      "screen": "PassPanel",
+      "states": [
+        { "state": "active", "fields": ["pass-status"], "controls": ["resume-pass"] },
+        { "state": "finished", "fields": ["pass-status"], "controls": ["resume-pass"] },
+        { "state": "partial", "fields": ["pass-status"], "controls": ["resume-pass"] },
+        { "state": "abandoned", "fields": ["pass-status"], "controls": ["resume-pass"] }
+      ]
+    }
+  ]
+}

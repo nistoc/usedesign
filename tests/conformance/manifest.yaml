@@ -265,3 +265,16 @@ cases:
     note: >-
       Every `states:` entry must name its data state; an entry with only a note maps nowhere,
       and the checker would silently fall back to identity for it.
+  - file: valid/from-set.op.md
+    expect: valid
+    note: >-
+      Round 18: `data_transition.from` as a SET (the operation departs from any of three terminal
+      states) and `concurrency.mode: etag_optional` (the revision is honoured when sent, not
+      required). Both were forced lies before: `from: any` switched the shown_when rule off,
+      and the mode vocabulary offered only etag_required or none_by_design.
+  - file: invalid/from-set-of-one.op.md
+    expect: invalid
+    codes: [malformed_transition]
+    note: >-
+      A one-element `from` set is a string wearing brackets — two spellings of one fact drift
+      apart in tooling that reads one and not the other. The author writes the string.

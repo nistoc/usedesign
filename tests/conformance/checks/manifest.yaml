@@ -333,3 +333,19 @@ cases:
       post-write screen state mapped to data state `live`, which the create operation cannot
       depart from — pressing it there creates a second record. The inventory agrees with the
       contract; the conflict is between the contract and the card, through the map.
+  - dir: form-shown-when-from-set
+    check: 5
+    expect: pass
+    codes: []
+    note: >-
+      `data_transition.from` as a SET (round 18): the resume control is offered in exactly the
+      three terminal states the operation departs from. An implementation reading `from` as one
+      string sees a conflict here; before round 18 the card could only say `from: any`, and this
+      control was never checked at all.
+  - dir: form-shown-when-from-set-conflict
+    check: 5
+    expect: fail
+    codes: [shown_when_conflicts_transition]
+    note: >-
+      The same contract also offers resume in `active`, which the operation does not depart from —
+      a set is judged member by member, and one state outside it is a conflict.

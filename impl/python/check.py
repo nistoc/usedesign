@@ -869,18 +869,27 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                                             f"{contract_id}: control `{name}` calls `{calls}`, "
                                             "which no card describes", "warning"))
                 elif shown_when:
+                    # `from` is one state or a SET of states (round 18): the control must be shown
+                    # only in states that belong to the set, and in at least one of them.
                     transition = card.get("data_transition")
-                    origin = str(transition.get("from") or "") if isinstance(transition, dict) else ""
-                    if origin and origin not in ("none", "any"):
-                        mismatch = [s for s in shown_when if data_of(s) != origin]
-                        if mismatch or not any(data_of(s) == origin for s in shown_when):
+                    raw_from = transition.get("from") if isinstance(transition, dict) else None
+                    if isinstance(raw_from, list):
+                        from_set = [str(s) for s in raw_from]
+                    elif raw_from:
+                        from_set = [str(raw_from)]
+                    else:
+                        from_set = []
+                    if from_set and "none" not in from_set and "any" not in from_set:
+                        mismatch = [s for s in shown_when if data_of(s) not in from_set]
+                        if mismatch or not any(data_of(s) in from_set for s in shown_when):
                             mapped = ""
                             if any(data_of(s) != s for s in shown_when):
                                 mapped = f" (data states [{', '.join(data_of(s) for s in shown_when)}])"
                             findings.append(Finding(
                                 "shown_when_conflicts_transition",
                                 f"{contract_id}: control `{name}` is shown in "
-                                f"[{', '.join(shown_when)}]{mapped} but `{calls}` departs from `{origin}`"))
+                                f"[{', '.join(shown_when)}]{mapped} but `{calls}` departs from "
+                                f"`{' | '.join(from_set)}`"))
 
         for entry in fm.get("removed") or []:
             name = str(entry.get("control") or "")
