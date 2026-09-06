@@ -333,7 +333,7 @@ number. The tidiness is visible; the damage is not.
 
 ```yaml
 concurrency:
-  mode: <one of the five below>    # ⬛
+  mode: <one of the six below>     # ⬛
   rationale: <why>                 # 🔶 required for every mode except the strictest
   formula: <…>                     # 🔶 for idempotency_by_formula
   on_duplicate: <…>                # 🔶 for both idempotency modes; allowed for etag_required
