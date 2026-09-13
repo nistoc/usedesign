@@ -95,7 +95,7 @@
       "id": "npm",
       "type": "cloud",
       "label": "npm registry",
-      "sublabel": "0.16.0 · build provenance",
+      "sublabel": "1.0.0 · build provenance",
       "pos": [
         520,
         210
