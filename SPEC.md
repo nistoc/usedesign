@@ -1,8 +1,9 @@
-# Operation Card — Specification v0.2
+# Operation Card — Specification v1.0
 
-> **Status:** draft. This document defines the Operation Card format: a single description of
-> one operation that several consumers — UI, data model, external contracts, service-to-service
-> contracts, tests and database migrations — all read from and point back to.
+> **Status:** v1.0, declared 2026-09-13 — §8 says what the number promises. This document
+> defines the Operation Card format: a single description of one operation that several
+> consumers — UI, data model, external contracts, service-to-service contracts, tests and
+> database migrations — all read from and point back to.
 >
 > The format is deliberately boring: YAML front matter for machines, Markdown body for humans.
 > No new language, no compiler, no runtime.
@@ -956,6 +957,23 @@ where the format broke:
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
 meet it; three consecutive qualifying rounds on foreign ground is when the claim starts to mean
 something.
+
+**v1.0 — declared 2026-09-13.** The criterion held from round 8 to round 24: seventeen consecutive
+rounds, on three stacks, in which no required field changed. From here the number promises:
+
+- **The required keys of a card are frozen** — `id`, `title`, `actors`, `maturity`, `steps`,
+  `concurrency`, `interfaces`, `data`, `provenance`, `reversibility`, and one of `scenario` /
+  `serves_step`. A card with zero errors under 1.0 has zero errors under every 1.x. The same
+  freeze covers the form contract, the inventories and the config file.
+- **A round may add** optional fields, optional artifact kinds and new diagnostic codes. A new
+  check over fields that already exist arrives as a warning, never as an error.
+- **Renaming or removing a field**, changing what a required field accepts, or promoting a warning
+  to an error is 2.0. Fixing a validator that accepted what this document already forbade is a
+  patch, not a rule change.
+- **The package follows the format:** 1.x.0 adds, 1.x.y fixes, 2.0.0 breaks.
+
+The rounds continue; the table above keeps growing. What changed on this date is only what a
+round is allowed to do to a card that already exists.
 
 ⚠️ Round 11 is the first round whose findings were mostly about **the previous round's rule**
 rather than the format. A rule written from one measurement fits that measurement: `covers_outcomes`

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>usedesign — one description per operation</title>
-<meta name="description" content="A presentation of the Operation Card format (SPEC v0.2, draft): one description per operation, with every screen, contract, test and migration pointing back to it.">
+<meta name="description" content="A presentation of the Operation Card format (SPEC v1.0): one description per operation, with every screen, contract, test and migration pointing back to it.">
 <style>
 /* ─────────────────────────────  tokens  ───────────────────────────── */
 :root{
@@ -401,7 +401,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
 
   <header class="topbar">
     <span class="brand">usedesign<span class="dot">.</span></span>
-    <span data-i18n="x-01" class="brand-sub">Operation Card — SPEC v0.2 · usedesign 0.16.0</span>
+    <span data-i18n="x-01" class="brand-sub">Operation Card — SPEC v1.0 · usedesign 0.16.0</span>
     <span class="spacer"></span>
     <span class="counter" aria-live="polite"><b id="cur">1</b> / <span id="total">20</span></span>
     <button class="btn btn-lang" id="lang" type="button" title="Switch language (L)" aria-label="Switch language to Russian">RU</button>
@@ -417,7 +417,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
         <h1 class="wordmark anim">usedesign<span>.</span></h1>
         <p data-i18n="s1-02" class="tagline anim">One description per operation. Every screen, contract, test and migration points back to it.</p>
         <div class="badges anim">
-          <span data-i18n="s1-03" class="tag a">SPEC v0.2 · usedesign 0.16.0 on npm · 24 rounds</span>
+          <span data-i18n="s1-03" class="tag a">SPEC v1.0 · usedesign 0.16.0 on npm · 24 rounds</span>
           <span data-i18n="s1-04" class="tag">Apache 2.0</span>
           <span data-i18n="s1-05" class="tag">YAML front matter + Markdown</span>
           <span data-i18n="s1-06" class="tag">github.com/nistoc/usedesign</span>
@@ -1152,7 +1152,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
       <div class="wrap">
         <p data-i18n="s18-01" class="kicker anim">17 — maturity of the spec itself</p>
         <h2 data-i18n="s18-02" class="title anim">How this was hardened</h2>
-        <p data-i18n="s18-03" class="lede anim">v0.2 was reached by writing cards for <strong>eight real operations of a production system</strong> and recording where the format broke. Since then: twenty-one rounds, two products with gates in CI, and one pilot on a stack the format had never seen.</p>
+        <p data-i18n="s18-03" class="lede anim">v0.2 was reached by writing cards for <strong>eight real operations of a production system</strong> and recording where the format broke. Since then: twenty-two rounds, two products with gates in CI, one pilot on a stack the format had never seen — and, on 13 September 2026, v1.0.</p>
 
         <div class="mt-l anim">
           <table class="plain">
@@ -1225,8 +1225,8 @@ svg.diagram{ width:100%; height:auto; display:block; }
         </div>
 
         <div class="card accent mt anim">
-          <h3 data-i18n="s18-13">Criterion for v1.0</h3>
-          <p data-i18n="s18-14" class="mt-s" style="font-size:1.02rem">Not <em class="hl2">“no more breakage”</em> — untouched areas will always break something — but <em class="hl">a round that changes only optional fields</em>. It has held from round 8 to round 21: fourteen rounds of optional-only changes. v1.0 is still not declared — one product and one pilot are two stacks, and every new stack so far broke something.</p>
+          <h3 data-i18n="s18-13">Criterion for v1.0 — met, and declared</h3>
+          <p data-i18n="s18-14" class="mt-s" style="font-size:1.02rem">Not <em class="hl2">“no more breakage”</em> — untouched areas will always break something — but <em class="hl">a round that changes only optional fields</em>. It held from round 8 to round 24: seventeen rounds of optional-only changes, on three stacks. v1.0 was declared on 13 September 2026: the required keys are frozen, a card clean under 1.0 stays clean under every 1.x, and new checks arrive as warnings.</p>
         </div>
       </div>
     </section>
@@ -1245,7 +1245,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
                 <tr><th data-i18n="sA-04">Promised in this deck</th><th data-i18n="sA-05">What exists</th></tr>
               </thead>
               <tbody>
-                <tr><td data-i18n="sA-06">Specification and schema</td><td data-i18n="sA-07">SPEC v0.2 through 21 rounds; three schemas</td></tr>
+                <tr><td data-i18n="sA-06">Specification and schema</td><td data-i18n="sA-07">SPEC v1.0 through 24 rounds; three schemas</td></tr>
                 <tr><td data-i18n="sA-08">Three checks</td><td data-i18n="sA-09"><strong>Five:</strong> routes, steps, maturity, storage, forms</td></tr>
                 <tr><td data-i18n="sA-10">A CLI: <code>validate</code>, <code>gen openapi</code>, <code>check</code></td><td data-i18n="sA-11"><code>validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code> · <code>conformance</code>. <em class="hl2">gen openapi</em> never built — the direction reversed: the route inventory is <em class="hl">taken from</em> OpenAPI</td></tr>
                 <tr><td data-i18n="sA-12">A second implementation</td><td data-i18n="sA-13">A Python prototype; the same codes on 87 corpus cases</td></tr>
@@ -1262,7 +1262,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
             </div>
             <div class="card warn anim">
               <h3 data-i18n="sA-20">How complete is it?</h3>
-              <p data-i18n="sA-21" class="sub mt-s"><strong>Format:</strong> 0.x — the v1.0 criterion has held fourteen rounds; declaring it is a decision. <strong>Tool:</strong> five checks, two implementations, 87 cases. <strong>First product:</strong> 11% of routes described. <em class="hl">Adoption is the unfinished part, not the tool.</em></p>
+              <p data-i18n="sA-21" class="sub mt-s"><strong>Format:</strong> 1.0, declared 13 September 2026 after seventeen qualifying rounds. <strong>Tool:</strong> five checks, two implementations, 93 cases. <strong>First product:</strong> 16% of routes described. <em class="hl">Adoption is the unfinished part, not the tool.</em></p>
             </div>
           </div>
         </div>
@@ -1382,12 +1382,12 @@ svg.diagram{ width:100%; height:auto; display:block; }
 
         <div class="grid g-side mt-l">
           <ul class="roadmap">
-            <li data-i18n="s20-03" class="done anim"><span class="box">✓</span><span><strong>Specification, schema, examples, starter kit</strong><br><span class="sub small">SPEC v0.2 through 21 rounds; three schemas; five cards over a fictional library</span></span></li>
+            <li data-i18n="s20-03" class="done anim"><span class="box">✓</span><span><strong>Specification, schema, examples, starter kit</strong><br><span class="sub small">SPEC v1.0 through 24 rounds; three schemas; five cards over a fictional library</span></span></li>
             <li data-i18n="s20-04b" class="done anim"><span class="box">✓</span><span><strong>Two implementations, one corpus, CI</strong><br><span class="sub small">TypeScript on three Node versions and a Python prototype agree on 54 + 39 cases; all five checks</span></span></li>
             <li data-i18n="s20-05" class="done anim"><span class="box">✓</span><span><code>usedesign validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code><br><span class="sub small">Named codes; five invariants; a frontend gate sees the server’s cards</span></span></li>
             <li data-i18n="s20-05b" class="done anim"><span class="box">✓</span><span><strong>Published, with build provenance</strong><br><span class="sub small">15 versions, 0.2.0 → 0.16.0; the run waits for the box</span></span></li>
             <li data-i18n="s20-06" class="anim"><span class="box">✗</span><span><code>usedesign gen openapi</code><br><span class="sub small">Dropped — the direction reversed: the inventory is taken from OpenAPI</span></span></li>
-            <li data-i18n="s20-06b" class="anim"><span class="box"></span><span><strong>v1.0</strong><br><span class="sub small">Criterion held seventeen rounds; declaring it is the owner’s call</span></span></li>
+            <li data-i18n="s20-06b" class="done anim"><span class="box">✓</span><span><strong>v1.0 — declared 13 September 2026</strong><br><span class="sub small">Criterion held seventeen rounds; required keys frozen, new checks arrive as warnings</span></span></li>
             <li data-i18n="s20-06c" class="anim"><span class="box"></span><span><strong>95 routes of the first product</strong><br><span class="sub small">Adoption, not the tool: ten named first, all ten described — 18 of 113 routes have cards</span></span></li>
           </ul>
 
@@ -1430,11 +1430,11 @@ svg.diagram{ width:100%; height:auto; display:block; }
 /* Russian strings. Keys match data-i18n attributes; a missing key keeps the English text.
    Code blocks (YAML / JSON) and format field names are deliberately not translated. */
 window.USEDESIGN_RU = {
-'x-01': 'Карточка операции — SPEC v0.2 · usedesign 0.16.0',
+'x-01': 'Карточка операции — SPEC v1.0 · usedesign 0.16.0',
 
 's1-01': 'Формат описания того, что система умеет',
 's1-02': 'Одно описание на операцию. Каждый экран, контракт, тест и миграция ссылаются на него.',
-'s1-03': 'SPEC v0.2 · usedesign 0.16.0 в npm · 24 захода',
+'s1-03': 'SPEC v1.0 · usedesign 0.16.0 в npm · 24 захода',
 's1-04': 'Лицензия Apache 2.0',
 's1-05': 'YAML-шапка + Markdown',
 's1-07': '<kbd>→</kbd><kbd>Space</kbd> вперёд',
@@ -1700,7 +1700,7 @@ window.USEDESIGN_RU = {
 
 's18-01': '17 — зрелость самой спецификации',
 's18-02': 'Как это закалялось',
-'s18-03': 'Версия 0.2 получена так: карточки писались на <strong>восемь реальных операций боевой системы</strong>, и каждое место, где формат ломался, записывалось. С тех пор — двадцать один заход, два продукта с гейтами в CI и один пилот на стеке, которого формат никогда не видел.',
+'s18-03': 'Версия 0.2 получена так: карточки писались на <strong>восемь реальных операций боевой системы</strong>, и каждое место, где формат ломался, записывалось. С тех пор — двадцать два захода, два продукта с гейтами в CI, один пилот на стеке, которого формат никогда не видел, — и 13 сентября 2026 версия 1.0.',
 's18-04': 'Заход',
 's18-05': 'Что прогоняли',
 's18-06': 'Каких полей формату не хватило',
@@ -1719,8 +1719,8 @@ window.USEDESIGN_RU = {
 's18-28': '<strong>Три</strong> плюс ошибка нормализации, из-за которой сверщик был <em class="hl2">неправ молча</em>, — и моё собственное правило, подогнанное под единственный пример',
 's18-15': 'А потом спецификацию сверили с ней самой',
 's18-16': 'Перед публикацией её проверили по её же схеме и примерам — тем упражнением, которого она требует от всех остальных. Она не прошла в семи местах уже другого рода: поле есть в схеме и в примере, но не описано нигде; правило сказано прозой, но схемой не проверяется; один термин написан двумя способами в двух файлах. Все семь исправлены. <em class="hl">Это и есть аргумент за то, чтобы проверяющий вообще был.</em>',
-'s18-13': 'Критерий версии 1.0',
-'s18-14': '<strong>Не</strong> <em class="hl2">«поломки кончились»</em> — непройденные области всегда что-нибудь сломают, — а <em class="hl">заход, который меняет только необязательные поля</em>. Держится с восьмого захода по двадцать первый: четырнадцать заходов подряд. Версия 1.0 всё ещё не объявлена — один продукт и один пилот это два стека, и каждый новый стек пока что-нибудь ломал.',
+'s18-13': 'Критерий версии 1.0 — выполнен, версия объявлена',
+'s18-14': '<strong>Не</strong> <em class="hl2">«поломки кончились»</em> — непройденные области всегда что-нибудь сломают, — а <em class="hl">заход, который меняет только необязательные поля</em>. Держался с восьмого захода по двадцать четвёртый: семнадцать заходов подряд на трёх стеках. Версия 1.0 объявлена 13 сентября 2026: обязательные ключи заморожены, карточка без ошибок на 1.0 остаётся без ошибок на любой 1.x, новые проверки приходят предупреждениями.',
 
 's19-01': '20 — технологии',
 's19-02': 'Скучно — намеренно',
@@ -1739,7 +1739,7 @@ window.USEDESIGN_RU = {
 
 's20-01': '22 — куда это идёт',
 's20-02': 'Дорожная карта',
-'s20-03': '<span class="box">✓</span><span><strong>Спецификация, схема, примеры, стартовый набор</strong><br><span class="sub small">SPEC v0.2 через 21 заход; три схемы; пять карточек на выдуманной библиотеке</span></span>',
+'s20-03': '<span class="box">✓</span><span><strong>Спецификация, схема, примеры, стартовый набор</strong><br><span class="sub small">SPEC v1.0 через 24 захода; три схемы; пять карточек на выдуманной библиотеке</span></span>',
 's20-04': '<span class="box">✓</span><span><strong>Примеры и стартовый набор</strong><br><span class="sub small">Пять карточек на выдуманной библиотеке; первый час команды</span></span>',
 's20-04b': '<span class="box">✓</span><span><strong>Две реализации, один корпус, CI</strong><br><span class="sub small">TypeScript на трёх версиях Node и прототип на Python согласны на 54 + 39 случаях; все пять проверок</span></span>',
 's20-05': '<span class="box">✓</span><span><code>usedesign validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code><br><span class="sub small">Именованные коды; пять инвариантов; гейт фронта видит карточки сервера</span></span>',
@@ -1778,7 +1778,7 @@ window.USEDESIGN_RU = {
 'sA-04': 'Обещано в этой колоде',
 'sA-05': 'Что есть',
 'sA-06': 'Спецификация и схема',
-'sA-07': 'SPEC v0.2 через 21 заход; три схемы',
+'sA-07': 'SPEC v1.0 через 24 захода; три схемы',
 'sA-08': 'Три проверки',
 'sA-09': '<strong>Пять:</strong> маршруты, шаги, зрелость, хранилище, формы',
 'sA-10': 'CLI: <code>validate</code>, <code>gen openapi</code>, <code>check</code>',
@@ -1792,7 +1792,7 @@ window.USEDESIGN_RU = {
 'sA-18': 'Один продукт, два репозитория',
 'sA-19': '<strong>Сервер:</strong> 12 карточек на 113 маршрутов, за ними 415 тестов, каждый названный шаг доказан; 101 маршрут не описан — гейт <em class="hl">отчитывается</em>, а не валит сборку. <strong>Фронт:</strong> 3 контракта, строгий гейт с нулём находок, читает карточки сервера.',
 'sA-20': 'Насколько это завершено?',
-'sA-21': '<strong>Формат:</strong> 0.x — критерий 1.0 держится четырнадцать заходов; объявить — решение. <strong>Инструмент:</strong> пять проверок, две реализации, 87 случаев. <strong>Первый продукт:</strong> описано 11% маршрутов. <em class="hl">Незавершённое — внедрение, а не инструмент.</em>',
+'sA-21': '<strong>Формат:</strong> 1.0, объявлена 13 сентября 2026 после семнадцати заходов по критерию. <strong>Инструмент:</strong> пять проверок, две реализации, 93 случая. <strong>Первый продукт:</strong> описано 16% маршрутов. <em class="hl">Незавершённое — внедрение, а не инструмент.</em>',
 'sB-01': '19 — в других местах',
 'sB-02': 'Переносится ли? Что сломалось и что ещё может',
 'sB-03': 'Один чужой пилот, одиннадцать issue за два захода, все закрыты — и каждый был настоящей дырой, а не делом вкуса.',
@@ -1813,7 +1813,7 @@ window.USEDESIGN_RU = {
 'sC-06': '<strong>Два гейта, одна коробка.</strong> Каждый репозиторий продукта запускает <code class="mono">npx usedesign@&lt;pin&gt;</code> из реестра; ничего не ставится, версия закреплена на репозиторий.',
 'sC-07': '<strong>Доказательство — то, что продукт говорит о себе.</strong> Перечень маршрутов, отчёт JUnit, перечень живого хранилища, настоящие компоненты, отрендеренные по состояниям. Исходники не разбираются никогда.',
 'sC-08': '<strong>Два чтения, один корпус.</strong> Коробка на TypeScript и прототип на Python обязаны давать одни коды на 87 случаях, прежде чем что-либо публикуется.',
-'s20-06b': '<span class="box"></span><span><strong>Версия 1.0</strong><br><span class="sub small">Критерий держится семнадцать заходов; объявить — решение владельца</span></span>',
+'s20-06b': '<span class="box">✓</span><span><strong>Версия 1.0 — объявлена 13 сентября 2026</strong><br><span class="sub small">Критерий держался семнадцать заходов; обязательные ключи заморожены, новые проверки приходят предупреждениями</span></span>',
 's20-06c': '<span class="box"></span><span><strong>95 маршрутов первого продукта</strong><br><span class="sub small">Внедрение, а не инструмент: десять первых названы, все десять описаны — карточки у 18 из 113 маршрутов</span></span>',
 's20-14b': 'docs/architecture.html — карта',
 's20-16': '<kbd>←</kbd><kbd>→</kbd> навигация · <kbd>T</kbd> тема · <kbd>L</kbd> язык'
@@ -1821,7 +1821,7 @@ window.USEDESIGN_RU = {
 
 window.USEDESIGN_RU_META = {
   title: 'usedesign — одно описание на операцию',
-  description: 'Презентация формата «карточка операции» (SPEC v0.2, черновик): одно описание на операцию, на которое ссылаются каждый экран, контракт, тест и миграция.',
+  description: 'Презентация формата «карточка операции» (SPEC v1.0): одно описание на операцию, на которое ссылаются каждый экран, контракт, тест и миграция.',
   themeLabel: 'Переключить светлую или тёмную тему',
   langLabel: 'Switch language to English',
   langButton: 'EN',

@@ -84,11 +84,15 @@ which is exactly why migrations end up orphaned everywhere else.
 
 ## Status
 
-**v0.2, draft.** The format was hardened by writing cards for real operations of a production
-system and recording where it broke — three times now, in twelve places. The criterion for v1.0
-is not "no more breakage" but *a round that changes only optional fields, never required ones*.
+**v1.0, declared 13 September 2026.** The format was hardened by writing cards for real
+operations of production systems and recording where it broke. The criterion for v1.0 was never
+"no more breakage" but *a round that changes only optional fields, never required ones* — and it
+held from round 8 to round 24, seventeen consecutive rounds on three stacks. From here the
+required keys of a card are frozen: a card with zero errors under 1.0 has zero errors under every
+1.x; new rounds add optional fields and codes, and a new check on existing fields arrives as a
+warning. The full promise and the round-by-round record are in [SPEC §8](SPEC.md).
 
-The most recent round broke it in five places and produced a sixth axis (`continuation`), three
+How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in
 this repository claimed `reversible`. A format that demands an answer must supply one that is
