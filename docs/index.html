@@ -401,7 +401,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
 
   <header class="topbar">
     <span class="brand">usedesign<span class="dot">.</span></span>
-    <span data-i18n="x-01" class="brand-sub">Operation Card — SPEC v0.2 · usedesign 0.15.0</span>
+    <span data-i18n="x-01" class="brand-sub">Operation Card — SPEC v0.2 · usedesign 0.16.0</span>
     <span class="spacer"></span>
     <span class="counter" aria-live="polite"><b id="cur">1</b> / <span id="total">20</span></span>
     <button class="btn btn-lang" id="lang" type="button" title="Switch language (L)" aria-label="Switch language to Russian">RU</button>
@@ -417,7 +417,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
         <h1 class="wordmark anim">usedesign<span>.</span></h1>
         <p data-i18n="s1-02" class="tagline anim">One description per operation. Every screen, contract, test and migration points back to it.</p>
         <div class="badges anim">
-          <span data-i18n="s1-03" class="tag a">SPEC v0.2 · usedesign 0.15.0 on npm · 21 rounds</span>
+          <span data-i18n="s1-03" class="tag a">SPEC v0.2 · usedesign 0.16.0 on npm · 24 rounds</span>
           <span data-i18n="s1-04" class="tag">Apache 2.0</span>
           <span data-i18n="s1-05" class="tag">YAML front matter + Markdown</span>
           <span data-i18n="s1-06" class="tag">github.com/nistoc/usedesign</span>
@@ -1210,6 +1210,11 @@ svg.diagram{ width:100%; height:auto; display:block; }
                 <td data-i18n="s18-40">Dogfood on the owner's own product: a frontend gate without its sibling, a hand-kept test count, a write with no state change</td>
                 <td data-i18n="s18-41"><strong>None.</strong> Three warnings the checker owed: <code>no_cards_found</code>, <code>tested_count_mismatch</code>, <code>reversibility_overstated</code> learning <code>mutates</code></td>
               </tr>
+              <tr>
+                <td data-i18n="s18-42">22–24</td>
+                <td data-i18n="s18-43">The pilot's backend role writes a card unaided; four reads and a create on the athlete's path — a read with one ending could name every refusal and not the success; a delete with no precondition and no reason in the code</td>
+                <td data-i18n="s18-44"><strong>None required.</strong> Two optional words: <code>ok</code> for the default success, <code>none_unexplained</code> for a measured absence; and the spec learned the interfaces map was always open</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1244,7 +1249,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
                 <tr><td data-i18n="sA-08">Three checks</td><td data-i18n="sA-09"><strong>Five:</strong> routes, steps, maturity, storage, forms</td></tr>
                 <tr><td data-i18n="sA-10">A CLI: <code>validate</code>, <code>gen openapi</code>, <code>check</code></td><td data-i18n="sA-11"><code>validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code> · <code>conformance</code>. <em class="hl2">gen openapi</em> never built — the direction reversed: the route inventory is <em class="hl">taken from</em> OpenAPI</td></tr>
                 <tr><td data-i18n="sA-12">A second implementation</td><td data-i18n="sA-13">A Python prototype; the same codes on 87 corpus cases</td></tr>
-                <tr><td data-i18n="sA-14">Published</td><td data-i18n="sA-15">14 versions, 0.2.0 → 0.15.0, with provenance; publish is green only once the registry serves the box</td></tr>
+                <tr><td data-i18n="sA-14">Published</td><td data-i18n="sA-15">15 versions, 0.2.0 → 0.16.0, with provenance; publish is green only once the registry serves the box</td></tr>
                 <tr><td data-i18n="sA-16">Never promised here</td><td data-i18n="sA-17">Form contracts and check 5; a starter kit; drafts from OpenAPI; a foreign pilot</td></tr>
               </tbody>
             </table>
@@ -1378,12 +1383,12 @@ svg.diagram{ width:100%; height:auto; display:block; }
         <div class="grid g-side mt-l">
           <ul class="roadmap">
             <li data-i18n="s20-03" class="done anim"><span class="box">✓</span><span><strong>Specification, schema, examples, starter kit</strong><br><span class="sub small">SPEC v0.2 through 21 rounds; three schemas; five cards over a fictional library</span></span></li>
-            <li data-i18n="s20-04b" class="done anim"><span class="box">✓</span><span><strong>Two implementations, one corpus, CI</strong><br><span class="sub small">TypeScript on three Node versions and a Python prototype agree on 48 + 39 cases; all five checks</span></span></li>
+            <li data-i18n="s20-04b" class="done anim"><span class="box">✓</span><span><strong>Two implementations, one corpus, CI</strong><br><span class="sub small">TypeScript on three Node versions and a Python prototype agree on 54 + 39 cases; all five checks</span></span></li>
             <li data-i18n="s20-05" class="done anim"><span class="box">✓</span><span><code>usedesign validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code><br><span class="sub small">Named codes; five invariants; a frontend gate sees the server’s cards</span></span></li>
             <li data-i18n="s20-05b" class="done anim"><span class="box">✓</span><span><strong>Published, with build provenance</strong><br><span class="sub small">14 versions, 0.2.0 → 0.15.0; the run waits for the box</span></span></li>
             <li data-i18n="s20-06" class="anim"><span class="box">✗</span><span><code>usedesign gen openapi</code><br><span class="sub small">Dropped — the direction reversed: the inventory is taken from OpenAPI</span></span></li>
-            <li data-i18n="s20-06b" class="anim"><span class="box"></span><span><strong>v1.0</strong><br><span class="sub small">Criterion held fourteen rounds; declaring it is the owner’s call</span></span></li>
-            <li data-i18n="s20-06c" class="anim"><span class="box"></span><span><strong>101 routes of the first product</strong><br><span class="sub small">Adoption, not the tool: ten named first, four done</span></span></li>
+            <li data-i18n="s20-06b" class="anim"><span class="box"></span><span><strong>v1.0</strong><br><span class="sub small">Criterion held seventeen rounds; declaring it is the owner’s call</span></span></li>
+            <li data-i18n="s20-06c" class="anim"><span class="box"></span><span><strong>95 routes of the first product</strong><br><span class="sub small">Adoption, not the tool: ten named first, all ten described — 18 of 113 routes have cards</span></span></li>
           </ul>
 
           <div class="stack">
@@ -1425,11 +1430,11 @@ svg.diagram{ width:100%; height:auto; display:block; }
 /* Russian strings. Keys match data-i18n attributes; a missing key keeps the English text.
    Code blocks (YAML / JSON) and format field names are deliberately not translated. */
 window.USEDESIGN_RU = {
-'x-01': 'Карточка операции — SPEC v0.2 · usedesign 0.15.0',
+'x-01': 'Карточка операции — SPEC v0.2 · usedesign 0.16.0',
 
 's1-01': 'Формат описания того, что система умеет',
 's1-02': 'Одно описание на операцию. Каждый экран, контракт, тест и миграция ссылаются на него.',
-'s1-03': 'SPEC v0.2 · usedesign 0.15.0 в npm · 21 заход',
+'s1-03': 'SPEC v0.2 · usedesign 0.16.0 в npm · 24 захода',
 's1-04': 'Лицензия Apache 2.0',
 's1-05': 'YAML-шапка + Markdown',
 's1-07': '<kbd>→</kbd><kbd>Space</kbd> вперёд',
@@ -1736,7 +1741,7 @@ window.USEDESIGN_RU = {
 's20-02': 'Дорожная карта',
 's20-03': '<span class="box">✓</span><span><strong>Спецификация, схема, примеры, стартовый набор</strong><br><span class="sub small">SPEC v0.2 через 21 заход; три схемы; пять карточек на выдуманной библиотеке</span></span>',
 's20-04': '<span class="box">✓</span><span><strong>Примеры и стартовый набор</strong><br><span class="sub small">Пять карточек на выдуманной библиотеке; первый час команды</span></span>',
-'s20-04b': '<span class="box">✓</span><span><strong>Две реализации, один корпус, CI</strong><br><span class="sub small">TypeScript на трёх версиях Node и прототип на Python согласны на 48 + 39 случаях; все пять проверок</span></span>',
+'s20-04b': '<span class="box">✓</span><span><strong>Две реализации, один корпус, CI</strong><br><span class="sub small">TypeScript на трёх версиях Node и прототип на Python согласны на 54 + 39 случаях; все пять проверок</span></span>',
 's20-05': '<span class="box">✓</span><span><code>usedesign validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code><br><span class="sub small">Именованные коды; пять инвариантов; гейт фронта видит карточки сервера</span></span>',
 's20-07': '<span class="box">✓</span><span><code>usedesign check</code><br><span class="sub small">Пять инвариантов; гейт фронта видит карточки сервера через соседний checkout</span></span>',
 's20-07b': '<span class="box">✓</span><span><strong>Эталонная реализация и CI</strong><br><span class="sub small">TypeScript на трёх версиях Node; рядом прототип на Python</span></span>',
@@ -1764,6 +1769,9 @@ window.USEDESIGN_RU = {
 's18-39': '19–21',
 's18-40': 'Обкатка на собственном продукте владельца: гейт фронта без соседнего репозитория, счёт тестов, ведённый руками, запись без смены состояния',
 's18-41': '<strong>Ни одного.</strong> Три предупреждения, которые проверяющий задолжал: <code>no_cards_found</code>, <code>tested_count_mismatch</code>, <code>reversibility_overstated</code>, выучивший <code>mutates</code>',
+'s18-42': '22–24',
+'s18-43': 'Роль бэкенда пилота пишет карточку без помощи; четыре чтения и создание на пути атлета — чтение с одним концом могло назвать каждый отказ и не успех; удаление без предусловия и без причины в коде',
+'s18-44': '<strong>Обязательных — ни одного.</strong> Два необязательных слова: <code>ok</code> для успеха по умолчанию, <code>none_unexplained</code> для измеренного отсутствия; и спецификация узнала, что карта интерфейсов всегда была открыта',
 'sA-01': '18 — где это сейчас',
 'sA-02': 'Где это сейчас — сентябрь 2026',
 'sA-03': 'Числа сняты с репозиториев и реестра, не из памяти. Что обещала эта колода — против того, что есть.',
@@ -1778,7 +1786,7 @@ window.USEDESIGN_RU = {
 'sA-12': 'Вторая реализация',
 'sA-13': 'Прототип на Python; одни коды на 87 случаях корпуса',
 'sA-14': 'Опубликован',
-'sA-15': '14 версий, 0.2.0 → 0.15.0, с подписью происхождения; публикация зелёная, только когда реестр отдаёт коробку',
+'sA-15': '15 версий, 0.2.0 → 0.16.0, с подписью происхождения; публикация зелёная, только когда реестр отдаёт коробку',
 'sA-16': 'Здесь не обещалось',
 'sA-17': 'Контракты форм и проверка №5; стартовый набор; заготовки из OpenAPI; чужой пилот',
 'sA-18': 'Один продукт, два репозитория',
@@ -1805,8 +1813,8 @@ window.USEDESIGN_RU = {
 'sC-06': '<strong>Два гейта, одна коробка.</strong> Каждый репозиторий продукта запускает <code class="mono">npx usedesign@&lt;pin&gt;</code> из реестра; ничего не ставится, версия закреплена на репозиторий.',
 'sC-07': '<strong>Доказательство — то, что продукт говорит о себе.</strong> Перечень маршрутов, отчёт JUnit, перечень живого хранилища, настоящие компоненты, отрендеренные по состояниям. Исходники не разбираются никогда.',
 'sC-08': '<strong>Два чтения, один корпус.</strong> Коробка на TypeScript и прототип на Python обязаны давать одни коды на 87 случаях, прежде чем что-либо публикуется.',
-'s20-06b': '<span class="box"></span><span><strong>Версия 1.0</strong><br><span class="sub small">Критерий держится четырнадцать заходов; объявить — решение владельца</span></span>',
-'s20-06c': '<span class="box"></span><span><strong>101 маршрут первого продукта</strong><br><span class="sub small">Внедрение, а не инструмент: десять первых названы, четыре описаны</span></span>',
+'s20-06b': '<span class="box"></span><span><strong>Версия 1.0</strong><br><span class="sub small">Критерий держится семнадцать заходов; объявить — решение владельца</span></span>',
+'s20-06c': '<span class="box"></span><span><strong>95 маршрутов первого продукта</strong><br><span class="sub small">Внедрение, а не инструмент: десять первых названы, все десять описаны — карточки у 18 из 113 маршрутов</span></span>',
 's20-14b': 'docs/architecture.html — карта',
 's20-16': '<kbd>←</kbd><kbd>→</kbd> навигация · <kbd>T</kbd> тема · <kbd>L</kbd> язык'
 };

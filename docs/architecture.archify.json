@@ -67,7 +67,7 @@
       "id": "corpus",
       "type": "database",
       "label": "Conformance corpus",
-      "sublabel": "48 + 39 cases, both readings",
+      "sublabel": "54 + 39 cases, both readings",
       "pos": [
         640,
         56
@@ -95,7 +95,7 @@
       "id": "npm",
       "type": "cloud",
       "label": "npm registry",
-      "sublabel": "0.15.0 · build provenance",
+      "sublabel": "0.16.0 · build provenance",
       "pos": [
         520,
         210
@@ -326,7 +326,7 @@
       "dot": "emerald",
       "title": "Two readings, one corpus",
       "items": [
-        "TypeScript reference and Python prototype must report the same codes on 87 cases",
+        "TypeScript reference and Python prototype must report the same codes on 93 cases",
         "A new case must fail on the previous published box"
       ]
     },
