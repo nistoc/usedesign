@@ -403,8 +403,33 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   for (const gap of gaps) {
     if (!stepIds.has(gap)) err("unknown_step_reference", `coverage_gaps names unknown step \`${gap}\``);
   }
+
+  // ── a variant of another operation (§5.2e) ────────────────────────────────────────────────
+  //
+  // Only what the card itself can show: the inherited steps are its own listed steps, and the
+  // shared code is its own evidence. Whether the original agrees is check 2's question.
+  const inheritedSteps = new Set<string>();
+  const variant = fm["variant_of"];
+  if (variant && typeof variant === "object") {
+    for (const sid of Array.isArray(variant.inherits) ? variant.inherits : []) {
+      if (!stepIds.has(sid)) {
+        err("variant_inherits_unlisted_step", `\`variant_of.inherits\` names \`${sid}\`, which is not one of this card's steps — a variant lists every step it runs`);
+      }
+      inheritedSteps.add(sid);
+    }
+    if (evidence["implemented"] !== undefined && typeof variant.shared === "string") {
+      const own = (Array.isArray(evidence["implemented"]) ? evidence["implemented"] : [evidence["implemented"]])
+        .flatMap((item: unknown) => String(item).split("+"))
+        .map((part: string) => part.trim().replace(/:\d+$/, ""));
+      const shared = variant.shared.trim().replace(/:\d+$/, "");
+      if (!own.includes(shared)) {
+        err("variant_shared_not_implemented", `\`variant_of.shared\` \`${shared}\` is not in this card's \`maturity_evidence.implemented\``);
+      }
+    }
+  }
+
   for (const sid of stepIds) {
-    if (!covered.has(sid) && !gaps.has(sid)) {
+    if (!covered.has(sid) && !gaps.has(sid) && !inheritedSteps.has(sid)) {
       warn("step_unproven", `step \`${sid}\` has no test and no declared gap`);
     }
   }

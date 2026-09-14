@@ -63,6 +63,37 @@
       },
       "additionalProperties": false
     },
+    "variant_of": {
+      "description": "This operation is a variant of another — the same code behind a different door (SPEC 5.2e). Inherited steps are proven by the original's own tests once the variant is wired.",
+      "type": "object",
+      "required": [
+        "card",
+        "shared",
+        "inherits"
+      ],
+      "properties": {
+        "card": {
+          "description": "Id of the original card, in the same set.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+){2,}$"
+        },
+        "shared": {
+          "description": "A path both cards list in maturity_evidence.implemented — the code that carries the inherited steps.",
+          "type": "string",
+          "minLength": 1
+        },
+        "inherits": {
+          "description": "Step ids of this card proven by the original's tests.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "actors": {
       "description": "Who may invoke the operation.",
       "type": "array",

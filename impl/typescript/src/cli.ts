@@ -122,7 +122,8 @@ function commandCheck(configPath: string): number {
   const coverage = checkCoverage(config, base);
   const c = coverage.summary as Record<string, any>;
   console.log(`report:     ${c["report_cases"]} test case(s)`);
-  console.log(`steps:      ${c["proven"]} proven, ${c["unproven"]} not\n`);
+  const byInheritance = c["inherited"] ? ` (${c["inherited"]} by inheritance)` : "";
+  console.log(`steps:      ${c["proven"]} proven${byInheritance}, ${c["unproven"]} not\n`);
   errorCount += summarise("check 2 (no unproven steps)", coverage.findings);
   }
 

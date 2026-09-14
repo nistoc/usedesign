@@ -344,3 +344,26 @@ cases:
       searched and not found. Without `rationale` the label records nothing. A guard, not a
       probe: 0.15.0 rejects this card too (for the enum, and for the rationale) — the case pins
       the rationale rule on the new mode, not the mode itself.
+
+  # ── Round 26: a variant of one operation (§5.2e) ──────────────────────────────────────────────
+  - file: valid/variant-of.op.md
+    expect: valid
+    codes: []
+    warnings: []
+    note: >-
+      The desk's checkout on a member's behalf: its own door and audit line proven by its own two
+      tests, the four steps past the door inherited from the original checkout under the original's
+      ids. Card validation sees no original, so it asks only what the card can answer — and gives
+      the inherited steps no `step_unproven` warning.
+  - file: invalid/variant-inherits-unlisted-step.op.md
+    expect: invalid
+    codes: [variant_inherits_unlisted_step]
+    note: >-
+      Inherits a step it does not list. A variant lists every step it runs, so the card reads
+      complete without opening the original.
+  - file: invalid/variant-shared-not-implemented.op.md
+    expect: invalid
+    codes: [variant_shared_not_implemented]
+    note: >-
+      Names shared code its own evidence does not list. The claim "the same code carries these
+      steps" belongs in `implemented`, where check 3 confirms the file exists.

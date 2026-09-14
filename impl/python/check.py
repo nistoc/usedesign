@@ -407,12 +407,14 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
     by_full, by_name = index_report(cases)
 
     cards, _ = load_card_files(config, base)
-    proven = unproven = 0
+    proven = unproven = inherited = 0
 
+    # Pass 1 — every card's OWN proofs. A variant (SPEC 5.2e) reads the original's own proofs,
+    # never what the original itself inherited, so credit cannot chain.
+    own_proof: dict[str, dict[str, list[str]]] = {}
     for card_id, fm in cards:
-        steps = [s.get("id") for s in (fm.get("steps") or [])]
-        gaps = {g.get("step") for g in (fm.get("coverage_gaps") or [])}
         by_step: dict[str, list[str]] = {}
+        own_proof[card_id] = by_step
 
         for test in fm.get("tests") or []:
             refs = test.get("covers")
@@ -445,22 +447,97 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
                 if passing or not have_report:
                     by_step[ref].append(test_id)
 
+    # Pass 2 — verdicts, with a variant's inherited steps credited from the original.
+    by_id = dict(cards)
+    for card_id, fm in cards:
+        steps = [s.get("id") for s in (fm.get("steps") or [])]
+        gaps = {g.get("step") for g in (fm.get("coverage_gaps") or [])}
+        by_step = own_proof[card_id]
+        credited, explained = _inheritance(card_id, fm, steps, by_step, by_id, own_proof,
+                                           have_report, findings)
+
         for step in steps:
             if step in gaps:
                 continue
             if by_step.get(step):
                 proven += 1
                 continue
+            if step in credited:
+                proven += 1
+                inherited += 1
+                continue
             unproven += 1
-            # A step whose only tests failed or vanished is already reported above; saying it
-            # twice trains people to skim.
-            if step not in by_step:
+            # A step whose only tests failed or vanished is already reported above, and so is an
+            # inherited step a variant finding already explains; saying it twice trains people
+            # to skim.
+            if step not in by_step and step not in explained:
                 findings.append(Finding(
                     "step_unproven",
                     f"{card_id}: step `{step}` has no test and no declared gap",
                     "error" if have_report else "warning"))
 
-    return findings, {"report_cases": len(cases), "proven": proven, "unproven": unproven}
+    return findings, {"report_cases": len(cases), "proven": proven, "unproven": unproven,
+                      "inherited": inherited}
+
+
+def _inheritance(card_id: str, fm: dict, steps: list, by_step: dict, by_id: dict,
+                 own_proof: dict, have_report: bool, findings: list) -> tuple[set, set]:
+    """Which inherited steps of a variant (SPEC 5.2e) the original's own tests prove.
+
+    `explained` holds the steps whose missing credit a variant finding has already reported, so
+    check 2 does not repeat it step by step."""
+    credited: set[str] = set()
+    explained: set[str] = set()
+    variant = fm.get("variant_of")
+    if not isinstance(variant, dict):
+        return credited, explained
+
+    inherits = [s for s in (variant.get("inherits") or []) if isinstance(s, str)]
+    original_id = str(variant.get("card") or "")
+    original = by_id.get(original_id)
+    if original is None:
+        findings.append(Finding(
+            "variant_of_unknown",
+            f"{card_id}: `variant_of` names `{original_id}`, which no card in the set declares"))
+        explained.update(inherits)
+        return credited, explained
+
+    shared = LINE_SUFFIX.sub("", str(variant.get("shared") or "").strip())
+    code_shared = shared in evidence_paths(
+        (original.get("maturity_evidence") or {}).get("implemented"))
+    if not code_shared:
+        findings.append(Finding(
+            "variant_code_not_shared",
+            f"{card_id}: `{shared}` is not in the `implemented` evidence of `{original_id}` — "
+            "nothing shows the two run the same code"))
+
+    # Wiring: a passing test of the variant's own that covers its last step (SPEC 5.2e, rule 4).
+    last = steps[-1] if steps else None
+    wired = last is not None and bool(by_step.get(last))
+    if not wired:
+        findings.append(Finding(
+            "variant_unwired",
+            f"{card_id}: no passing test of its own covers its last step `{last or '(none)'}` — "
+            f"{len(inherits)} inherited step(s) get no credit",
+            "error" if have_report else "warning"))
+
+    original_steps = {s.get("id") for s in (original.get("steps") or [])}
+    original_gaps = {g.get("step") for g in (original.get("coverage_gaps") or [])}
+    original_proof = own_proof.get(original_id) or {}
+    for step in inherits:
+        if step not in original_steps:
+            findings.append(Finding(
+                "variant_step_unknown",
+                f"{card_id}: inherits `{step}`, which `{original_id}` has no step called"))
+            explained.add(step)
+            continue
+        if not code_shared or not wired:
+            explained.add(step)
+            continue
+        # A gap the original declares passes nothing on; the variant then answers for the step.
+        if step not in original_gaps and original_proof.get(step):
+            credited.add(step)
+    return credited, explained
 
 
 # ─────────────────────────── check 3 — no inflated maturity ─────────────────────────────────────
@@ -1031,7 +1108,8 @@ def main() -> int:
     if in_scope(2):
         coverage_findings, coverage = check_coverage(config, base)
         print(f"report:     {coverage['report_cases']} test case(s)")
-        print(f"steps:      {coverage['proven']} proven, {coverage['unproven']} not")
+        by_inheritance = f" ({coverage['inherited']} by inheritance)" if coverage.get("inherited") else ""
+        print(f"steps:      {coverage['proven']} proven{by_inheritance}, {coverage['unproven']} not")
         print()
         errors += report("check 2 (no unproven steps)", coverage_findings)
 

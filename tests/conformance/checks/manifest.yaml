@@ -360,3 +360,50 @@ cases:
       "undescribed", which is a fact about the checkout, not the cards; the checker names the
       cause once, as a warning, before the consequences. Without `cards:` in the config there is
       nothing to name and no warning.
+
+  # ── Round 26: a variant of one operation (§5.2e) ──────────────────────────────────────────────
+  # Each case adds one card — the desk's checkout on a member's behalf — to the five examples, and
+  # two of its own tests to the clean report. What varies is the variant's claim.
+  - dir: variant-clean
+    check: 2
+    expect: pass
+    codes: []
+    note: >-
+      Four inherited steps credited from the original checkout's own passing tests; the variant is
+      wired — its own test covers its last step. Nothing to report.
+  - dir: variant-unwired
+    check: 2
+    expect: fail
+    codes: [variant_unwired]
+    note: >-
+      The variant tests only its door, and its last step is inherited. A file name cannot see the
+      arguments the variant passes into the shared handler; without one test all the way through
+      on its own route, none of the four inherited steps is credited — reported once, not four times.
+  - dir: variant-code-not-shared
+    check: 2
+    expect: fail
+    codes: [variant_code_not_shared]
+    note: >-
+      `shared` names a file only the variant runs. Nothing then shows the original's tests exercise
+      the variant's code, and the inherited steps get no credit.
+  - dir: variant-step-unknown
+    check: 2
+    expect: fail
+    codes: [variant_step_unknown]
+    note: >-
+      Inherits `s2-member-found`, which the original has no step called. The original's tests
+      cannot prove a step it does not have.
+  - dir: variant-of-unknown
+    check: 2
+    expect: fail
+    codes: [variant_of_unknown]
+    note: >-
+      `variant_of` names a card no one wrote. Every inherited step goes uncredited; the one finding
+      says why.
+  - dir: variant-inherits-a-gap
+    check: 2
+    expect: fail
+    codes: [step_unproven]
+    note: >-
+      Inherits `s6-audit`, which the original declares as a gap. A gap passes nothing on: the
+      variant answers for the step itself — with a test or a gap of its own.

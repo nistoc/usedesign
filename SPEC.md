@@ -228,6 +228,47 @@ or with no dispatch at all — which is the case it was always meant to catch.
 The route shape itself is unchanged by `dispatch`: the inventory knows nothing about request
 bodies, and the comparison in check 1 must stay a comparison of routes.
 
+### 5.2e Variants of one operation
+
+A service often exposes one operation twice: to the person who owns the data, and to an
+administrator or an agent acting on their behalf. The twin runs the same code behind a different
+door — its own route, its own permission, often a consent check and an audit line — and everything
+past the door is the original's. Written as an independent card, the twin copies every step and
+demands every proof twice; written as nothing, it leaves a served route undeclared.
+
+```yaml
+id: library.loan.checkout.on-behalf
+variant_of:
+  card: library.loan.checkout            # the original — a card in the same set
+  shared: src/loans/CheckoutHandler.ts   # code both run; listed in BOTH cards' `implemented`
+  inherits: [s3-available, s4-limit, s5-commit]
+```
+
+The variant still lists **all** of its steps — its own door first, then the inherited ones under
+the original's ids — so the card reads complete on its own. What changes is where proof may come
+from. **An inherited step is proven by the original's tests only when all of these hold:**
+
+1. the original exists, and the step id is one of its steps;
+2. `shared` is a path in the `implemented` evidence of both cards — the claim that the same code
+   carries the step is made in writing, where a checker can compare it;
+3. the original proves the step with its **own** tests — a step the original itself inherited, or
+   declared as a gap, passes nothing on;
+4. **the variant is wired**: at least one of its own tests, passing, covers its **last** step. A
+   file name cannot see the arguments the variant passes into it — a twin that forwards `null` where
+   the original passes an id would inherit proofs it never earned. One test that goes all the way
+   through on the variant's own route is the proof that the door opens onto that room.
+
+The door's own steps — permission, consent, audit — are proven by the variant's own tests, as for
+any card. A step with its own passing test is proven directly and never needs the inheritance.
+
+**Checked.** Validation: `variant_inherits_unlisted_step` (an inherited id missing from the card's
+own `steps[]`) and `variant_shared_not_implemented` (`shared` absent from the card's own
+`implemented`), both errors. Check 2: `variant_of_unknown`, `variant_step_unknown` and
+`variant_code_not_shared` are errors, and the steps they touch get no credit; `variant_unwired` is an
+error with a report and a warning without one, and **none** of the inherited steps is credited —
+reported once, not once per step. Credit never chains. The summary counts inherited steps
+separately, so a catalogue proven mostly by inheritance says so.
+
 ### 5.2a Outcomes
 
 Not every ending is a success-as-usual or a violated step. An operation that searches, resolves a
@@ -671,7 +712,8 @@ The format only pays for itself with an automated checker. Three invariants:
    A check that is red by construction gets ignored, and the real phantom then arrives in a
    report nobody reads.
 2. **No unproven steps** — every step is covered by at least one test that **exists, ran, passed
-   and was not skipped**, or appears in `coverage_gaps`.
+   and was not skipped**, or appears in `coverage_gaps`. A step a variant inherits (§5.2e) is
+   covered by the original's own passing tests, and only once the variant is wired.
    A card naming a test proves nothing on its own: the test may have been renamed last spring, or
    skipped since it started flaking. The checker consumes a **JUnit XML report** from the run being
    checked — the format already exists, so unlike the route inventory nothing new is invented, and

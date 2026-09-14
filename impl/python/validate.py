@@ -185,8 +185,32 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     for gap in gaps:
         if gap not in step_ids:
             err("unknown_step_reference", f"coverage_gaps names unknown step `{gap}`")
+
+    # ── a variant of another operation (SPEC 5.2e) ──────────────────────────────────────────────
+    # Only what the card itself can show: the inherited steps are its own listed steps, and the
+    # shared code is its own evidence. Whether the original agrees is check 2's question.
+    inherited_steps: set[str] = set()
+    variant = fm.get("variant_of")
+    if isinstance(variant, dict):
+        for sid in variant.get("inherits") or []:
+            if sid not in step_ids:
+                err("variant_inherits_unlisted_step",
+                    f"`variant_of.inherits` names `{sid}`, which is not one of this card's steps — "
+                    "a variant lists every step it runs")
+            inherited_steps.add(sid)
+        implemented = evidence.get("implemented")
+        shared = variant.get("shared")
+        if implemented is not None and isinstance(shared, str):
+            items = implemented if isinstance(implemented, list) else [implemented]
+            own = [re.sub(r":\d+$", "", part.strip())
+                   for item in items for part in str(item).split("+")]
+            shared = re.sub(r":\d+$", "", shared.strip())
+            if shared not in own:
+                err("variant_shared_not_implemented",
+                    f"`variant_of.shared` `{shared}` is not in this card's `maturity_evidence.implemented`")
+
     for sid in step_ids:
-        if sid not in covered and sid not in gaps:
+        if sid not in covered and sid not in gaps and sid not in inherited_steps:
             warn("step_unproven", f"step `{sid}` has no test and no declared gap")
 
     # ── outcomes, continuation, parameters ───────────────────────────────────
