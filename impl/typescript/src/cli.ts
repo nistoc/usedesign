@@ -227,7 +227,7 @@ function main(argv: string[]): number {
     return args.length === 0 ? 2 : 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.log(`usedesign ${version()} (SPEC v1.0)`);
+    console.log(`usedesign ${version()} (SPEC v1.1)`);
     return 0;
   }
 

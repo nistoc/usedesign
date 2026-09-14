@@ -1,6 +1,7 @@
-# Operation Card — Specification v1.0
+# Operation Card — Specification v1.1
 
-> **Status:** v1.0, declared 2026-09-13 — §8 says what the number promises. This document
+> **Status:** v1.1 — v1.0 declared 2026-09-13, round 26 added to it without breaking it; §8 says
+> what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
 > database migrations — all read from and point back to.
@@ -1005,6 +1006,8 @@ where the format broke:
 | 22 | **A tombstone on foreign ground** — the pilot's backend role wrote its first card unaided: a soft delete with no precondition where its neighbours require one; the card demanded three tests | None. Three questions recorded, not fields: `none_by_design` asserts an intent where only an absence was measured; `to: deleted` names a tombstone as a state; `tested: N` restates what `tests[]` already counts |
 | 23 | **Four reads and a create on the athlete's path** — two reads with a single ending could name every refusal and not the success; one create is called from three places, one of them without a human | One, optional: the reserved key `ok` in `covers_outcomes{}` (§5.7), with `default_success_uncovered` (warning) and `ok_reserved` (error). And a repair to this document, not the format: the interfaces map was always open — one `ui-<caller>` entry per calling screen — but §5.7 showed three fixed keys, and two rounds read it as one screen per operation |
 | 24 | **Round 22's first question, answered** — a soft delete with no precondition and no reason in the code could only claim `none_by_design`, an intent nobody measured | One, optional: `concurrency.mode: none_unexplained` (§5.4), always warning `concurrency_unexplained` so the gate carries the debt instead of the prose |
+| 25 | **Three families described whole, from both ends** — the workout pass (8 cards, three with no calling screen), plans (6) and catalogs (7); the gaps of the first ten cards closed by 29 tests | None. Fourteen candidates recorded, all inside 1.x — among them an operation that exists twice over one handler, an element rendered outside its states, a screen no contract describes, and a gap no test can close |
+| 26 | **Four of round 25's candidates, the first round under the §8 promise** — twins that run one handler and could only repeat each other's steps; a leak the elements had and the groups did not; a screen that renders with nothing describing it; three different reasons read as one "no test" | Two optional fields: `variant_of` (§5.2e) and `coverage_gaps[].kind` (§5.9); one optional config key, `uncontracted_screens`; two warnings over fields 1.0 already had, `field_out_of_state` and `form_uncontracted_screen` (§7.5). Every new error is about a new field |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

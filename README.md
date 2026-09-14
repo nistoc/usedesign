@@ -92,6 +92,10 @@ required keys of a card are frozen: a card with zero errors under 1.0 has zero e
 1.x; new rounds add optional fields and codes, and a new check on existing fields arrives as a
 warning. The full promise and the round-by-round record are in [SPEC §8](SPEC.md).
 
+**v1.1** is the first round under that promise: two optional fields (`variant_of` for an operation
+that exists twice over one handler, `coverage_gaps[].kind` for why a proof is missing), one optional
+config key, and two new warnings over fields 1.0 already had.
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in
