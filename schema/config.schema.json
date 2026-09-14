@@ -30,6 +30,12 @@
       "type": "string",
       "description": "Path to the form inventory (schema/form-inventory.schema.json), produced per run by rendering the real components. Without it, check 5 cannot run and is NOT considered passed."
     },
+    "uncontracted_screens": {
+      "type": "string",
+      "enum": ["warning", "error"],
+      "default": "warning",
+      "description": "Check 5: how a rendered screen with no contract is reported (form_uncontracted_screen). Contracts are opt-in per screen, so the default is a warning; `error` is for a repository that has decided every screen must be described."
+    },
     "storage_inventory": {
       "type": "string",
       "description": "Path to the storage inventory (schema/storage-inventory.schema.json), produced per run from the live store. Without it, check 4 cannot run and is NOT considered passed."

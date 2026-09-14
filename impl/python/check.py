@@ -73,7 +73,8 @@ def normalise(method: str, path: str) -> tuple[str, str]:
 # measured on issue #4 — `cheks:` was accepted silently, the scoping vanished, and the check it
 # was meant to skip failed pointing at a completely different cause.
 CONFIG_KEYS = {"usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
-               "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory"}
+               "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory",
+               "uncontracted_screens"}
 
 
 def family_regex(pattern: str) -> re.Pattern:
@@ -1060,6 +1061,13 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     for screen, states in by_screen.items():
         mine = claimed.get(screen)
         if mine is None:
+            # A screen with no contract is not judged element by element — contracts are opt-in
+            # per screen. But it is no longer silent (round 26 ⑭): the mirror of check 1's wild
+            # endpoint, one level up; a warning unless the config opts in.
+            findings.append(Finding(
+                "form_uncontracted_screen",
+                f"{screen}: rendered in {len(states)} state(s) and described by no contract",
+                "error" if config.get("uncontracted_screens") == "error" else "warning"))
             continue
         seen: set[str] = set()
         for rendered in states.values():

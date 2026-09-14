@@ -67,6 +67,7 @@ export function frontMatter(path: string): Card | null {
 const CONFIG_KEYS = new Set([
   "usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
   "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory",
+  "uncontracted_screens",
 ]);
 
 export function loadConfig(path: string): { config: Config; base: string } {

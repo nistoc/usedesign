@@ -827,6 +827,7 @@ removed:
 | `member_out_of_group` | the seating chart is wrong: a member renders outside its contracted group — judged only against an inventory that records containers |
 | `group_missing` | a group's anchor exists only in the contract; nothing renders it |
 | `form_screen_missing` | the contract's screen is absent from the inventory — nothing rendered it |
+| `form_uncontracted_screen` (warning) | the opposite drift: a screen renders and no contract describes it — not judged element by element, since contracts are opt-in per screen, but no longer silent (round 26). `uncontracted_screens: error` in the config makes it an error for a repository that has decided every screen must be described |
 | `form_not_yet_built` (warning) | the screen is absent and the contract says `maturity: designed` — written ahead of the code, expected; counted separately in the summary |
 | `form_maturity_stale` (warning) | the screen renders but the contract still says `designed` — the contract is behind the code; compared in full all the same |
 | `undescribed_element` (warning) | rendered, accounted for by nobody — the mirror of a wild endpoint, and the queue of decisions the owner has not made yet |

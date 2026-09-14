@@ -417,3 +417,19 @@ cases:
       one, so a caption leaking into every state passed a pilot's planted break at rc=0. A
       warning, not an error — a new check over a field that already exists (§8: 1.x does not turn
       a clean contract red).
+  - dir: form-uncontracted-screen
+    check: 5
+    expect: pass
+    warnings: [form_uncontracted_screen]
+    note: >-
+      Round 26 ⑭. The inventory renders a second screen, SettingsPage, that no contract describes.
+      Contracts are opt-in per screen, so it is not judged element by element — but it is no longer
+      silent: a pilot had 13 contracts against 22 rendered screens and zero signals, while a typo in
+      `screen:` (the opposite drift) was always an error. A warning by default.
+  - dir: form-uncontracted-screen-strict
+    check: 5
+    expect: fail
+    codes: [form_uncontracted_screen]
+    note: >-
+      The same inventory with `uncontracted_screens: error` in the config — a repository that has
+      decided every screen must be described. A new optional key, so a 1.0 config is unaffected.
