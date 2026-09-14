@@ -819,6 +819,16 @@
           },
           "gap": {
             "type": "string"
+          },
+          "kind": {
+            "description": "Why the proof is missing (SPEC 5.9): unwritten — a test could be written today; harness — the test needs a change to the test harness first; unreachable — the branch cannot be reached by construction.",
+            "type": "string",
+            "enum": [
+              "unwritten",
+              "harness",
+              "unreachable"
+            ],
+            "default": "unwritten"
           }
         },
         "additionalProperties": false

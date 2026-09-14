@@ -650,10 +650,19 @@ tests:
 coverage_gaps:
   - step: <step-id>
     gap:  <what is missing>
+    kind: unwritten|harness|unreachable   # ⬜ why it is missing; default unwritten
 ```
 
 `coverage_gaps` starts as a human judgement and later becomes automatic: a step with no entry in
 `tests[]` becomes a gap line.
+
+**Why the proof is missing** (round 26). "No test" hid three different situations, and a gate
+counting them could not tell work that is simply undone from work that cannot be done:
+`unwritten` — a test could be written today (the default); `harness` — the test needs a change to
+the test host first (a stub that cannot fail, a store replaced by one that refuses every write);
+`unreachable` — the branch is a guard nothing outside can trigger (a random id colliding). Check 2
+counts the three apart in its summary. The kind is the author's claim about the gap, like the gap
+text itself; a checker cannot confirm it, only keep it visible.
 
 **What a gap means.** A gap names a *specific* missing proof, not the absence of all proof. A step
 may legitimately carry both a passing test and a gap — "there is a UI test, but nothing asserts the

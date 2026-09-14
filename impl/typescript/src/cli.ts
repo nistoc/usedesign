@@ -123,7 +123,12 @@ function commandCheck(configPath: string): number {
   const c = coverage.summary as Record<string, any>;
   console.log(`report:     ${c["report_cases"]} test case(s)`);
   const byInheritance = c["inherited"] ? ` (${c["inherited"]} by inheritance)` : "";
-  console.log(`steps:      ${c["proven"]} proven${byInheritance}, ${c["unproven"]} not\n`);
+  const kinds = [
+    c["gaps_harness"] ? `${c["gaps_harness"]} need a harness change` : "",
+    c["gaps_unreachable"] ? `${c["gaps_unreachable"]} unreachable` : "",
+  ].filter(Boolean);
+  console.log(`steps:      ${c["proven"]} proven${byInheritance}, ${c["unproven"]} not`);
+  console.log(`gaps:       ${c["gaps"]} declared${kinds.length ? ` (${kinds.join(", ")})` : ""}\n`);
   errorCount += summarise("check 2 (no unproven steps)", coverage.findings);
   }
 

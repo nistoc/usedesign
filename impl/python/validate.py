@@ -35,6 +35,7 @@ CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header",
                      "idempotency_by_formula", "none_by_design", "none_unexplained"]
 TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"]
 TEST_LEVELS = ["unit", "integration", "ui", "contract"]
+GAP_KINDS = ["unwritten", "harness", "unreachable"]
 
 OPERATION_ID = re.compile(r"^[a-z0-9]+(\.[a-z0-9-]+){2,}$")
 STEP_ID = re.compile(r"^s[0-9]+-[a-z0-9-]+$")
@@ -185,6 +186,11 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     for gap in gaps:
         if gap not in step_ids:
             err("unknown_step_reference", f"coverage_gaps names unknown step `{gap}`")
+    for entry in fm.get("coverage_gaps") or []:
+        kind = entry.get("kind")
+        if kind is not None and kind not in GAP_KINDS:
+            err("invalid_enum_value",
+                f"coverage_gaps `{entry.get('step')}`: kind `{kind}` is not one of {GAP_KINDS}")
 
     # ── a variant of another operation (SPEC 5.2e) ──────────────────────────────────────────────
     # Only what the card itself can show: the inherited steps are its own listed steps, and the

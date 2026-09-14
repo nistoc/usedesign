@@ -20,6 +20,7 @@ export const MATURITY = ["conceived", "designed", "implemented", "tested", "in_p
 const CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header", "idempotency_by_formula", "none_by_design", "none_unexplained"];
 const TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"];
 const TEST_LEVELS = ["unit", "integration", "ui", "contract"];
+export const GAP_KINDS = ["unwritten", "harness", "unreachable"];
 
 const OPERATION_ID = /^[a-z0-9]+(\.[a-z0-9-]+){2,}$/;
 const STEP_ID = /^s[0-9]+-[a-z0-9-]+$/;
@@ -402,6 +403,12 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   const gaps = new Set<string>((fm["coverage_gaps"] ?? []).map((gap: any) => gap?.step));
   for (const gap of gaps) {
     if (!stepIds.has(gap)) err("unknown_step_reference", `coverage_gaps names unknown step \`${gap}\``);
+  }
+  for (const entry of (fm["coverage_gaps"] ?? []) as any[]) {
+    const kind = entry?.kind;
+    if (kind !== undefined && !GAP_KINDS.includes(kind)) {
+      err("invalid_enum_value", `coverage_gaps \`${entry?.step}\`: kind \`${kind}\` is not one of ${GAP_KINDS}`);
+    }
   }
 
   // ── a variant of another operation (§5.2e) ────────────────────────────────────────────────

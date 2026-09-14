@@ -367,3 +367,18 @@ cases:
     note: >-
       Names shared code its own evidence does not list. The claim "the same code carries these
       steps" belongs in `implemented`, where check 3 confirms the file exists.
+
+  # ── Round 26 ⑬: a gap says why the proof is missing ───────────────────────────────────────────
+  - file: valid/coverage-gap-kinds.op.md
+    expect: valid
+    codes: []
+    warnings: []
+    note: >-
+      Three gaps with three reasons: unwritten (the default — a test could be written today),
+      harness (the test host must change first), unreachable (a guard nothing outside can trigger).
+      Check 2 counts them apart, so "not written yet" is never read as "cannot be written".
+  - file: invalid/coverage-gap-kind-unknown.op.md
+    expect: invalid
+    codes: [invalid_enum_value]
+    note: >-
+      `kind: blocked` is outside the set; a free-form reason would make the count a guess.

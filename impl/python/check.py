@@ -425,6 +425,7 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
 
     cards, _ = load_card_files(config, base)
     proven = unproven = inherited = 0
+    gap_kinds = {"unwritten": 0, "harness": 0, "unreachable": 0}
 
     # Pass 1 — every card's OWN proofs. A variant (SPEC 5.2e) reads the original's own proofs,
     # never what the original itself inherited, so credit cannot chain.
@@ -472,6 +473,12 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
         by_step = own_proof[card_id]
         credited, explained = _inheritance(card_id, fm, steps, by_step, by_id, own_proof,
                                            have_report, findings)
+        # Round 26 ⑬: a gap says why the proof is missing — counted apart, so "not written yet"
+        # is never read as "cannot be written".
+        for entry in fm.get("coverage_gaps") or []:
+            kind = str(entry.get("kind") or "unwritten")
+            if kind in gap_kinds:
+                gap_kinds[kind] += 1
 
         for step in steps:
             if step in gaps:
@@ -494,7 +501,8 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
                     "error" if have_report else "warning"))
 
     return findings, {"report_cases": len(cases), "proven": proven, "unproven": unproven,
-                      "inherited": inherited}
+                      "inherited": inherited, "gaps": sum(gap_kinds.values()),
+                      "gaps_harness": gap_kinds["harness"], "gaps_unreachable": gap_kinds["unreachable"]}
 
 
 def _inheritance(card_id: str, fm: dict, steps: list, by_step: dict, by_id: dict,
@@ -1138,6 +1146,10 @@ def main() -> int:
         print(f"report:     {coverage['report_cases']} test case(s)")
         by_inheritance = f" ({coverage['inherited']} by inheritance)" if coverage.get("inherited") else ""
         print(f"steps:      {coverage['proven']} proven{by_inheritance}, {coverage['unproven']} not")
+        kinds = [k for k in (
+            f"{coverage['gaps_harness']} need a harness change" if coverage.get("gaps_harness") else "",
+            f"{coverage['gaps_unreachable']} unreachable" if coverage.get("gaps_unreachable") else "") if k]
+        print(f"gaps:       {coverage['gaps']} declared" + (f" ({', '.join(kinds)})" if kinds else ""))
         print()
         errors += report("check 2 (no unproven steps)", coverage_findings)
 
