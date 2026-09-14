@@ -407,3 +407,13 @@ cases:
     note: >-
       Inherits `s6-audit`, which the original declares as a gap. A gap passes nothing on: the
       variant answers for the step itself — with a test or a gap of its own.
+  - dir: form-field-out-of-state
+    check: 5
+    expect: pass
+    warnings: [field_out_of_state]
+    note: >-
+      Round 26 ⑫. `main-progress` is declared `when: [active]` and is also rendered in `finished`.
+      Controls were always checked in both directions (`control_out_of_state`); elements only in
+      one, so a caption leaking into every state passed a pilot's planted break at rc=0. A
+      warning, not an error — a new check over a field that already exists (§8: 1.x does not turn
+      a clean contract red).

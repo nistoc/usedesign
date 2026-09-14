@@ -81,6 +81,22 @@ def family_regex(pattern: str) -> re.Pattern:
     return re.compile("^" + ".*".join(re.escape(part) for part in pattern.split("*")) + "$")
 
 
+def _field_out_of_state(contract_id: str, name: str, when, states: dict, present, findings: list) -> None:
+    """An element shown in a state outside its `when` (round 26 ⑫).
+
+    Controls had this check from the start (`control_out_of_state`); elements checked only the
+    other direction, so a refusal caption leaking into every state passed. A warning, not an
+    error: it is a new check over a field that already exists, and 1.x does not turn a clean
+    contract red (SPEC §8)."""
+    if not isinstance(when, list):
+        return
+    for state, rendered in states.items():
+        if state not in when and present(rendered):
+            findings.append(Finding("field_out_of_state",
+                                    f"{contract_id}: `{name}` appears in state `{state}`, "
+                                    "outside its declared `when`", "warning"))
+
+
 def load_config(path: str) -> tuple[dict, str]:
     with open(path, encoding="utf-8") as handle:
         config = yaml.safe_load(handle)
@@ -882,6 +898,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                                                     f"{contract_id}: `{pattern}` must match at least "
                                                     f"{at_least} element(s) in state `{state}` and "
                                                     f"matches {count}"))
+                _field_out_of_state(contract_id, pattern, entry.get("when"), states,
+                                    lambda r, rx=regex: count_of(rx, r["fields"]) > 0, findings)
                 continue
             field = str(entry.get("field") or "")
             mine["fields"].add(field)
@@ -895,6 +913,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                     findings.append(Finding("element_missing",
                                             f"{contract_id}: `{field}` must be shown in state "
                                             f"`{state}` and is not"))
+            _field_out_of_state(contract_id, field, entry.get("when"), states,
+                                lambda r, f=field: f in r["fields"], findings)
 
         for control in fm.get("controls") or []:
             pattern = str(control.get("control_pattern") or "")

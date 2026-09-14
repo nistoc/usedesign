@@ -821,6 +821,7 @@ removed:
 |---|---|
 | `element_missing` / `control_missing` | the contract is ahead of the code — the product's TODO list, printed by every build |
 | `control_out_of_state` | a control leaked outside its `shown_when` |
+| `field_out_of_state` (warning) | an element with a `when` is rendered in a state outside it — the same leak for elements, checked since round 26; a warning because it is a new check over a field 1.0 already had (§8) |
 | `removed_control_present` | a control the owner removed came back |
 | `shown_when_conflicts_transition` | the contract shows a control in a state its operation cannot depart from — the reference here is the **card**, so the form and the screen can drift together and still be caught |
 | `member_out_of_group` | the seating chart is wrong: a member renders outside its contracted group — judged only against an inventory that records containers |
