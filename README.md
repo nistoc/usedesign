@@ -96,6 +96,10 @@ warning. The full promise and the round-by-round record are in [SPEC §8](SPEC.m
 that exists twice over one handler, `coverage_gaps[].kind` for why a proof is missing), one optional
 config key, and two new warnings over fields 1.0 already had.
 
+**v1.2** adds one spelling to an optional field: `calls:` may name a chain of operations in call
+order — a control that renames a draft, then publishes it. The state rule reads the first
+operation; the one new error (`malformed_calls`) is about the new spelling only.
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in

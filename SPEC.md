@@ -1,6 +1,6 @@
-# Operation Card — Specification v1.1
+# Operation Card — Specification v1.2
 
-> **Status:** v1.1 — v1.0 declared 2026-09-13, round 26 added to it without breaking it; §8 says
+> **Status:** v1.2 — v1.0 declared 2026-09-13, rounds 26 and 27 added to it without breaking it; §8 says
 > what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
@@ -833,7 +833,7 @@ removed:
 | `control_out_of_state` | a control leaked outside its `shown_when` |
 | `field_out_of_state` (warning) | an element with a `when` is rendered in a state outside it — the same leak for elements, checked since round 26; a warning because it is a new check over a field 1.0 already had (§8) |
 | `removed_control_present` | a control the owner removed came back |
-| `shown_when_conflicts_transition` | the contract shows a control in a state its operation cannot depart from — the reference here is the **card**, so the form and the screen can drift together and still be caught |
+| `shown_when_conflicts_transition` | the contract shows a control in a state its operation (for a chain, its first) cannot depart from — the reference here is the **card**, so the form and the screen can drift together and still be caught |
 | `member_out_of_group` | the seating chart is wrong: a member renders outside its contracted group — judged only against an inventory that records containers |
 | `group_missing` | a group's anchor exists only in the contract; nothing renders it |
 | `form_screen_missing` | the contract's screen is absent from the inventory — nothing rendered it |
@@ -1027,6 +1027,7 @@ where the format broke:
 | 24 | **Round 22's first question, answered** — a soft delete with no precondition and no reason in the code could only claim `none_by_design`, an intent nobody measured | One, optional: `concurrency.mode: none_unexplained` (§5.4), always warning `concurrency_unexplained` so the gate carries the debt instead of the prose |
 | 25 | **Three families described whole, from both ends** — the workout pass (8 cards, three with no calling screen), plans (6) and catalogs (7); the gaps of the first ten cards closed by 29 tests | None. Fourteen candidates recorded, all inside 1.x — among them an operation that exists twice over one handler, an element rendered outside its states, a screen no contract describes, and a gap no test can close |
 | 26 | **Four of round 25's candidates, the first round under the §8 promise** — twins that run one handler and could only repeat each other's steps; a leak the elements had and the groups did not; a screen that renders with nothing describing it; three different reasons read as one "no test" | Two optional fields: `variant_of` (§5.2e) and `coverage_gaps[].kind` (§5.9); one optional config key, `uncontracted_screens`; two warnings over fields 1.0 already had, `field_out_of_state` and `form_uncontracted_screen` (§7.5). Every new error is about a new field |
+| 27 | **A chain behind one button** — a pilot's frontend role describing a draft's footer: "save as plan" renames the draft, then publishes it; "start" also starts a pass. One operation per control let the form contract name one step and the cards another, and neither could be checked against the other | One spelling of an optional field: `calls:` as a list in call order (§7.5) — the shown_when rule reads the first operation, and every operation of the chain must be described. The one new error, `malformed_calls`, is about the new spelling only |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
