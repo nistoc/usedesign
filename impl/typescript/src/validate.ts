@@ -215,6 +215,20 @@ export function validateForm(fm: Card, filename = "", knownForms: Set<string> | 
     if (opens && knownForms !== null && !knownForms.has(opens)) {
       warn("undescribed_form", `control \`${name}\` opens \`${opens}\`, which no contract in this set describes`);
     }
+    // `calls` names the operation a control runs, or null for local behaviour — and since round 27
+    // the chain it runs, in call order: a draft's «save as plan» renames it, then publishes it.
+    // A list of one is a string wearing brackets (the round 18 reason for `from`); an empty list
+    // says nothing that `null` would not; an entry that is not an id names no card at all.
+    const calls = control["calls"];
+    if (calls !== undefined && calls !== null && typeof calls !== "string") {
+      if (!Array.isArray(calls)) {
+        err("malformed_calls", `controls[${index}]: \`calls\` must be an operation id, a list of them in call order, or null`);
+      } else if (calls.length < 2) {
+        err("malformed_calls", `controls[${index}]: a \`calls\` list names a chain of two or more operations — one is written as its id, none as null`);
+      } else if (calls.some((entry: unknown) => typeof entry !== "string" || !entry)) {
+        err("malformed_calls", `controls[${index}]: every entry of \`calls\` must be an operation id`);
+      }
+    }
   }
 
   // ── groups ─────────────────────────────────────────────────────────────────────────────────

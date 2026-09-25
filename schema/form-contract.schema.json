@@ -82,8 +82,12 @@
           },
           "at_least": { "type": "integer", "minimum": 0 },
           "calls": {
-            "description": "The operation card this control invokes, or null for local behaviour. Naming a card lets check 5 compare shown_when with the operation's data_transition.from — the measured rule: a control is available exactly in the states its operation departs from.",
-            "oneOf": [{ "type": "string" }, { "type": "null" }]
+            "description": "The operation card this control invokes, or null for local behaviour. Naming a card lets check 5 compare shown_when with the operation's data_transition.from — the measured rule: a control is available exactly in the states its operation departs from. Since round 27 a control that runs several operations in a row names them as a list, in call order; the rule then reads the first — the chain departs from where its first operation does. A list names two or more: one operation is written as its id.",
+            "oneOf": [
+              { "type": "string" },
+              { "type": "null" },
+              { "type": "array", "minItems": 2, "items": { "type": "string", "minLength": 1 } }
+            ]
           },
           "shown_when": {
             "type": "array",

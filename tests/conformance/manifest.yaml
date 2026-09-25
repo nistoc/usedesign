@@ -382,3 +382,24 @@ cases:
     codes: [invalid_enum_value]
     note: >-
       `kind: blocked` is outside the set; a free-form reason would make the count a guess.
+
+  # ── Round 27: a chain behind one button (§7.5) ────────────────────────────────────────────────
+  - file: valid/forms/chain-calls.contract.md
+    expect: valid
+    codes: []
+    note: >-
+      Two controls that each run more than one operation, named as a chain in call order. 1.1.0's
+      schema refused a list outright, so a chain could be written only as one of its steps plus
+      prose — and the contract and the cards of one screen picked different steps.
+  - file: invalid/forms/calls-list-of-one.contract.md
+    expect: invalid
+    codes: [malformed_calls]
+    note: >-
+      A list of one is a string wearing brackets (the round 18 reason for `from`); an empty list
+      says nothing `null` would not. One operation is written as its id, none as null.
+  - file: invalid/forms/calls-entry-not-an-id.contract.md
+    expect: invalid
+    codes: [malformed_calls]
+    note: >-
+      An entry that is not an operation id names no card; read as a chain it would be skipped
+      without a word, and the chain would read shorter than it is written.

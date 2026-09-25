@@ -1,0 +1,28 @@
+{
+  "usedesign_form_inventory": 1,
+  "produced_by": "runtime dump — components rendered per state by a test",
+  "forms": [
+    {
+      "screen": "DraftFoot",
+      "states": [
+        {
+          "state": "draft",
+          "fields": [
+            "draft-name"
+          ],
+          "controls": [
+            "save-as-plan",
+            "start-now"
+          ]
+        },
+        {
+          "state": "published",
+          "fields": [
+            "draft-name"
+          ],
+          "controls": []
+        }
+      ]
+    }
+  ]
+}

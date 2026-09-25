@@ -540,6 +540,24 @@ def validate_form(fm: dict, filename: str = "",
         if opens and known_forms is not None and opens not in known_forms:
             warn("undescribed_form",
                  f"control `{name}` opens `{opens}`, which no contract in this set describes")
+        # `calls` names the operation a control runs, or null for local behaviour — and since
+        # round 27 the chain it runs, in call order: a draft's «save as plan» renames it, then
+        # publishes it. A list of one is a string wearing brackets (the round 18 reason for
+        # `from`); an empty list says nothing that `null` would not; an entry that is not an id
+        # names no card at all.
+        calls = control.get("calls")
+        if calls is not None and not isinstance(calls, str):
+            if not isinstance(calls, list):
+                err("malformed_calls",
+                    f"controls[{index}]: `calls` must be an operation id, a list of them in call "
+                    "order, or null")
+            elif len(calls) < 2:
+                err("malformed_calls",
+                    f"controls[{index}]: a `calls` list names a chain of two or more operations "
+                    "— one is written as its id, none as null")
+            elif any(not isinstance(entry, str) or not entry for entry in calls):
+                err("malformed_calls",
+                    f"controls[{index}]: every entry of `calls` must be an operation id")
 
     # ── groups ───────────────────────────────────────────────────────────────
     # Grouping by purpose: headers, footers, tables, and which controls sit where. Array order

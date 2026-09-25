@@ -284,7 +284,7 @@ function renderDoc() {
       h += '<div class="item" data-item="control"><div class="name">' + (k.control || k.control_pattern) +
         (k.control_pattern ? familyMeta(k.at_least === undefined ? null : k.at_least) : '') +
         (k.shown_when ? ' <span class="meta">· ' + k.shown_when.join(', ') + '</span>' : '') + '</div>' +
-        (k.calls ? '<div class="meta">calls: ' + k.calls + '</div>' : '') +
+        (k.calls ? '<div class="meta">calls: ' + (Array.isArray(k.calls) ? k.calls.join(' → ') : k.calls) + '</div>' : '') +
         (k.opens ? '<div class="meta">opens: ' + k.opens + '</div>' : '') +
         (k.shown_when_rule ? '<div class="meta">когда: ' + k.shown_when_rule + '</div>' : '') +
         (k.behaviour ? '<div class="meta">' + k.behaviour + '</div>' : '') + '</div>';

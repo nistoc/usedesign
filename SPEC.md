@@ -855,6 +855,24 @@ When `from` is a set, every `shown_when` state must belong to it and at least on
 any` and `from: none` switch the rule off — `any` being the honest word for an operation that
 does not check where it departs from.
 
+**A chain behind one button** (round 27). Some controls run several operations in a row — a
+draft's «save as plan» renames it, then publishes it; «start» does both and then starts a pass.
+`calls:` names the chain in call order:
+
+```yaml
+  - control: start-now
+    calls: [demo.draft.seal, demo.draft.publish, demo.pass.start]
+    shown_when: [draft]
+```
+
+The shown_when rule reads the **first** operation: the chain departs from where its first step
+does, and every later step departs from whatever the step before it left — a state the screen
+does not show. Every operation of the chain must still be described by a card;
+`form_calls_undescribed` names a missing one with its place in the chain. A list names two or
+more operations: a list of one is a string wearing brackets (the round 18 reason for refusing a
+one-element `from` set), an empty list says nothing `null` would not, and an entry that is not
+an id names no card — all three are `malformed_calls`.
+
 **Grouping by purpose.** A contract may carry `groups:` — how the owner groups the screen:
 headers, footers, tables, toolbars, menus, and which elements and controls sit in each. Array
 order **is** the group order (a separate order key would be a duplicate that drifts); membership
@@ -955,6 +973,7 @@ in both implementations, so the two agree on *what* is wrong:
 | `pattern_without_wildcard` | a family with no `*` — a literal wearing the wrong key |
 | `malformed_at_least` | the floor is not a non-negative integer, or sits on a single-anchor line |
 | `malformed_states` | `states` is not a map of screen state → `{ data }` |
+| `malformed_calls` | `calls` is not an id, a list of two or more ids in call order, or null — a list of one is a string wearing brackets (round 27) |
 | `undescribed_form` (warning) | `opens` points at a contract outside the validated set — honest incompleteness, the counterpart of `undescribed_counterpart` |
 
 ### 7.6 Scoping the checks per repository

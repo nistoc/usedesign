@@ -974,12 +974,31 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                 findings.append(Finding("control_missing",
                                         f"{contract_id}: control `{name}` appears in no state at all"))
 
-            calls = control.get("calls")
-            if isinstance(calls, str) and calls:
-                card = card_by_id.get(calls)
+            # A chain (round 27: `calls` as a list, in call order) is judged by its FIRST operation
+            # — the chain departs from where that one does; every later step departs from
+            # whatever the step before it left, which no screen state shows. Each operation of
+            # the chain must still have a card.
+            raw_calls = control.get("calls")
+            if isinstance(raw_calls, str) and raw_calls:
+                chain = [raw_calls]
+            elif isinstance(raw_calls, list):
+                chain = [str(entry) for entry in raw_calls if isinstance(entry, str) and entry]
+            else:
+                chain = []
+            for step, later in enumerate(chain):
+                if step > 0 and later not in card_by_id:
+                    findings.append(Finding("form_calls_undescribed",
+                                            f"{contract_id}: control `{name}` calls `{later}` "
+                                            f"(step {step + 1} of {len(chain)}), "
+                                            "which no card describes", "warning"))
+            # How the first operation is named in a finding: bare for one, with its chain for several.
+            calls = (f"`{chain[0]}` (first of `{' → '.join(chain)}`)" if len(chain) > 1
+                     else f"`{chain[0]}`" if chain else "")
+            if chain:
+                card = card_by_id.get(chain[0])
                 if card is None:
                     findings.append(Finding("form_calls_undescribed",
-                                            f"{contract_id}: control `{name}` calls `{calls}`, "
+                                            f"{contract_id}: control `{name}` calls {calls}, "
                                             "which no card describes", "warning"))
                 elif shown_when:
                     # `from` is one state or a SET of states (round 18): the control must be shown
@@ -1001,7 +1020,7 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                             findings.append(Finding(
                                 "shown_when_conflicts_transition",
                                 f"{contract_id}: control `{name}` is shown in "
-                                f"[{', '.join(shown_when)}]{mapped} but `{calls}` departs from "
+                                f"[{', '.join(shown_when)}]{mapped} but {calls} departs from "
                                 f"`{' | '.join(from_set)}`"))
 
         for entry in fm.get("removed") or []:

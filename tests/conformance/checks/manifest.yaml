@@ -433,3 +433,32 @@ cases:
     note: >-
       The same inventory with `uncontracted_screens: error` in the config — a repository that has
       decided every screen must be described. A new optional key, so a 1.0 config is unaffected.
+
+  # ── Round 27: a chain behind one button (§7.5) ────────────────────────────────────────────────
+  # `calls:` as a list in call order: seal the draft, publish it, start a pass. The shown_when rule
+  # reads the FIRST operation; every operation of the chain must be described.
+  - dir: form-calls-chain
+    check: 5
+    expect: pass
+    codes: []
+    note: >-
+      Both chains are shown in `draft`, where the first operation departs from. The second departs
+      from `sealed` and the third from `absent` — states the step before each left, which no screen
+      state shows. An implementation holding EVERY step against `shown_when` fails here with
+      shown_when_conflicts_transition.
+  - dir: form-calls-chain-conflict
+    check: 5
+    expect: fail
+    codes: [shown_when_conflicts_transition]
+    note: >-
+      The chain is also offered in `sealed`: its second step departs from there, its first does not,
+      and the chain starts with the first. An implementation accepting a state that ANY step departs
+      from passes here — and so did 1.1.0, which skipped a list entirely.
+  - dir: form-calls-chain-undescribed
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_undescribed]
+    note: >-
+      The chain's second step has no card. Every operation of a chain must be described, not only
+      the first; the warning names the step and its place. 1.1.0 skipped the list and said nothing.
