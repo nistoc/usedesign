@@ -515,3 +515,29 @@ cases:
     note: >-
       `ß` and `SS`: case folding, not lowercasing. JavaScript has no case folding of its own, and
       an implementation that only lowercases stays silent here, as 1.2.0 does.
+  - file: valid/outcomes-quoted-vowel-signs.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      Two Devanagari lines that differ only in vowel signs, which are marks (category M). A mark
+      belongs to its word; an implementation that reads it as a space reads both lines as the same
+      fragments and warns, as the first round-28 build did. Silent on the published 1.2.0 box.
+  - file: valid/outcomes-quoted-normalised.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `closed`, `not_found`"]
+    note: >-
+      One line typed with composed accents and with separate ones. The value is NFC-normalised
+      after case folding, so both spans read the same. An implementation that does not normalise,
+      or reads the accent as a space, stays silent here, as 1.2.0 does.
+  - file: valid/outcomes-unquoted-normalised.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `closed`, `not_found`"]
+    note: >-
+      The whole-value fallback is NFC-normalised too: a composed line and the same line in capitals
+      with separate accents compare equal. An implementation that normalises only quoted spans
+      stays silent here, as 1.2.0 does.

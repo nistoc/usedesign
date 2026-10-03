@@ -291,8 +291,9 @@ export function validateForm(fm: Card, filename = "", knownForms: Set<string> | 
 // appears, why, which code renders it — and those words go inside «…» or “…”. Round 28 measured
 // authors who re-measured a screen and wrote that context into every refusal: each value became
 // unique, and refusals sharing one status line stopped being reported. So the key compares the
-// quoted words. It starts from the 1.2 key (trim + toLowerCase), so every pair 1.2 reported is
-// still reported. The Python twin is impl/python/validate.py `shown_key`; the two must agree.
+// quoted words. It starts from the 1.2 key (trim + toLowerCase; case folding and NFC are
+// functions of it), so every pair 1.2 reported is still reported. The Python twin is
+// impl/python/validate.py `shown_key`; the two must agree.
 
 /** «…» and “…” — the opener and its closer. */
 const QUOTE_PAIRS = new Map([
@@ -301,7 +302,7 @@ const QUOTE_PAIRS = new Map([
 ]);
 /** The same pairs, closer → opener. */
 const QUOTE_OPENERS = new Map([...QUOTE_PAIRS].map(([opener, closer]) => [closer, opener]));
-const LETTER_OR_NUMBER = /^[\p{L}\p{N}]$/u;
+const WORD_CHARACTER = /^[\p{L}\p{M}\p{N}]$/u;
 const LETTER = /^\p{L}$/u;
 
 /**
@@ -348,23 +349,28 @@ export function quotedSpans(text: string): string[] {
   return spans;
 }
 
-/** Every code point that is not a letter or a number (category L or N) read as a space. */
+/**
+ * Every code point that is not a letter, a mark or a number (category L, M or N) read as a space —
+ * a vowel sign or an accent belongs to its word.
+ */
 function shownWords(span: string): string[] {
-  return Array.from(span, (ch) => (LETTER_OR_NUMBER.test(ch) ? ch : " "))
+  return Array.from(span, (ch) => (WORD_CHARACTER.test(ch) ? ch : " "))
     .join("")
     .split(" ")
     .filter((word) => word.length > 0);
 }
 
 /**
- * The key outcomes_indistinguishable groups by: the kept quoted spans as a set — a span is kept
- * when it has two words or more of at least two letters, so a glyph or a single word, such as «!»
- * or «OK», is not a message. With no span kept, the whole value, trimmed and case-folded (1.2
- * lowercased; folding only adds matches). A set of spans never equals a whole value: the two keys
- * are tagged apart.
+ * The key outcomes_indistinguishable groups by. The value is trimmed, case-folded and
+ * NFC-normalised first, so an accent typed apart from its letter reads as the composed letter.
+ * Then the kept quoted spans as a set — a span is kept when it has two words or more of at least
+ * two letters (marks and numbers do not count), so a glyph or a single word, such as «!» or «OK»,
+ * is not a message. With no span kept, the whole value, trimmed, case-folded and NFC-normalised
+ * (1.2 lowercased; folding and normalising only add matches). A set of spans never equals a whole
+ * value: the two keys are tagged apart.
  */
 export function shownKey(value: string): string {
-  const folded = caseFold(value.trim());
+  const folded = caseFold(value.trim()).normalize("NFC");
   const kept = new Set<string>();
   for (const span of quotedSpans(folded)) {
     const words = shownWords(span);

@@ -76,7 +76,8 @@ def front_matter(path: str):
 # authors who re-measured a screen and wrote that context into every refusal: each value became
 # unique, and refusals sharing one status line stopped being reported. So the key compares the
 # quoted words. It is computed from the 1.2 key (strip + lower; casefold(lower(x)) == casefold(x)
-# on every code point), so every pair 1.2 reported is still reported.
+# on every code point, and NFC is a function of its input), so every pair 1.2 reported is still
+# reported.
 
 QUOTE_PAIRS = {"«": "»", "“": "”"}  # «…» and “…”
 QUOTE_OPENERS = {closer: opener for opener, closer in QUOTE_PAIRS.items()}
@@ -113,19 +114,22 @@ def quoted_spans(text: str) -> list[str]:
 
 
 def shown_words(span: str) -> list[str]:
-    """Every code point that is not a letter or a number (category L or N) read as a space."""
-    return "".join(ch if unicodedata.category(ch)[0] in "LN" else " " for ch in span).split()
+    """Every code point that is not a letter, a mark or a number (category L, M or N) read as a
+    space — a vowel sign or an accent belongs to its word."""
+    return "".join(ch if unicodedata.category(ch)[0] in "LMN" else " " for ch in span).split()
 
 
 def shown_key(value: str) -> tuple:
     """The key outcomes_indistinguishable groups by.
 
-    The kept quoted spans as a set — a span is kept when it has two words or more of at least two
-    letters, so a glyph or a single word, such as «!» or «OK», is not a message. With no span
-    kept, the whole value, stripped and case-folded (1.2 lowercased; folding only adds matches).
-    A set of spans never equals a whole value: the two keys are tagged apart.
+    The value is stripped, case-folded and NFC-normalised first, so an accent typed apart from its
+    letter reads as the composed letter. Then the kept quoted spans as a set — a span is kept when
+    it has two words or more of at least two letters (marks and numbers do not count), so a glyph
+    or a single word, such as «!» or «OK», is not a message. With no span kept, the whole value,
+    stripped, case-folded and NFC-normalised (1.2 lowercased; folding and normalising only add
+    matches). A set of spans never equals a whole value: the two keys are tagged apart.
     """
-    folded = value.strip().casefold()
+    folded = unicodedata.normalize("NFC", value.strip().casefold())
     kept = set()
     for span in quoted_spans(folded):
         words = shown_words(span)
