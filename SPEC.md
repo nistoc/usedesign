@@ -1,6 +1,6 @@
-# Operation Card — Specification v1.2
+# Operation Card — Specification v1.3
 
-> **Status:** v1.2 — v1.0 declared 2026-09-13, rounds 26 and 27 added to it without breaking it; §8 says
+> **Status:** v1.3 — v1.0 declared 2026-09-13, rounds 26–28 added to it without breaking it; §8 says
 > what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
