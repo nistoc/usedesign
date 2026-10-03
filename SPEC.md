@@ -865,7 +865,7 @@ Nothing reads a repository class, an ORM mapping, or a migration file.
 data:
   entities: [request]          # the logical noun, unchanged
   storage:
-    - store: abdominal-requests-*   # a PATTERN, never a literal name
+    - store: sample-requests-*      # a PATTERN, never a literal name
       keyed_by: [RequestId]
       via_index: gsi-owner-status   # naming one promises that removing it breaks this operation
 ```
@@ -905,7 +905,7 @@ parsing their source. Check 5 holds the two against each other, both ways.
 
 ```yaml
 usedesign_form: 1
-id: abdominal.workout.session-nav
+id: sample.workout.session-nav
 screen: SessionNavPanel
 entity: workout_progress        # the state vocabulary is the entity's, computed from its cards
 presents:
@@ -914,7 +914,7 @@ presents:
     when: [finished, partial, abandoned]
 controls:
   - control: finish-progress
-    calls: abdominal.progress.finish
+    calls: sample.progress.finish
     shown_when: [active]
 removed:
   - control: clear-progress     # a decision is only real while something enforces it
