@@ -540,18 +540,23 @@ What is compared is specified, so that two checkers read a value the same way; w
 reference implementations still differ, as they did in 1.2, is the last of the known limits below.
 
 1. The value, trimmed of white space at both ends, case-folded — full Unicode case folding, as
-   Python's `str.casefold()`: `ß` matches `SS` — and then NFC-normalised, so an accent typed as a
-   separate mark reads as the composed letter: `é` written as `e` and U+0301 matches `é` written as
-   one code point. Canonical composition only, not NFKC: a full-width `Ｓ` stays apart from `S`.
+   Python's `str.casefold()`: `ß` matches `SS` — and then NFC-normalised. Folding runs before NFC,
+   in that order, so canonically equivalent values match in the common cases — an accent typed as a
+   separate mark after its letter reads as the composed letter: `é` written as `e` and U+0301
+   matches `é` written as one code point — but a few sequences do not (a known limit below).
+   Canonical composition only, not NFKC: a full-width `Ｓ` stays apart from `S`.
 2. Every outermost span in «…» or “…” is taken. Quotes pair as brackets do, each kind on its own: a
    quote of the same kind nests and belongs to the outer span — `«Copy to «Mine»: failed»` is one
    span — and a quote of the other kind inside a span is part of it. A closer with no opener is
    ignored; an opener never closed opens nothing, and the quotes after it are still read: in
    `«a «b c d» e` the one span is `b c d`.
 3. In each span, every code point that is not a letter, a mark or a number (Unicode category L, M
-   or N) is read as a space; runs of spaces collapse and the ends are trimmed. A mark belongs to its
-   word: Devanagari writes most vowels as marks, and «सहेजा नहीं जा सका» and «सहेजी नहीं जा सकी»,
-   which differ only in them, stay two lines.
+   or N) is read as a space; runs of spaces collapse and the ends are trimmed. A mark belongs to the
+   word before it: Devanagari writes most vowels as marks, and «सहेजा नहीं जा सका» and
+   «सहेजी नहीं जा सकी», which differ only in them, stay two lines. So a mark is a word character
+   only when it follows one — a letter, a number, or a mark already attached; a mark after a space,
+   a symbol or the opening quote is read as a space. The U+FE0F that asks for an emoji's colour
+   form is such a mark: «⚠️ Could not save» and «⚠ Could not save» are one line.
 4. A span is kept only if it has at least two words of at least two letters each — marks and
    numbers do not count toward the floor. A glyph or a single word, such as «!» or «OK», is not a
    message.
@@ -586,15 +591,23 @@ being reported, in silence. The rule has known limits:
 - **The checker never guesses sameness from prose.** "The same line as above" is not a reference —
   in the round's catalogue, phrases meaning "the same" pointed at the same screen line in 30 of 75
   values. Quote the line instead.
+- **Canonical equivalence holds in the common cases, not in all.** Folding runs before NFC
+  (rule 1), and folding turns U+0345 COMBINING GREEK YPOGEGRAMMENI into the letter `ι`, which NFC
+  then cannot move past another accent: `α`, U+0345, U+0301 reads `αί`, while the composed `ᾴ`, or
+  `α`, U+0301, U+0345, reads `άι` — two spellings of one character that compare apart. It takes
+  polytonic Greek with the iota subscript typed before another accent; the order of rule 1 stays.
 - **The two runtimes still differ at the edges, as in 1.2.** Trimming is each runtime's own:
   Python's `strip()` also removes U+0085 and U+001C–U+001F, JavaScript's `trim()` also removes
   U+FEFF, so a value compared whole that begins or ends with one of them is grouped differently.
   The Python prototype reads YAML 1.1, where a bare `no`, `off`, `1:20` or a date is not text and
-  is not compared; quote such a value. Case folding, NFC and the letter/mark/number test follow
-  the runtime's Unicode tables: measured with Python 3.14 (Unicode 16) and Node 26 (Unicode 17),
-  the two implementations group values the same way on every character both tables assign; an
-  older runtime may read a newer character as neither letter, mark nor number, miss a newer case
-  pair, or normalise a newer character differently.
+  is not compared; quote such a value. YAML 1.1 also reads a raw U+0085, U+2028 or U+2029 as a line
+  break: inside an unquoted value it can stop PyYAML with a `ScannerError`, and the Python
+  prototype aborts the run where TypeScript reads the value; quote such a value, or write the
+  character as an escape in double quotes (`"\u2028"`). Case folding, NFC and the
+  letter/mark/number test follow the runtime's Unicode tables: measured with Python 3.14
+  (Unicode 16) and Node 26 (Unicode 17), the two implementations group values the same way on
+  every character both tables assign; an older runtime may read a newer character as neither
+  letter, mark nor number, miss a newer case pair, or normalise a newer character differently.
 
 What the round rejected matters as much as what it added. The measurement showed outcome handling
 is not located in "the screen": the control sat in one component, the error policy in a shared
@@ -1102,7 +1115,7 @@ where the format broke:
 | 25 | **Three families described whole, from both ends** — the workout pass (8 cards, three with no calling screen), plans (6) and catalogs (7); the gaps of the first ten cards closed by 29 tests | None. Fourteen candidates recorded, all inside 1.x — among them an operation that exists twice over one handler, an element rendered outside its states, a screen no contract describes, and a gap no test can close |
 | 26 | **Four of round 25's candidates, the first round under the §8 promise** — twins that run one handler and could only repeat each other's steps; a leak the elements had and the groups did not; a screen that renders with nothing describing it; three different reasons read as one "no test" | Two optional fields: `variant_of` (§5.2e) and `coverage_gaps[].kind` (§5.9); one optional config key, `uncontracted_screens`; two warnings over fields 1.0 already had, `field_out_of_state` and `form_uncontracted_screen` (§7.5). Every new error is about a new field |
 | 27 | **A chain behind one button** — a pilot's frontend role describing a draft's footer: "save as plan" renames the draft, then publishes it; "start" also starts a pass. One operation per control let the form contract name one step and the cards another, and neither could be checked against the other | One spelling of an optional field: `calls:` as a list in call order (§7.5) — the shown_when rule reads the first operation, and every operation of the chain must be described. The one new error, `malformed_calls`, is about the new spelling only |
-| 28 | **Context hid the collapse; a line number was demanded where §5.7 advised against one** — a pilot catalogue re-measured its screens and wrote where and why into every refusal: each value became unique, and refusals sharing one status line stopped being reported. Most of its step sources named files only — steps spread across a file, code that moves — and one line-numbered source it checked had drifted about 110 lines in silence; the schema refused the file-only ones (issue #12). On its 93 cards the new reading turns 33 `outcomes_indistinguishable` warnings into 47, none lost | None new. `outcomes_indistinguishable` compares the words inside «…» or “…” — case-folded and NFC-normalised, a mark part of its word, spans of two words of two letters or more, as a set — and falls back to the whole value; computed from the 1.2 key, it still reports every pair 1.2 reported (§5.7). `steps[].source` accepts a path alone and `path#Symbol` besides `path:line` — what §5.7 already recommended; a widening, not a break: every card with zero errors under 1.2 still has none. No new code |
+| 28 | **Context hid the collapse; a line number was demanded where §5.7 advised against one** — a pilot catalogue re-measured its screens and wrote where and why into every refusal: each value became unique, and refusals sharing one status line stopped being reported. Most of its step sources named files only — steps spread across a file, code that moves — and one line-numbered source it checked had drifted about 110 lines in silence; the schema refused the file-only ones (issue #12). On its 93 cards the new reading turns 33 `outcomes_indistinguishable` warnings into 47, none lost | None new. `outcomes_indistinguishable` compares the words inside «…» or “…” — case-folded and NFC-normalised, a mark part of the word before it, spans of two words of two letters or more, as a set — and falls back to the whole value; computed from the 1.2 key, it still reports every pair 1.2 reported (§5.7). `steps[].source` accepts a path alone and `path#Symbol` besides `path:line` — what §5.7 already recommended; a widening, not a break: every card with zero errors under 1.2 still has none. No new code |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

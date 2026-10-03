@@ -32,7 +32,8 @@ interfaces:
     covers_outcomes:
       placed: status line «Commande envoyée»
       closed: status line «Café fermé», each é one code point
-      not_found: the same line typed with separate accents, «Café fermé», when the table was removed
+      # written as \u0301 escapes so that an editor normalising this file cannot compose them unnoticed
+      not_found: "the same line typed with separate accents, «Cafe\u0301 ferme\u0301», when the table was removed"
 
 data:
   entities: [order]

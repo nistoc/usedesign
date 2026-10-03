@@ -43,7 +43,7 @@ reversibility: irreversible
 Two different lines that differ only in their vowel signs: `सहेजा … सका` and `सहेजी … सकी`, the
 masculine and the feminine ending. Devanagari writes most vowels as marks on a consonant (Unicode
 category M), so a checker that reads every mark as a space reads both lines as the same five
-fragments and warns about two endings the user can tell apart. A mark belongs to its word: a word
-is a run of letters, marks and numbers, and still needs two letters (category L) to count toward
-the two-word floor. Silent on the published 1.2.0 box too, which compared the values whole. The
-manifest asserts the silence: `absent_warnings`.
+fragments and warns about two endings the user can tell apart. A mark belongs to the word before
+it: a word is a run of letters and numbers with the marks that follow them, and still needs two
+letters (category L) to count toward the two-word floor. Silent on the published 1.2.0 box too,
+which compared the values whole. The manifest asserts the silence: `absent_warnings`.

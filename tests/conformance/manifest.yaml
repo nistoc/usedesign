@@ -476,8 +476,9 @@ cases:
     codes: []
     absent_warnings: [outcomes_indistinguishable]
     note: >-
-      Without quotes the punctuation is part of the value. Letters and numbers are read apart from
-      the rest only inside quotes; an implementation that normalises every value warns here, where
+      Without quotes the punctuation is part of the value. Every value is trimmed, case-folded and
+      NFC-normalised, but letters, marks and numbers are read apart from the rest only inside
+      quotes; an implementation that reads punctuation as spaces in every value warns here, where
       1.2 was silent.
   - file: valid/outcomes-quoted-against-whole.op.md
     expect: valid
@@ -521,8 +522,9 @@ cases:
     absent_warnings: [outcomes_indistinguishable]
     note: >-
       Two Devanagari lines that differ only in vowel signs, which are marks (category M). A mark
-      belongs to its word; an implementation that reads it as a space reads both lines as the same
-      fragments and warns, as the first round-28 build did. Silent on the published 1.2.0 box.
+      belongs to the word before it; an implementation that reads it as a space reads both lines
+      as the same fragments and warns, as the first round-28 build did. Silent on the published
+      1.2.0 box.
   - file: valid/outcomes-quoted-normalised.op.md
     expect: valid
     codes: []
@@ -541,3 +543,27 @@ cases:
       The whole-value fallback is NFC-normalised too: a composed line and the same line in capitals
       with separate accents compare equal. An implementation that normalises only quoted spans
       stays silent here, as 1.2.0 does.
+  - file: valid/outcomes-quoted-emoji-selector.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `not_found`"]
+    note: >-
+      One line with and without the U+FE0F after its warning sign. A mark belongs to the word
+      before it; after a symbol it is read as a space, so both spans read the same. An
+      implementation that keeps every mark as a word character stays silent here, as 1.2.0 does.
+  - file: valid/outcomes-quoted-mark-floor.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      «फिर से»: two words, one of them a letter and a vowel sign. Marks and numbers do not count
+      toward the two-letter floor, so the span is not kept and the values, compared whole, differ.
+      An implementation that counts marks or code points toward the floor warns here.
+  - file: valid/outcomes-quoted-not-compatibility.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      A full-width `Ｓ` against `S`: NFC, not NFKC, so the two spans differ. An implementation that
+      normalises to NFKC warns here.

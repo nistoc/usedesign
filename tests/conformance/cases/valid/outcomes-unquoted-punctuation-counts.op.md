@@ -40,8 +40,9 @@ provenance: none
 reversibility: irreversible
 ---
 
-Without quotes the value is compared whole, and the whole value includes its punctuation: letters
-and numbers are read apart from the rest only inside «…» or “…”. An implementation that normalised
-every value would warn here, where 1.2 was silent — and disagree with the other implementation on
-every card that quotes nothing. Quote the words the user reads and they are compared as words. The
-manifest asserts the silence: `absent_warnings`.
+Without quotes the value is compared whole, and the whole value includes its punctuation. Every
+value is trimmed, case-folded and NFC-normalised, but words — letters, numbers and the marks that
+follow them — are read apart from the rest only inside «…» or “…”. An implementation that read
+punctuation as spaces in every value, not only inside quotes, would warn here, where 1.2 was silent
+— and disagree with the other implementation on every card that quotes nothing. Quote the words the
+user reads and they are compared as words. The manifest asserts the silence: `absent_warnings`.

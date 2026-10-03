@@ -32,7 +32,8 @@ interfaces:
     covers_outcomes:
       cancelled: Commande annulée
       closed: Café fermé
-      not_found: CAFÉ FERMÉ
+      # written as \u0301 escapes so that an editor normalising this file cannot compose them unnoticed
+      not_found: "CAFE\u0301 FERME\u0301"
 
 data:
   entities: [order]

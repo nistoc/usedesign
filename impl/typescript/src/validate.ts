@@ -302,7 +302,8 @@ const QUOTE_PAIRS = new Map([
 ]);
 /** The same pairs, closer → opener. */
 const QUOTE_OPENERS = new Map([...QUOTE_PAIRS].map(([opener, closer]) => [closer, opener]));
-const WORD_CHARACTER = /^[\p{L}\p{M}\p{N}]$/u;
+const LETTER_OR_NUMBER = /^[\p{L}\p{N}]$/u;
+const MARK = /^\p{M}$/u;
 const LETTER = /^\p{L}$/u;
 
 /**
@@ -351,10 +352,16 @@ export function quotedSpans(text: string): string[] {
 
 /**
  * Every code point that is not a letter, a mark or a number (category L, M or N) read as a space —
- * a vowel sign or an accent belongs to its word.
+ * a vowel sign or an accent belongs to the word before it. A mark is a word character only when it
+ * follows one (a letter, a number, or a mark already attached): a mark after a space, a glyph or
+ * the start of the span — the U+FE0F after an emoji, a keycap — reads as a space.
  */
 function shownWords(span: string): string[] {
-  return Array.from(span, (ch) => (WORD_CHARACTER.test(ch) ? ch : " "))
+  let attached = false; // the code point before was read as a word character
+  return Array.from(span, (ch) => {
+    attached = LETTER_OR_NUMBER.test(ch) || (MARK.test(ch) && attached);
+    return attached ? ch : " ";
+  })
     .join("")
     .split(" ")
     .filter((word) => word.length > 0);
@@ -362,7 +369,8 @@ function shownWords(span: string): string[] {
 
 /**
  * The key outcomes_indistinguishable groups by. The value is trimmed, case-folded and
- * NFC-normalised first, so an accent typed apart from its letter reads as the composed letter.
+ * NFC-normalised first — folding before NFC, in that order — so an accent typed as a separate mark
+ * after its letter reads as the composed letter (SPEC §5.7 names the few sequences that do not).
  * Then the kept quoted spans as a set — a span is kept when it has two words or more of at least
  * two letters (marks and numbers do not count), so a glyph or a single word, such as «!» or «OK»,
  * is not a message. With no span kept, the whole value, trimmed, case-folded and NFC-normalised

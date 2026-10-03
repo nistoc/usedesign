@@ -115,19 +115,30 @@ def quoted_spans(text: str) -> list[str]:
 
 def shown_words(span: str) -> list[str]:
     """Every code point that is not a letter, a mark or a number (category L, M or N) read as a
-    space — a vowel sign or an accent belongs to its word."""
-    return "".join(ch if unicodedata.category(ch)[0] in "LMN" else " " for ch in span).split()
+    space — a vowel sign or an accent belongs to the word before it. A mark is a word character
+    only when it follows one (a letter, a number, or a mark already attached): a mark after a
+    space, a glyph or the start of the span — the U+FE0F after an emoji, a keycap — reads as a
+    space."""
+    shown = []
+    attached = False  # the code point before was read as a word character
+    for ch in span:
+        category = unicodedata.category(ch)[0]
+        attached = category in "LN" or (category == "M" and attached)
+        shown.append(ch if attached else " ")
+    return "".join(shown).split()
 
 
 def shown_key(value: str) -> tuple:
     """The key outcomes_indistinguishable groups by.
 
-    The value is stripped, case-folded and NFC-normalised first, so an accent typed apart from its
-    letter reads as the composed letter. Then the kept quoted spans as a set — a span is kept when
-    it has two words or more of at least two letters (marks and numbers do not count), so a glyph
-    or a single word, such as «!» or «OK», is not a message. With no span kept, the whole value,
-    stripped, case-folded and NFC-normalised (1.2 lowercased; folding and normalising only add
-    matches). A set of spans never equals a whole value: the two keys are tagged apart.
+    The value is stripped, case-folded and NFC-normalised first — folding before NFC, in that
+    order — so an accent typed as a separate mark after its letter reads as the composed letter
+    (SPEC §5.7 names the few sequences that do not). Then the kept quoted spans as a set — a span
+    is kept when it has two words or more of at least two letters (marks and numbers do not
+    count), so a glyph or a single word, such as «!» or «OK», is not a message. With no span kept,
+    the whole value, stripped, case-folded and NFC-normalised (1.2 lowercased; folding and
+    normalising only add matches). A set of spans never equals a whole value: the two keys are
+    tagged apart.
     """
     folded = unicodedata.normalize("NFC", value.strip().casefold())
     kept = set()
