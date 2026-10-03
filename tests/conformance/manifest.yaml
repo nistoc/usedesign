@@ -469,8 +469,9 @@ cases:
     warnings: [outcomes_indistinguishable]
     warning_messages: ["outcomes `unauthorized`, `forbidden`"]
     note: >-
-      No quotes: the whole value, trimmed and case-folded — 1.2 lowercased, and folding only adds
-      matches. Passes on the published 1.2.0 box too — it guards that no 1.2 warning is lost.
+      No quotes: the whole value, trimmed, case-folded and NFC-normalised — 1.2 lowercased, and
+      folding and normalising only add matches. Passes on the published 1.2.0 box too — it guards
+      that no 1.2 warning is lost.
   - file: valid/outcomes-unquoted-punctuation-counts.op.md
     expect: valid
     codes: []
@@ -567,3 +568,12 @@ cases:
     note: >-
       A full-width `Ｓ` against `S`: NFC, not NFKC, so the two spans differ. An implementation that
       normalises to NFKC warns here.
+  - file: valid/outcomes-quoted-fold-order.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      `α`, U+0345, U+0301 against the composed `ᾴ`: canonically equivalent, yet the spans read
+      `αί ab cd` and `άι ab cd` — the known limit of §5.7. It pins that folding runs before NFC:
+      an implementation that decomposes first, or normalises before folding, reads both as
+      `άι ab cd` and warns.

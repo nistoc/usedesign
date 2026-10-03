@@ -40,6 +40,6 @@ provenance: none
 reversibility: irreversible
 ---
 
-No quotes at all: each value is compared whole, as 1.2 compared it — trimmed and case-folded. The
-quoted-words rule must not lose this: a card written before round 28 never quoted anything, and
-every collapse 1.2 reported on it is still reported.
+No quotes at all: each value is compared whole — trimmed, case-folded and NFC-normalised, where
+1.2 trimmed and lowercased. The quoted-words rule must not lose this: a card written before round
+28 never quoted anything, and every collapse 1.2 reported on it is still reported.

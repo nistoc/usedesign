@@ -117,8 +117,9 @@ def shown_words(span: str) -> list[str]:
     """Every code point that is not a letter, a mark or a number (category L, M or N) read as a
     space — a vowel sign or an accent belongs to the word before it. A mark is a word character
     only when it follows one (a letter, a number, or a mark already attached): a mark after a
-    space, a glyph or the start of the span — the U+FE0F after an emoji, a keycap — reads as a
-    space."""
+    space, a glyph or the start of the span reads as a space — the U+FE0F after an emoji that is
+    a symbol, such as ⚠, and a keycap after # or *. After a letter or a digit the U+FE0F stays
+    in the word: ℹ (U+2139) is a letter, and a keycap on a digit keeps both its marks."""
     shown = []
     attached = False  # the code point before was read as a word character
     for ch in span:

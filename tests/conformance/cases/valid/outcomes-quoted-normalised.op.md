@@ -31,8 +31,9 @@ interfaces:
     control: button[data-action="place-order"]
     covers_outcomes:
       placed: status line «Commande envoyée»
-      closed: status line «Café fermé», each é one code point
-      # written as \u0301 escapes so that an editor normalising this file cannot compose them unnoticed
+      # both sides are escapes — \u00e9 one code point, e and \u0301 an accent apart — so that an
+      # editor that changes this file's normal form cannot defeat either side
+      closed: "status line «Caf\u00e9 ferm\u00e9», each \u00e9 one code point"
       not_found: "the same line typed with separate accents, «Cafe\u0301 ferme\u0301», when the table was removed"
 
 data:

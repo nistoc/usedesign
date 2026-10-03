@@ -556,7 +556,9 @@ reference implementations still differ, as they did in 1.2, is the last of the k
    «सहेजी नहीं जा सकी», which differ only in them, stay two lines. So a mark is a word character
    only when it follows one — a letter, a number, or a mark already attached; a mark after a space,
    a symbol or the opening quote is read as a space. The U+FE0F that asks for an emoji's colour
-   form is such a mark: «⚠️ Could not save» and «⚠ Could not save» are one line.
+   form is a mark too: after an emoji that is a symbol it is read as a space — «⚠️ Could not save»
+   and «⚠ Could not save» are one line — and after a letter or a digit (ℹ️, the keycap 1️⃣)
+   it stays in the word.
 4. A span is kept only if it has at least two words of at least two letters each — marks and
    numbers do not count toward the floor. A glyph or a single word, such as «!» or «OK», is not a
    message.
@@ -595,16 +597,20 @@ being reported, in silence. The rule has known limits:
   (rule 1), and folding turns U+0345 COMBINING GREEK YPOGEGRAMMENI into the letter `ι`, which NFC
   then cannot move past another accent: `α`, U+0345, U+0301 reads `αί`, while the composed `ᾴ`, or
   `α`, U+0301, U+0345, reads `άι` — two spellings of one character that compare apart. It takes
-  polytonic Greek with the iota subscript typed before another accent; the order of rule 1 stays.
+  polytonic Greek with the iota subscript typed before another accent; the order of rule 1 stays,
+  and the conformance case `outcomes-quoted-fold-order` pins it.
 - **The two runtimes still differ at the edges, as in 1.2.** Trimming is each runtime's own:
   Python's `strip()` also removes U+0085 and U+001C–U+001F, JavaScript's `trim()` also removes
   U+FEFF, so a value compared whole that begins or ends with one of them is grouped differently.
   The Python prototype reads YAML 1.1, where a bare `no`, `off`, `1:20` or a date is not text and
   is not compared; quote such a value. YAML 1.1 also reads a raw U+0085, U+2028 or U+2029 as a line
   break: inside an unquoted value it can stop PyYAML with a `ScannerError`, and the Python
-  prototype aborts the run where TypeScript reads the value; quote such a value, or write the
-  character as an escape in double quotes (`"\u2028"`). Case folding, NFC and the
-  letter/mark/number test follow the runtime's Unicode tables: measured with Python 3.14
+  prototype aborts the run where TypeScript reads the value. Quoting stops the abort, but only an
+  escape in double quotes — `"\x85"`, `"\u2028"` — gives both readers the same text: inside
+  quotes PyYAML folds a raw U+0085 into a space and drops the spaces around a raw U+2028 or
+  U+2029. Write a character beyond U+FFFF as `\U0001F600`, never as a surrogate pair
+  (`\uD83D\uDE00`), which PyYAML keeps as two halves. Case folding, NFC
+  and the letter/mark/number test follow the runtime's Unicode tables: measured with Python 3.14
   (Unicode 16) and Node 26 (Unicode 17), the two implementations group values the same way on
   every character both tables assign; an older runtime may read a newer character as neither
   letter, mark nor number, miss a newer case pair, or normalise a newer character differently.

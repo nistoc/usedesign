@@ -31,8 +31,9 @@ interfaces:
     control: button[data-action="cancel-order"]
     covers_outcomes:
       cancelled: Commande annulée
-      closed: Café fermé
-      # written as \u0301 escapes so that an editor normalising this file cannot compose them unnoticed
+      # both sides are escapes — \u00e9 one code point, E and \u0301 an accent apart — so that an
+      # editor that changes this file's normal form cannot defeat either side
+      closed: "Caf\u00e9 ferm\u00e9"
       not_found: "CAFE\u0301 FERME\u0301"
 
 data:
