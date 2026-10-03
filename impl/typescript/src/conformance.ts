@@ -60,6 +60,11 @@ export function runCardCorpus(withSchema = true): CorpusResult {
     for (const code of testCase.warnings ?? []) {
       if (!warned.includes(code)) problems.push(`missing warning \`${code}\``);
     }
+    // And their absence (round 28): a rule that must stay quiet on a case is a rule too, and
+    // `warnings:` alone could never tell a guard from a case that forgot to list a warning.
+    for (const code of testCase.absent_warnings ?? []) {
+      if (warned.includes(code)) problems.push(`unexpected warning \`${code}\``);
+    }
 
     report(testCase.file, problems, reported);
     problems.length > 0 ? (failed += 1) : (passed += 1);

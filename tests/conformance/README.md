@@ -39,6 +39,21 @@ checks/cases/<name>/   a config plus what the check consumes: a route
 Each case says which invariant it exercises (`check: 1` or `check: 2`) and is run through that one
 only, so a missing inventory is not held against a coverage case.
 
+A card case in `manifest.yaml` carries:
+
+| Key | |
+|---|---|
+| `expect` | `valid` or `invalid` — the verdict |
+| `codes` | errors that must be reported |
+| `warnings` | warnings that must be reported |
+| `absent_warnings` | warnings that must **not** be reported (round 28) |
+| `note` | what the case probes, and what an implementation that fails it gets wrong |
+
+The lists name codes that must be present (or absent), never the complete set: a case is named by
+what it probes rather than by its card's id, so most cases also draw `filename_mismatch`, and a
+card without tests draws `step_unproven`. `absent_warnings` is how a guard case pins a silence —
+before it, a case that must stay quiet could not be told from a case that forgot to list a warning.
+
 Every card case is a real card, and its Markdown body explains what it is probing — read the case
 before arguing with it.
 

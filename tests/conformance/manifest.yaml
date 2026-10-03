@@ -403,3 +403,82 @@ cases:
     note: >-
       An entry that is not an operation id names no card; read as a chain it would be skipped
       without a word, and the chain would read shorter than it is written.
+
+  # ── Round 28 (issue #12): a source names a file; the position is optional ─────────────────────
+  - file: valid/step-source-path.op.md
+    expect: valid
+    codes: []
+    note: >-
+      A step source that names a file alone. §5.7 already called `source` a human aid and advised
+      a file over a position, while the schema demanded `path:line` here (issue #12). On the
+      published 1.2.0 box: a schema_violation in TypeScript, valid in Python, which never checked.
+  - file: valid/step-source-path-line.op.md
+    expect: valid
+    codes: []
+    note: >-
+      The spelling 1.2 demanded still passes. The field accepts more than it did and nothing less
+      — an implementation that swapped one pattern for another and lost `path:line` fails here.
+  - file: valid/step-source-path-symbol.op.md
+    expect: valid
+    codes: []
+    note: >-
+      `path#Symbol`, the form §5.7 prefers: a symbol survives an insertion above it, a line number
+      silently points at the wrong line (the issue measured a 110-line drift). A schema_violation
+      in TypeScript on the published 1.2.0 box.
+
+  # ── Round 28: the checker compares the words the user reads (§5.7) ────────────────────────────
+  - file: valid/outcomes-quoted-identically.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    note: >-
+      One status line under two refusals, with different context around it. Compared whole, as
+      1.2 compared it, every value is unique and both implementations stay silent on the published
+      1.2.0 box; the quoted words are equal, and that is the collapse.
+  - file: valid/outcomes-quoted-beside-a-button.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    note: >-
+      The same message, and one value also quotes the button. A span of one word is not a message,
+      so the sets are equal. An implementation that compares every quote stays silent here; so
+      does 1.2.0.
+  - file: valid/outcomes-one-word-quote-only.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      Two different messages that share only a quoted button name. No span is kept, each value is
+      compared whole, and they differ. An implementation that compares every quote warns about two
+      endings the user can tell apart.
+  - file: valid/outcomes-unquoted-compared-whole.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    note: >-
+      No quotes: the whole value, trimmed and case-folded, exactly as 1.2. Passes on the published
+      1.2.0 box too — it guards that no 1.2 warning is lost.
+  - file: valid/outcomes-unquoted-punctuation-counts.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      Without quotes the punctuation is part of the value. Letters and numbers are read apart from
+      the rest only inside quotes; an implementation that normalises every value warns here, where
+      1.2 was silent.
+  - file: valid/outcomes-quoted-dialect.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    note: >-
+      Every reading rule on one path: same-kind quotes nest, «!» and a leading glyph fall away, “…”
+      counts as «…», a stray closer is ignored, an unclosed opener opens nothing, case is folded.
+      Silent on the published 1.2.0 box. An implementation that lets an unclosed quote swallow the
+      rest, or keeps «!» as a span, stays silent too.
+  - file: valid/outcomes-quoted-case-folded.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    note: >-
+      `ß` and `SS`: case folding, not lowercasing. JavaScript has no case folding of its own, and
+      an implementation that only lowercases stays silent here, as 1.2.0 does.

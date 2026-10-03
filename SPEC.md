@@ -62,8 +62,8 @@ match the live store (§7.4), and gaps that must be written as lines rather than
    apart.
 3. **Every weakening is explained.** Any relaxation — no optimistic locking, no audit trail,
    no owning scenario — must carry a `rationale`. A silent relaxation is a spec bug.
-4. **Claims cite source.** Anything asserted about the implementation carries `source:
-   path:line`. An unsourced claim is treated as unverified.
+4. **Claims cite source.** Anything asserted about the implementation carries `source:` — a
+   path, optionally with `:line` or `#Symbol` (§5.7). An unsourced claim is treated as unverified.
 5. **Gaps are written down as lines.** `coverage_gaps` is a tool, not an admission: a missing
    line is invisible, a present line is reviewable.
 
@@ -357,7 +357,7 @@ steps:
       payload: [<field>, …]        # ⬜ what the refusal returns, so the caller can act on it
     emits_notice: <code>           # ⬜ a side effect reported on success, not a violation
     rationale: <why it works this way>   # ⬜ required when non-obvious
-    source: <path:line>            # 🔶 when asserting a fact about code
+    source: <path>[:line | #Symbol]   # 🔶 when asserting a fact about code (§5.7)
 ```
 
 `on_violation` describes a refusal; `emits_notice` describes something the operation *did* and
@@ -380,7 +380,7 @@ concurrency:
   rationale: <why>                 # 🔶 required for every mode except the strictest
   formula: <…>                     # 🔶 for idempotency_by_formula
   on_duplicate: <…>                # 🔶 for both idempotency modes; allowed for etag_required
-  source: <path:line>              # ⬛
+  source: <path>[:line | #Symbol]  # ⬛ (§5.7)
 ```
 
 | Mode | Meaning |
@@ -521,12 +521,52 @@ display `checking`, `executing`, `done`, `rejected`, `failed`, `archived`. Per-i
 the other way: they carry no status, so nothing named them, and a bulk screen that silently drops
 them had no way to admit it.
 
-**Values are what the user reads, verbatim — not a description of it.** Writing "the same
-sentence as above" hides the collapse from the checker, which compares strings. When two outcomes
-carry identical text, `outcomes_indistinguishable` warns: between *shown* and *not shown* sits a
-third state nobody notices — two endings wearing one sentence. Measured on a real screen where
-`401` and `403` both surfaced as "something went wrong, try again", so the one user who must give
-consent is told to do the only thing that cannot help.
+**Values are what the user reads — and the words the user reads go inside «…» or “…”.** A value
+may say more than the screen does: where the line appears, its colour, what stays open, which code
+renders it. The line itself, as the user reads it, is quoted — as in the example above — and the
+checker compares the quoted words. When two outcomes of one interface show the same words,
+`outcomes_indistinguishable` warns: between *shown* and *not shown* sits a third state nobody
+notices — two endings wearing one sentence. Measured on a real screen where `401` and `403` both
+surfaced as "something went wrong, try again", so the one user who must give consent is told to do
+the only thing that cannot help.
+
+```yaml
+covers_outcomes:
+  unauthorized: red status line «Could not save — try again»; the editor stays open
+  not_found: the same «Could not save — try again», under the title   # one warning: same words
+```
+
+What is compared is specified, so that two checkers cannot disagree:
+
+1. The value, trimmed and case-folded — full Unicode case folding, as Python's `str.casefold()`:
+   `ß` matches `SS`.
+2. Every outermost span in «…» or “…” is taken. A quote of the same kind nests and belongs to the
+   outer span — `«Copy to «Mine»: failed»` is one span; a quote of the other kind inside a span is
+   part of it. A closer with no opener is ignored; an opener never closed opens nothing.
+3. In each span, every code point that is not a letter or a number (Unicode category L or N) is
+   read as a space; runs of spaces collapse and the ends are trimmed.
+4. A span is kept only if it has at least two words of at least two letters each: «!», «OK» or a
+   button named in passing is not a message.
+5. The kept spans, as a set — order and repetition do not matter — are what is compared. A value
+   with no kept span is compared whole, trimmed and case-folded, as in 1.2.
+
+Outcomes that compare equal form one group, and each group of two or more is one warning. The
+comparison starts from what 1.2 compared — the value trimmed and lowercased — so every pair 1.2
+reported is still reported.
+
+Round 28 measured why the whole value was not enough: authors who re-measured a screen wrote the
+context into every refusal, each value became unique, and refusals sharing one status line stopped
+being reported, in silence. The rule has known limits:
+
+- **One-word messages and scripts written without spaces** have no span of two words and fall back
+  to whole-value comparison.
+- **An outcome this screen cannot reach** is compared too when its value quotes what it would show.
+  A structured spelling for "unreachable from this screen" is a candidate for a later round.
+- **The checker never guesses sameness from prose.** "The same line as above" is not a reference —
+  in the round's catalogue, phrases meaning "the same" pointed at the same screen line in 30 of 75
+  values. Quote the line instead.
+- Case folding and the letter/number test follow the runtime's Unicode tables; the two
+  implementations agree on every character Unicode 16 assigns.
 
 What the round rejected matters as much as what it added. The measurement showed outcome handling
 is not located in "the screen": the control sat in one component, the error policy in a shared
@@ -572,11 +612,16 @@ is already a violated step with an error code.
 **Checked:** a parameter declared `decorative` must appear in the interface's `path`, or the
 declaration describes nothing (`decorative_parameter_not_in_path`).
 
-**`source` is a human aid and must never be load-bearing.** It may carry a line number — a reader
-opening the file is glad of one — but no checker may rely on it. A line number is invalidated by
-any insertion above it, and it fails *silently*: the reference keeps resolving, to the wrong line.
-This is the same failure as renumbering steps (§5.3), one field over. Where a durable reference is
-wanted, name a file and a symbol rather than a position.
+**`source` is a human aid and must never be load-bearing.** It names a path, optionally followed
+by `:line` or `#Symbol` — `src/a.ts`, `src/a.ts:12`, `src/a.ts#Checkout` — and no checker may rely
+on either suffix. Prefer the symbol. A reader opening the file is glad of a line number, but a line
+number is invalidated by any insertion above it, and it fails *silently*: the reference keeps
+resolving, to the wrong line — issue #12 measured one that had drifted 110 lines. This is the same
+failure as renumbering steps (§5.3), one field over. Until 1.3 the schema demanded a line number in
+`steps[].source`, against this paragraph (issue #12); every `source` now takes all three forms.
+`#Symbol` is a spelling of `source` fields only: `maturity_evidence.implemented` (§5.2) and
+`variant_of.shared` (§5.2e) name a path, optionally `path:line`, and a checker strips only the
+`:line` there.
 
 #### Comparing paths
 
@@ -1028,6 +1073,7 @@ where the format broke:
 | 25 | **Three families described whole, from both ends** — the workout pass (8 cards, three with no calling screen), plans (6) and catalogs (7); the gaps of the first ten cards closed by 29 tests | None. Fourteen candidates recorded, all inside 1.x — among them an operation that exists twice over one handler, an element rendered outside its states, a screen no contract describes, and a gap no test can close |
 | 26 | **Four of round 25's candidates, the first round under the §8 promise** — twins that run one handler and could only repeat each other's steps; a leak the elements had and the groups did not; a screen that renders with nothing describing it; three different reasons read as one "no test" | Two optional fields: `variant_of` (§5.2e) and `coverage_gaps[].kind` (§5.9); one optional config key, `uncontracted_screens`; two warnings over fields 1.0 already had, `field_out_of_state` and `form_uncontracted_screen` (§7.5). Every new error is about a new field |
 | 27 | **A chain behind one button** — a pilot's frontend role describing a draft's footer: "save as plan" renames the draft, then publishes it; "start" also starts a pass. One operation per control let the form contract name one step and the cards another, and neither could be checked against the other | One spelling of an optional field: `calls:` as a list in call order (§7.5) — the shown_when rule reads the first operation, and every operation of the chain must be described. The one new error, `malformed_calls`, is about the new spelling only |
+| 28 | **Context hid the collapse; a line number was demanded where §5.7 advised against one** — a pilot catalogue re-measured its screens and wrote where and why into every refusal: each value became unique, and refusals sharing one status line stopped being reported. Its step sources named files only, because a line-numbered one had drifted 110 lines in silence, and the schema refused them (issue #12). On its 93 cards the new reading turns 33 `outcomes_indistinguishable` warnings into 47, none lost | None new. `outcomes_indistinguishable` compares the words inside «…» or “…” — spans of two words or more, as a set — and falls back to the whole value; computed from the 1.2 key, it still reports every pair 1.2 reported (§5.7). `steps[].source` accepts a path alone and `path#Symbol` besides `path:line` — what §5.7 already recommended. No new code |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

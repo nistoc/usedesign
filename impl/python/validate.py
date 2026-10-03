@@ -18,6 +18,7 @@ import glob
 import os
 import re
 import sys
+import unicodedata
 
 try:
     import yaml
@@ -66,6 +67,74 @@ def front_matter(path: str):
     if end == -1:
         return None
     return yaml.safe_load(text[3:end])
+
+
+# ── What the user reads (SPEC §5.7, round 28) ─────────────────────────────────────────────────
+#
+# A covers_outcomes value may carry context around the words the user reads — where the line
+# appears, why, which code renders it — and those words go inside «…» or “…”. Round 28 measured
+# authors who re-measured a screen and wrote that context into every refusal: each value became
+# unique, and refusals sharing one status line stopped being reported. So the key compares the
+# quoted words. It is computed from the 1.2 key (strip + lower; casefold(lower(x)) == casefold(x)
+# on every code point), so every pair 1.2 reported is still reported.
+
+QUOTE_PAIRS = {"«": "»", "“": "”"}  # «…» and “…”
+
+
+def quoted_spans(text: str) -> list[str]:
+    """Every outermost «…» or “…” span, in order.
+
+    A quote of the same kind nests and belongs to the outer span; a quote of the other kind inside
+    a span is plain text. A closer with no opener is ignored; an opener never closed opens nothing,
+    and the text after it is read as if it were not there.
+    """
+    spans: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        opener = text[i]
+        closer = QUOTE_PAIRS.get(opener)
+        if closer is None:
+            i += 1
+            continue
+        depth, j = 1, i + 1
+        while j < n:
+            if text[j] == opener:
+                depth += 1
+            elif text[j] == closer:
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        if j < n:
+            spans.append(text[i + 1:j])
+            i = j + 1
+        else:
+            i += 1
+    return spans
+
+
+def shown_words(span: str) -> list[str]:
+    """Every code point that is not a letter or a number (category L or N) read as a space."""
+    return "".join(ch if unicodedata.category(ch)[0] in "LN" else " " for ch in span).split()
+
+
+def shown_key(value: str) -> tuple:
+    """The key outcomes_indistinguishable groups by.
+
+    The kept quoted spans as a set — a span is kept when it has two words or more of at least two
+    letters, so «!», «OK» or a button named in passing is not a message. With no span kept, the
+    whole value, stripped and case-folded, as in 1.2.
+    """
+    folded = value.strip().casefold()
+    kept = set()
+    for span in quoted_spans(folded):
+        words = shown_words(span)
+        long_words = [w for w in words if sum(unicodedata.category(ch)[0] == "L" for ch in w) >= 2]
+        if len(long_words) >= 2:
+            kept.add(" ".join(words))
+    if kept:
+        return ("quoted", frozenset(kept))
+    return ("whole", folded)
 
 
 def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) -> list[Finding]:
@@ -353,11 +422,12 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         # nothing" sits the state nobody notices: two different endings wearing one sentence.
         # Measured on a real screen — 401 and 403 both surfaced as the same «попробуйте ещё раз»,
         # so the user who must give consent is told to retry, and retrying can never work.
-        by_text: dict[str, list[str]] = {}
+        # Round 28: the words compared are the quoted ones, not the whole value (shown_key).
+        by_text: dict[tuple, list[str]] = {}
         for oid, shown in covers.items():
             if not isinstance(shown, str):
                 continue
-            by_text.setdefault(shown.strip().lower(), []).append(oid)
+            by_text.setdefault(shown_key(shown), []).append(oid)
         for ids in by_text.values():
             if len(ids) > 1:
                 shown_ids = ", ".join(f"`{i}`" for i in ids)
@@ -691,6 +761,11 @@ def run_conformance() -> int:
         for code in case.get("warnings", []):
             if code not in warned:
                 problems.append(f"missing warning `{code}`")
+        # And their absence (round 28): a rule that must stay quiet on a case is a rule too, and
+        # `warnings:` alone could never tell a guard from a case that forgot to list a warning.
+        for code in case.get("absent_warnings", []):
+            if code in warned:
+                problems.append(f"unexpected warning `{code}`")
 
         if problems:
             failed += 1

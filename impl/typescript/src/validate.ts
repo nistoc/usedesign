@@ -285,6 +285,91 @@ export function validateForm(fm: Card, filename = "", knownForms: Set<string> | 
   return out;
 }
 
+// ── What the user reads (SPEC §5.7, round 28) ─────────────────────────────────────────────────
+//
+// A covers_outcomes value may carry context around the words the user reads — where the line
+// appears, why, which code renders it — and those words go inside «…» or “…”. Round 28 measured
+// authors who re-measured a screen and wrote that context into every refusal: each value became
+// unique, and refusals sharing one status line stopped being reported. So the key compares the
+// quoted words. It starts from the 1.2 key (trim + toLowerCase), so every pair 1.2 reported is
+// still reported. The Python twin is impl/python/validate.py `shown_key`; the two must agree.
+
+/** «…» and “…” — the opener and its closer. */
+const QUOTE_PAIRS = new Map([
+  ["«", "»"],
+  ["“", "”"],
+]);
+const LETTER_OR_NUMBER = /^[\p{L}\p{N}]$/u;
+const LETTER = /^\p{L}$/u;
+
+/**
+ * Full case folding, as Python's `str.casefold()`. JavaScript has none: lowercase, then send each
+ * code point through upper case and back — `ß` → `ss`, `ς` → `σ`, `ﬁ` → `fi` — except the
+ * dotless `ı`, which casefold keeps and the round trip would turn into `i`. Measured over every
+ * code point: the same equivalence as Python 3.14's casefold on all of Unicode 16; the runtimes
+ * differ only on characters a later Unicode assigned, which one of them does not know yet.
+ */
+function caseFold(text: string): string {
+  return Array.from(text.toLowerCase(), (ch) => (ch === "ı" ? ch : ch.toUpperCase().toLowerCase())).join("");
+}
+
+/**
+ * Every outermost «…» or “…” span, in order. A quote of the same kind nests and belongs to the
+ * outer span; a quote of the other kind inside a span is plain text. A closer with no opener is
+ * ignored; an opener never closed opens nothing, and the text after it is read as if it were not
+ * there. Walks code points, never UTF-16 units.
+ */
+export function quotedSpans(text: string): string[] {
+  const chars = Array.from(text);
+  const spans: string[] = [];
+  let i = 0;
+  while (i < chars.length) {
+    const opener = chars[i]!;
+    const closer = QUOTE_PAIRS.get(opener);
+    if (closer === undefined) {
+      i += 1;
+      continue;
+    }
+    let depth = 1;
+    let j = i + 1;
+    for (; j < chars.length; j += 1) {
+      if (chars[j] === opener) depth += 1;
+      else if (chars[j] === closer && --depth === 0) break;
+    }
+    if (j < chars.length) {
+      spans.push(chars.slice(i + 1, j).join(""));
+      i = j + 1;
+    } else {
+      i += 1;
+    }
+  }
+  return spans;
+}
+
+/** Every code point that is not a letter or a number (category L or N) read as a space. */
+function shownWords(span: string): string[] {
+  return Array.from(span, (ch) => (LETTER_OR_NUMBER.test(ch) ? ch : " "))
+    .join("")
+    .split(" ")
+    .filter((word) => word.length > 0);
+}
+
+/**
+ * The key outcomes_indistinguishable groups by: the kept quoted spans as a set — a span is kept
+ * when it has two words or more of at least two letters, so «!», «OK» or a button named in
+ * passing is not a message. With no span kept, the whole value, trimmed and case-folded, as in 1.2.
+ */
+export function shownKey(value: string): string {
+  const folded = caseFold(value.trim());
+  const kept = new Set<string>();
+  for (const span of quotedSpans(folded)) {
+    const words = shownWords(span);
+    const longWords = words.filter((word) => Array.from(word).filter((ch) => LETTER.test(ch)).length >= 2);
+    if (longWords.length >= 2) kept.add(words.join(" "));
+  }
+  return kept.size > 0 ? `quoted\u0000${[...kept].sort().join("\u0000")}` : `whole\u0000${folded}`;
+}
+
 /**
  * Validate one card's *meaning*. `knownIds` enables the cross-card reference warnings; pass null
  * when validating a card on its own, so that pointing at a card outside the set is not reported
@@ -616,11 +701,12 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     // real screen — 401 and 403 both surfaced as «Не удалось выполнить действие. Попробуйте ещё
     // раз.», so the one user who must give consent is told to retry, and retrying can never work.
     // A warning: collapsing outcomes is sometimes a deliberate choice, and the card is the place
-    // where that choice stops being invisible.
+    // where that choice stops being invisible. Round 28: the words compared are the quoted ones,
+    // not the whole value (shownKey).
     const byText = new Map<string, string[]>();
     for (const [id, shown] of Object.entries<any>(covers)) {
       if (typeof shown !== "string") continue;
-      const key = shown.trim().toLowerCase();
+      const key = shownKey(shown);
       byText.set(key, [...(byText.get(key) ?? []), id]);
     }
     for (const [, ids] of byText) {
