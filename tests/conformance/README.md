@@ -47,12 +47,21 @@ A card case in `manifest.yaml` carries:
 | `codes` | errors that must be reported |
 | `warnings` | warnings that must be reported |
 | `absent_warnings` | warnings that must **not** be reported (round 28) |
+| `warning_messages` | text that one reported warning must contain (round 28) |
 | `note` | what the case probes, and what an implementation that fails it gets wrong |
 
 The lists name codes that must be present (or absent), never the complete set: a case is named by
 what it probes rather than by its card's id, so most cases also draw `filename_mismatch`, and a
 card without tests draws `step_unproven`. `absent_warnings` is how a guard case pins a silence —
 before it, a case that must stay quiet could not be told from a case that forgot to list a warning.
+`warning_messages` pins what a warning names where the code alone could be right for the wrong
+reason: `outcomes_indistinguishable` cases give the outcomes it groups, as both implementations
+print them — in the order of the map, the grouped ones last, so a wider or a different group does
+not match.
+
+The Python prototype does not validate against the JSON Schema, so a case whose only point is what
+the schema accepts or refuses — the `step-source-*` cases of round 28, say — is exercised by the
+TypeScript runner alone; the Python runner passes it whatever the schema says.
 
 Every card case is a real card, and its Markdown body explains what it is probing — read the case
 before arguing with it.

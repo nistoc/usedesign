@@ -29,5 +29,6 @@ reversibility: reversible
 
 A step's `source` names a file and nothing more. SPEC §5.7 already said that `source` is a
 human aid no checker may rely on, and that a durable reference names a file rather than a
-position — yet until 1.3 the schema demanded `path:line` here (issue #12). The pilot that filed
-the issue named files only, because a line-numbered source had drifted 110 lines in silence.
+position — yet until 1.3 the schema demanded `path:line` here (issue #12). Most step sources of
+the pilot that filed the issue named files only — steps spread across a file, code that moves —
+and one line-numbered source it checked had drifted about 110 lines in silence.

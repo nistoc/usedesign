@@ -423,14 +423,17 @@ cases:
     codes: []
     note: >-
       `path#Symbol`, the form §5.7 prefers: a symbol survives an insertion above it, a line number
-      silently points at the wrong line (the issue measured a 110-line drift). A schema_violation
-      in TypeScript on the published 1.2.0 box.
+      silently points at the wrong line (the issue found one that had drifted about 110 lines). A
+      schema_violation in TypeScript on the published 1.2.0 box.
 
   # ── Round 28: the checker compares the words the user reads (§5.7) ────────────────────────────
+  # `warning_messages` pins which outcomes a warning groups: the grouped outcomes come last in each
+  # map, so a wider or a different group does not contain the text.
   - file: valid/outcomes-quoted-identically.op.md
     expect: valid
     codes: []
     warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `not_found`"]
     note: >-
       One status line under two refusals, with different context around it. Compared whole, as
       1.2 compared it, every value is unique and both implementations stay silent on the published
@@ -439,10 +442,19 @@ cases:
     expect: valid
     codes: []
     warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `forbidden`"]
     note: >-
       The same message, and one value also quotes the button. A span of one word is not a message,
       so the sets are equal. An implementation that compares every quote stays silent here; so
       does 1.2.0.
+  - file: valid/outcomes-quoted-beside-a-longer-button.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      A known limit, pinned: the button's name has two words, so it is kept as a span and the two
+      sets differ — silence, although the line is the same. An implementation that matches one
+      set inside another warns here, and reads the rule differently from §5.7.
   - file: valid/outcomes-one-word-quote-only.op.md
     expect: valid
     codes: []
@@ -455,9 +467,10 @@ cases:
     expect: valid
     codes: []
     warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `forbidden`"]
     note: >-
-      No quotes: the whole value, trimmed and case-folded, exactly as 1.2. Passes on the published
-      1.2.0 box too — it guards that no 1.2 warning is lost.
+      No quotes: the whole value, trimmed and case-folded — 1.2 lowercased, and folding only adds
+      matches. Passes on the published 1.2.0 box too — it guards that no 1.2 warning is lost.
   - file: valid/outcomes-unquoted-punctuation-counts.op.md
     expect: valid
     codes: []
@@ -466,19 +479,39 @@ cases:
       Without quotes the punctuation is part of the value. Letters and numbers are read apart from
       the rest only inside quotes; an implementation that normalises every value warns here, where
       1.2 was silent.
+  - file: valid/outcomes-quoted-against-whole.op.md
+    expect: valid
+    codes: []
+    warnings: [outcome_unshown]
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      A set of spans never equals a whole value, even with the same words, and a null is never
+      compared. An implementation that compares span text with whole values, or groups the two
+      nulls, warns here.
   - file: valid/outcomes-quoted-dialect.op.md
     expect: valid
     codes: []
     warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `not_found`"]
     note: >-
       Every reading rule on one path: same-kind quotes nest, «!» and a leading glyph fall away, “…”
       counts as «…», a stray closer is ignored, an unclosed opener opens nothing, case is folded.
       Silent on the published 1.2.0 box. An implementation that lets an unclosed quote swallow the
       rest, or keeps «!» as a span, stays silent too.
+  - file: valid/outcomes-quoted-unclosed-outer.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `forbidden`"]
+    note: >-
+      `«a «b c d» e`: the outer opener is never closed and opens nothing, the inner pair is a span.
+      An implementation that pairs the outer opener with the first closer, or lets it swallow the
+      rest, stays silent.
   - file: valid/outcomes-quoted-case-folded.op.md
     expect: valid
     codes: []
     warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `not_found`"]
     note: >-
       `ß` and `SS`: case folding, not lowercasing. JavaScript has no case folding of its own, and
       an implementation that only lowercases stays silent here, as 1.2.0 does.

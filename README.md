@@ -102,8 +102,9 @@ operation; the one new error (`malformed_calls`) is about the new spelling only.
 
 **v1.3** adds no field and no code. `outcomes_indistinguishable` compares the words the user
 reads — the text inside «…» or “…” — so context written around a message no longer hides two
-endings that show it; every warning 1.2 gave is still given. And a step's `source` may name a
-file alone or `path#Symbol`, as SPEC §5.7 already advised (issue #12).
+endings that show it, unless the context quotes other screen text too; every pair of outcomes 1.2
+reported is still reported (a 1.2 warning may grow, or merge with another). And a step's `source`
+may name a file alone or `path#Symbol`, as SPEC §5.7 already advised (issue #12).
 
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`

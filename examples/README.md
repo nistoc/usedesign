@@ -22,5 +22,7 @@ last if asynchronous work is not your problem today.
 ## A note on the sources
 
 Paths like `src/loans/CheckoutHandler.ts:44` point at a codebase that does not exist. In a real
-card those references are the load-bearing part: they are what makes a claim checkable, and what
-turns "the card disagrees with the code" from an argument into a diff.
+card those references are what makes a claim reviewable: they let a reader check it, and they turn
+"the card disagrees with the code" from an argument into a diff. They are a human aid, not
+something a checker relies on (SPEC §5.7): a path alone or `path#Symbol` survives an insertion
+above it, where a line number silently points at the wrong line.

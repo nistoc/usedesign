@@ -523,7 +523,7 @@
             }
           },
           "covers_outcomes": {
-            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or per_item failure codes — never job states, which are the record's later life. `ok` names the default success of an operation that declares no success by name (no outcomes[], no data_transition.to). A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones. In a text value, the words the user reads go inside «…» or “…” and the rest is context; outcomes_indistinguishable compares those words (SPEC 5.7, round 28).",
+            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or per_item failure codes — never job states, which are the record's later life. `ok` names the default success of an operation that declares no success by name (no outcomes[], no data_transition.to). A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones. In a text value, the words the user reads go inside «…» or “…” and the rest is context; outcomes_indistinguishable compares those words — spans of two words of two letters or more, as a set; with none, the whole value (SPEC 5.7, round 28).",
             "type": "object",
             "minProperties": 1,
             "additionalProperties": {

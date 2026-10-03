@@ -65,6 +65,14 @@ export function runCardCorpus(withSchema = true): CorpusResult {
     for (const code of testCase.absent_warnings ?? []) {
       if (warned.includes(code)) problems.push(`unexpected warning \`${code}\``);
     }
+    // And what a warning names: a code alone cannot tell the right group of outcomes from a
+    // wrong one, so a case may also give text that one reported warning must contain.
+    const details = warnings(findings).map((finding) => finding.detail);
+    for (const text of testCase.warning_messages ?? []) {
+      if (!details.some((detail) => detail.includes(text))) {
+        problems.push(`no warning says "${text}"`);
+      }
+    }
 
     report(testCase.file, problems, reported);
     problems.length > 0 ? (failed += 1) : (passed += 1);

@@ -299,6 +299,8 @@ const QUOTE_PAIRS = new Map([
   ["«", "»"],
   ["“", "”"],
 ]);
+/** The same pairs, closer → opener. */
+const QUOTE_OPENERS = new Map([...QUOTE_PAIRS].map(([opener, closer]) => [closer, opener]));
 const LETTER_OR_NUMBER = /^[\p{L}\p{N}]$/u;
 const LETTER = /^\p{L}$/u;
 
@@ -306,41 +308,41 @@ const LETTER = /^\p{L}$/u;
  * Full case folding, as Python's `str.casefold()`. JavaScript has none: lowercase, then send each
  * code point through upper case and back — `ß` → `ss`, `ς` → `σ`, `ﬁ` → `fi` — except the
  * dotless `ı`, which casefold keeps and the round trip would turn into `i`. Measured over every
- * code point: the same equivalence as Python 3.14's casefold on all of Unicode 16; the runtimes
- * differ only on characters a later Unicode assigned, which one of them does not know yet.
+ * code point with Python 3.14 (Unicode 16) and Node 26 (Unicode 17): the same equivalence on every
+ * character both tables assign. An older Node, with an older ICU, may miss a newer case pair.
  */
 function caseFold(text: string): string {
   return Array.from(text.toLowerCase(), (ch) => (ch === "ı" ? ch : ch.toUpperCase().toLowerCase())).join("");
 }
 
 /**
- * Every outermost «…» or “…” span, in order. A quote of the same kind nests and belongs to the
- * outer span; a quote of the other kind inside a span is plain text. A closer with no opener is
- * ignored; an opener never closed opens nothing, and the text after it is read as if it were not
- * there. Walks code points, never UTF-16 units.
+ * Every outermost «…» or “…” span, in order. Quotes pair as brackets do, each kind on its own: a
+ * quote of the same kind nests and belongs to the outer span; a quote of the other kind inside a
+ * span is plain text. A closer with no opener is ignored; an opener never closed opens nothing,
+ * and the quotes after it are still read. One pass pairs every quote, a second takes the
+ * outermost pairs — linear in the length. Walks code points, never UTF-16 units.
  */
 export function quotedSpans(text: string): string[] {
   const chars = Array.from(text);
+  const closerAt = new Map<number, number>(); // where each opener that is closed closes
+  const openAt = new Map<string, number[]>([...QUOTE_PAIRS.keys()].map((opener) => [opener, []]));
+  chars.forEach((ch, pos) => {
+    if (QUOTE_PAIRS.has(ch)) {
+      openAt.get(ch)!.push(pos);
+    } else if (QUOTE_OPENERS.has(ch)) {
+      const stack = openAt.get(QUOTE_OPENERS.get(ch)!)!;
+      if (stack.length > 0) closerAt.set(stack.pop()!, pos); // a closer with no opener is ignored
+    }
+  });
   const spans: string[] = [];
   let i = 0;
   while (i < chars.length) {
-    const opener = chars[i]!;
-    const closer = QUOTE_PAIRS.get(opener);
-    if (closer === undefined) {
+    const end = closerAt.get(i); // an opener never closed is not in the map: it opens nothing
+    if (end === undefined) {
       i += 1;
-      continue;
-    }
-    let depth = 1;
-    let j = i + 1;
-    for (; j < chars.length; j += 1) {
-      if (chars[j] === opener) depth += 1;
-      else if (chars[j] === closer && --depth === 0) break;
-    }
-    if (j < chars.length) {
-      spans.push(chars.slice(i + 1, j).join(""));
-      i = j + 1;
     } else {
-      i += 1;
+      spans.push(chars.slice(i + 1, end).join(""));
+      i = end + 1;
     }
   }
   return spans;
@@ -356,8 +358,10 @@ function shownWords(span: string): string[] {
 
 /**
  * The key outcomes_indistinguishable groups by: the kept quoted spans as a set — a span is kept
- * when it has two words or more of at least two letters, so «!», «OK» or a button named in
- * passing is not a message. With no span kept, the whole value, trimmed and case-folded, as in 1.2.
+ * when it has two words or more of at least two letters, so a glyph or a single word, such as «!»
+ * or «OK», is not a message. With no span kept, the whole value, trimmed and case-folded (1.2
+ * lowercased; folding only adds matches). A set of spans never equals a whole value: the two keys
+ * are tagged apart.
  */
 export function shownKey(value: string): string {
   const folded = caseFold(value.trim());

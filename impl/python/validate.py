@@ -79,37 +79,36 @@ def front_matter(path: str):
 # on every code point), so every pair 1.2 reported is still reported.
 
 QUOTE_PAIRS = {"«": "»", "“": "”"}  # «…» and “…”
+QUOTE_OPENERS = {closer: opener for opener, closer in QUOTE_PAIRS.items()}
 
 
 def quoted_spans(text: str) -> list[str]:
     """Every outermost «…» or “…” span, in order.
 
-    A quote of the same kind nests and belongs to the outer span; a quote of the other kind inside
-    a span is plain text. A closer with no opener is ignored; an opener never closed opens nothing,
-    and the text after it is read as if it were not there.
+    Quotes pair as brackets do, each kind on its own: a quote of the same kind nests and belongs
+    to the outer span; a quote of the other kind inside a span is plain text. A closer with no
+    opener is ignored; an opener never closed opens nothing, and the quotes after it are still
+    read. One pass pairs every quote, a second takes the outermost pairs — linear in the length,
+    so a value of a thousand unclosed openers costs what a value of a thousand letters does.
     """
+    closer_at: dict[int, int] = {}  # where each opener that is closed closes
+    open_at: dict[str, list[int]] = {opener: [] for opener in QUOTE_PAIRS}
+    for pos, ch in enumerate(text):
+        if ch in QUOTE_PAIRS:
+            open_at[ch].append(pos)
+        elif ch in QUOTE_OPENERS:
+            stack = open_at[QUOTE_OPENERS[ch]]
+            if stack:  # a closer with no opener is ignored
+                closer_at[stack.pop()] = pos
     spans: list[str] = []
     i, n = 0, len(text)
     while i < n:
-        opener = text[i]
-        closer = QUOTE_PAIRS.get(opener)
-        if closer is None:
+        end = closer_at.get(i)  # an opener never closed is not in the map: it opens nothing
+        if end is None:
             i += 1
-            continue
-        depth, j = 1, i + 1
-        while j < n:
-            if text[j] == opener:
-                depth += 1
-            elif text[j] == closer:
-                depth -= 1
-                if depth == 0:
-                    break
-            j += 1
-        if j < n:
-            spans.append(text[i + 1:j])
-            i = j + 1
         else:
-            i += 1
+            spans.append(text[i + 1:end])
+            i = end + 1
     return spans
 
 
@@ -122,8 +121,9 @@ def shown_key(value: str) -> tuple:
     """The key outcomes_indistinguishable groups by.
 
     The kept quoted spans as a set — a span is kept when it has two words or more of at least two
-    letters, so «!», «OK» or a button named in passing is not a message. With no span kept, the
-    whole value, stripped and case-folded, as in 1.2.
+    letters, so a glyph or a single word, such as «!» or «OK», is not a message. With no span
+    kept, the whole value, stripped and case-folded (1.2 lowercased; folding only adds matches).
+    A set of spans never equals a whole value: the two keys are tagged apart.
     """
     folded = value.strip().casefold()
     kept = set()
@@ -766,6 +766,12 @@ def run_conformance() -> int:
         for code in case.get("absent_warnings", []):
             if code in warned:
                 problems.append(f"unexpected warning `{code}`")
+        # And what a warning names: a code alone cannot tell the right group of outcomes from a
+        # wrong one, so a case may also give text that one reported warning must contain.
+        details = [f.detail for f in findings if f.severity == "warning"]
+        for text in case.get("warning_messages", []):
+            if not any(text in detail for detail in details):
+                problems.append(f'no warning says "{text}"')
 
         if problems:
             failed += 1

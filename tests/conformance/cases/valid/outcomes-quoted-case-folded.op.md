@@ -27,8 +27,8 @@ interfaces:
     responses: [200, 401, 404]
   ui:
     transport: ui
-    screen: ProfileEditor
-    control: button[data-action="save-profile"]
+    screen: ProfileForm
+    control: button[data-action="store-profile"]
     covers_outcomes:
       saved: status line «Profil gespeichert»
       unauthorized: status line «Größe nicht gespeichert»
@@ -43,4 +43,5 @@ reversibility: irreversible
 Case-folded, not lowercased: in a case-insensitive comparison `ß` matches `SS`, and lowercasing
 keeps them apart — `größe` is not `grösse`. Python has `str.casefold()`; JavaScript has no case folding, so
 an implementation there must build it — lowercasing alone reads two different lines here and stays
-silent. The two implementations agree on every character Unicode 16 assigns.
+silent. Measured with Python 3.14 and Node 26, the two implementations agree on every character
+both runtimes' Unicode tables assign.
