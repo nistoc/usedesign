@@ -17,7 +17,7 @@ export const REPO = join(HERE, "..", "..", "..");
 
 const REQUIRED = ["id", "title", "actors", "maturity", "steps", "concurrency", "interfaces", "data", "provenance", "reversibility"];
 export const MATURITY = ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"];
-const CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header", "idempotency_by_formula", "none_by_design", "none_unexplained"];
+const CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header", "idempotency_by_formula", "none_by_design", "none_unexplained", "server_read_version"];
 const TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"];
 const TEST_LEVELS = ["unit", "integration", "ui", "contract"];
 export const GAP_KINDS = ["unwritten", "harness", "unreachable"];
@@ -138,7 +138,12 @@ function anchorOrFamily(
  * Validate one form contract's *meaning*. `knownForms` enables the cross-contract link warning
  * (`opens` pointing at a contract that is not in the validated set); pass null for a lone file.
  */
-export function validateForm(fm: Card, filename = "", knownForms: Set<string> | null = null): Finding[] {
+export function validateForm(
+  fm: Card,
+  filename = "",
+  knownForms: Set<string> | null = null,
+  knownCards: Set<string> | null = null,
+): Finding[] {
   const out: Finding[] = [];
   const err = (code: string, detail: string) => out.push(new Finding(code, detail));
   const warn = (code: string, detail: string) => out.push(new Finding(code, detail, "warning"));
@@ -227,6 +232,19 @@ export function validateForm(fm: Card, filename = "", knownForms: Set<string> | 
         err("malformed_calls", `controls[${index}]: a \`calls\` list names a chain of two or more operations — one is written as its id, none as null`);
       } else if (calls.some((entry: unknown) => typeof entry !== "string" || !entry)) {
         err("malformed_calls", `controls[${index}]: every entry of \`calls\` must be an operation id`);
+      }
+    }
+    // Round 29 (issue #13): with cards in the validated set, every operation `calls` names is looked
+    // up among them — the `opens` ↔ contracts cross-check, one kind over. The typo is caught when
+    // the contract is written, whether or not any screen renders it. `null` (no cards in the set,
+    // a forms-only run in a frontend repository) switches it off.
+    if (knownCards !== null) {
+      const chain = typeof calls === "string" && calls ? [calls] : Array.isArray(calls) ? calls.filter((e: unknown) => typeof e === "string" && e) : [];
+      for (const [step, id] of chain.entries()) {
+        if (!knownCards.has(id)) {
+          const where = chain.length > 1 ? ` (step ${step + 1} of ${chain.length})` : "";
+          warn("form_calls_undescribed", `control \`${name}\` calls \`${id}\`${where}, which no card in this set describes`);
+        }
       }
     }
   }

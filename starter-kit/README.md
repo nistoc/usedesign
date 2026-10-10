@@ -117,4 +117,4 @@ npx usedesign@1.3.0 check usedesign/usedesign.config.yaml
 | Полные правила формата | [SPEC.md](../SPEC.md) |
 | Разобранные карточки | [examples/library/](../examples/library/) |
 | Почему проверки устроены именно так | [design/](../design/) |
-| Что обязан уметь любой сверщик | [tests/conformance/](../tests/conformance/) — 133 случая |
+| Что обязан уметь любой сверщик | [tests/conformance/](../tests/conformance/) — 138 случаев |

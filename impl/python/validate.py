@@ -33,7 +33,8 @@ REQUIRED = ["id", "title", "actors", "maturity", "steps",
             "concurrency", "interfaces", "data", "provenance", "reversibility"]
 MATURITY = ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"]
 CONCURRENCY_MODES = ["etag_required", "etag_optional", "idempotency_by_header",
-                     "idempotency_by_formula", "none_by_design", "none_unexplained"]
+                     "idempotency_by_formula", "none_by_design", "none_unexplained",
+                     "server_read_version"]
 TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"]
 TEST_LEVELS = ["unit", "integration", "ui", "contract"]
 GAP_KINDS = ["unwritten", "harness", "unreachable"]
@@ -549,8 +550,10 @@ def anchor_or_family(line: dict, literal_key: str, pattern_key: str, where: str,
 
 
 def validate_form(fm: dict, filename: str = "",
-                  known_forms: set[str] | None = None) -> list[Finding]:
-    """Validate one form contract. `known_forms` enables the `opens` link warning."""
+                  known_forms: set[str] | None = None,
+                  known_cards: set[str] | None = None) -> list[Finding]:
+    """Validate one form contract. `known_forms` enables the `opens` link warning, `known_cards`
+    the `calls` one (round 29, issue #13)."""
     out: list[Finding] = []
 
     def err(code: str, detail: str):
@@ -644,6 +647,21 @@ def validate_form(fm: dict, filename: str = "",
             elif any(not isinstance(entry, str) or not entry for entry in calls):
                 err("malformed_calls",
                     f"controls[{index}]: every entry of `calls` must be an operation id")
+        # Round 29 (issue #13): with cards in the validated set, every operation `calls` names is
+        # looked up among them — the `opens` ↔ contracts cross-check, one kind over. `None` (no
+        # cards in the set) switches it off. See the TypeScript twin.
+        if known_cards is not None:
+            if isinstance(calls, str) and calls:
+                chain = [calls]
+            elif isinstance(calls, list):
+                chain = [e for e in calls if isinstance(e, str) and e]
+            else:
+                chain = []
+            for step, op in enumerate(chain):
+                if op not in known_cards:
+                    where = f" (step {step + 1} of {len(chain)})" if len(chain) > 1 else ""
+                    warn("form_calls_undescribed",
+                         f"control `{name}` calls `{op}`{where}, which no card in this set describes")
 
     # ── groups ───────────────────────────────────────────────────────────────
     # Grouping by purpose: headers, footers, tables, and which controls sit where. Array order
@@ -716,15 +734,47 @@ def collect(paths: list[str]) -> list[str]:
     return sorted(files)
 
 
+def is_usedesign_config(path: str) -> bool:
+    """A named file that is a usedesign config, not a card (issue #14)."""
+    try:
+        parsed = yaml.safe_load(open(path, encoding="utf-8"))
+    except Exception:
+        return False
+    return isinstance(parsed, dict) and "usedesign_config" in parsed
+
+
 def run_files(paths: list[str]) -> int:
+    # Round 29 (issue #14): a path that exists and yields nothing to validate is refused, as a
+    # missing path is (exit 2). See the TypeScript twin.
+    refusals = []
+    for path in paths:
+        if not os.path.exists(path):
+            refusals.append(f"`{path}`: no such file or directory")
+        elif os.path.isdir(path):
+            if not collect([path]):
+                refusals.append(f"`{path}` holds no card (*.op.md) and no form contract "
+                                "(*.contract.md) — nothing to validate")
+        elif not re.search(r"\.(op|contract)\.md$", path) and not front_matter(path):
+            refusals.append(
+                f"`{path}` is a usedesign config — `usedesign check {path}` reads it; `validate` "
+                "takes cards, form contracts or their directories" if is_usedesign_config(path)
+                else f"`{path}` has no front matter — it is neither a card nor a form contract")
+    if refusals:
+        for refusal in refusals:
+            print(f"validate.py: {refusal}", file=sys.stderr)
+        return 2
     files = collect(paths)
     cards: dict = {}
     forms: dict = {}
+    # A card or contract file without front matter used to vanish from the count; it is named now.
+    unreadable = []
     for path in files:
         fm = front_matter(path)
         if fm:
             target = forms if fm.get("usedesign_form") == 1 else cards
             target[fm.get("id")] = (path, fm)
+        else:
+            unreadable.append(path)
     known = set(cards)
     known_forms = set(forms)
 
@@ -738,10 +788,14 @@ def run_files(paths: list[str]) -> int:
             errors += finding.severity == "error"
             warnings += finding.severity == "warning"
 
+    for path in unreadable:
+        show(path, [Finding("missing_required_field",
+                            "no front matter — the opening `---` must be the first line of the file")])
     for _, (path, fm) in sorted(cards.items()):
         show(path, validate(fm, os.path.basename(path), known))
     for _, (path, fm) in sorted(forms.items()):
-        show(path, validate_form(fm, os.path.basename(path), known_forms))
+        show(path, validate_form(fm, os.path.basename(path), known_forms,
+                                 known if cards else None))
     print(f"\n{len(cards)} card(s), {len(forms)} form contract(s): "
           f"{errors} error(s), {warnings} warning(s)")
     return 1 if errors else 0

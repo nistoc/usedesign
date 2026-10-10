@@ -344,6 +344,22 @@ cases:
       searched and not found. Without `rationale` the label records nothing. A guard, not a
       probe: 0.15.0 rejects this card too (for the enum, and for the rationale) — the case pins
       the rationale rule on the new mode, not the mode itself.
+  - file: valid/concurrency-server-read-version.op.md
+    expect: valid
+    codes: []
+    warnings: []
+    note: >-
+      The caller sends no revision; the handler writes only over the revision it read itself, a
+      conditional write on the stored one, and refuses a writer that got in between. Before
+      round 29 the card could only say `none_by_design` — "no protection needed" — and contradict
+      the label in `rationale`. The seventh mode names the protection the code has.
+  - file: invalid/server-read-version-without-rationale.op.md
+    expect: invalid
+    codes: [relaxation_without_rationale]
+    note: >-
+      The seventh mode needs its measurement too: which revision the handler reads, how the write
+      is conditioned on it, what the late writer receives. A guard on the rationale rule for the
+      new mode; 1.3.0 rejects this card for the enum as well.
 
   # ── Round 26: a variant of one operation (§5.2e) ──────────────────────────────────────────────
   - file: valid/variant-of.op.md

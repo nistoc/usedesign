@@ -6,7 +6,8 @@
  *   usedesign check <config>       the three invariants against the repository
  *   usedesign conformance          the corpora this implementation must pass
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { parse as parseYaml } from "yaml";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { CHECKS, checkCoverage, checkForm, checkMaturity, checkRoutes, checkStorage } from "./checks.js";
@@ -62,15 +63,51 @@ function summarise(title: string, findings: Finding[]): number {
   return errors(findings).length;
 }
 
+/** A named file that is a usedesign config, not a card: the natural wrong argument (issue #14). */
+function isUsedesignConfig(path: string): boolean {
+  try {
+    const parsed = parseYaml(readFileSync(path, "utf8"));
+    return Boolean(parsed && typeof parsed === "object" && "usedesign_config" in parsed);
+  } catch {
+    return false;
+  }
+}
+
 function commandValidate(paths: string[], withSchema: boolean): number {
+  // Round 29 (issue #14): a path that exists and yields nothing to validate is refused, as a path
+  // that does not exist already is (exit 2). Before, it was dropped without a word and the summary
+  // reported a clean result over an empty set — the config, the natural wrong argument, included.
+  const refusals: string[] = [];
+  for (const path of paths) {
+    if (!existsSync(path)) continue; // reported below as before: ENOENT, exit 2
+    if (statSync(path).isDirectory()) {
+      if (collectCards([path]).length === 0) {
+        refusals.push(`\`${path}\` holds no card (*.op.md) and no form contract (*.contract.md) — nothing to validate`);
+      }
+    } else if (!/\.(op|contract)\.md$/.test(path) && !frontMatter(path)) {
+      refusals.push(
+        isUsedesignConfig(path)
+          ? `\`${path}\` is a usedesign config — \`usedesign check ${path}\` reads it; \`validate\` takes cards, form contracts or their directories`
+          : `\`${path}\` has no front matter — it is neither a card nor a form contract`,
+      );
+    }
+  }
+  if (refusals.length > 0) {
+    for (const refusal of refusals) console.error(`usedesign validate: ${refusal}`);
+    return 2;
+  }
   const files = collectCards(paths);
   // Two document kinds share one command, told apart by the front-matter marker. Cross-reference
   // sets are per-kind: a form's `opens` must name a form, never an operation.
   const cards = new Map<string, { path: string; fm: Record<string, any> }>();
   const forms = new Map<string, { path: string; fm: Record<string, any> }>();
+  // A card or contract file without front matter — one empty line or a heading above the opening
+  // fence — used to vanish from the count. It is named now, as the conformance runner names it.
+  const unreadable: string[] = [];
   for (const path of files) {
     const fm = frontMatter(path);
     if (fm) (fm["usedesign_form"] === 1 ? forms : cards).set(String(fm["id"]), { path, fm });
+    else unreadable.push(path);
   }
   const known = new Set(cards.keys());
   const knownForms = new Set(forms.keys());
@@ -82,11 +119,14 @@ function commandValidate(paths: string[], withSchema: boolean): number {
     errorCount += errors(findings).length;
     warningCount += warnings(findings).length;
   };
+  for (const path of unreadable) {
+    show(path, [new Finding("missing_required_field", "no front matter — the opening `---` must be the first line of the file")]);
+  }
   for (const [, { path, fm }] of [...cards.entries()].sort()) {
     show(path, [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known)]);
   }
   for (const [, { path, fm }] of [...forms.entries()].sort()) {
-    show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms)]);
+    show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms, cards.size > 0 ? known : null)]);
   }
   console.log(
     `\n${cards.size} card(s), ${forms.size} form contract(s): ${errorCount} error(s), ${warningCount} warning(s)`,

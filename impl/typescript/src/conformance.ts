@@ -106,6 +106,10 @@ export function runChecksCorpus(): CorpusResult {
     for (const code of testCase.warnings ?? []) {
       if (!warned.includes(code)) problems.push(`missing warning \`${code}\``);
     }
+    // Round 29, as the card corpus did in round 28: a check that must stay quiet is pinned too.
+    for (const code of testCase.absent_warnings ?? []) {
+      if (warned.includes(code)) problems.push(`unexpected warning \`${code}\``);
+    }
 
     report(testCase.dir, problems, [...codes, ...warned]);
     problems.length > 0 ? (failed += 1) : (passed += 1);

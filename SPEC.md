@@ -376,7 +376,7 @@ number. The tidiness is visible; the damage is not.
 
 ```yaml
 concurrency:
-  mode: <one of the six below>     # ⬛
+  mode: <one of the seven below>   # ⬛
   rationale: <why>                 # 🔶 required for every mode except the strictest
   formula: <…>                     # 🔶 for idempotency_by_formula
   on_duplicate: <…>                # 🔶 for both idempotency modes; allowed for etag_required
@@ -387,6 +387,7 @@ concurrency:
 |---|---|
 | `etag_required` | Caller must send the current revision; mismatch is rejected |
 | `etag_optional` | The revision is honoured **when sent** — mismatch is rejected — but a request without one is accepted. The honest state of a surface being migrated to `etag_required` one flag at a time; measured on a live service where every write was exactly this and the vocabulary offered only a lie in each direction |
+| `server_read_version` | The caller sends no revision; the server keeps its own. The handler reads the record, decides, and writes only over the revision it read — a conditional write — so a writer who got in between is refused, not overwritten. The protection is real, but it guards the server's own read-then-write window, not the caller's view: a caller who looked at an older state is not refused. The `rationale` names the revision read, the condition on the write, and what the refused writer receives |
 | `idempotency_by_header` | Caller supplies an idempotency key |
 | `idempotency_by_formula` | The server derives the key from the payload |
 | `none_by_design` | No protection needed — the operation is idempotent by construction |
@@ -398,6 +399,16 @@ no comment and no flag to say why. The five modes offered `none_by_design` — a
 intent where only an absence had been measured — and the author wrote it, then wrote the
 contradiction into `rationale`, the one field nothing checks. The mode was added so that a
 measured absence has a name of its own, and so that the gate, not prose, carries it forward.
+
+**Why the seventh mode exists.** Round 29 is the same failure in the other direction. A pilot's
+backend role described the five writes of a request queue: each reads the request, checks the
+transition, and writes on condition that the stored timestamp is still the one it read; a writer
+who got in between gets 409, and the caller sends nothing. The six modes offered `none_by_design`
+— "no protection needed" — and the author wrote it, then explained in `rationale` that a
+conditional write does protect it. The label said the opposite of the code. `etag_optional` would
+have been wrong too: there is no revision the caller could send. The seventh mode names what the
+code does. Like every mode but `etag_required`, it needs a `rationale`
+(`relaxation_without_rationale`).
 
 `on_duplicate` is required for the two idempotency modes, and **permitted for `etag_required`**:
 a stale revision is a collision outcome the caller must handle, and stating it is more useful
@@ -791,6 +802,15 @@ only if every one of them passes.** One green case out of five is how coverage b
    intended difference explicitly.
 5. **Withdrawn decisions get a tombstone on the line**, not a deletion.
 
+**A run that validated nothing is not a pass** (round 29, issue #14). `validate` given a path that
+yields no card and no contract — a config file, an empty directory, a directory of plain
+Markdown, a `.md` without front matter — used to print `0 error(s)` over an empty set and exit 0,
+so a gate pointed at the wrong path stayed green. Both implementations now refuse such a path by
+name, with exit 2, and send a config file to `check`, which reads it. A collected `.op.md` or
+`.contract.md` whose front matter does not open on its first line used to drop out of the count
+in silence; it is now `missing_required_field`, an error. Front matter opens the file, and a
+validator that skipped a file it could not read was accepting what this document forbids (§8).
+
 ---
 
 ## 7. The three checks
@@ -999,6 +1019,17 @@ hand-flipped flag: the day the screen renders, the contract still saying `design
 as `form_maturity_stale`, and compared in full all the same. Two values, not the card's six —
 a contract has no evidence axis beyond "does the screen render". Absent means `implemented`.
 
+Its `calls` are read all the same (round 29, issue #13). Until then a contract written ahead of
+its screen stopped at `form_not_yet_built`, and an operation it named that no card described
+passed `validate` and `check` alike — reported first on the day the screen rendered, after the
+code had been built against the typo. Now, when the config declares `cards:`, a `calls` entry no
+card describes is `form_calls_undescribed`, and a control shown in a state its operation cannot
+depart from is `shown_when_conflicts_transition`. Before the screen exists both are **warnings**:
+a new check over fields 1.x already had arrives as a warning (§8). On the rendered screen the
+conflict stays the error it was. Without `cards:` there is nothing to compare against, and the
+contract earns `form_not_yet_built` alone — `no_cards_found` belongs to a declared glob that
+matched nothing (§7.6).
+
 **Families.** Some screens render one element per item of a list that arrives at runtime — one
 tab per project kind, the set of kinds owned by another service (issue #10). Listing them
 literally makes the contract a second copy of that list, stale the day a kind is added; saying
@@ -1050,7 +1081,13 @@ apart by the `usedesign_form: 1` marker. Measured on 0.5.0, which had no such va
 contract with `presents` misspelled as `presnts` lost its whole "must show" section silently,
 and every line of it resurfaced as somebody else's `undescribed_element` warning — the typo did
 not fail, it changed whose problem it looked like. The rules are hand-rolled with named codes,
-in both implementations, so the two agree on *what* is wrong:
+in both implementations, so the two agree on *what* is wrong.
+
+When a run holds cards as well as contracts, `validate` also reads every `calls` entry against
+the cards of that run (round 29): an operation no card in the set describes is
+`form_calls_undescribed`, a warning, with its place in the chain. A run of contracts alone has
+nothing to compare against and stays silent on it; `check` with `cards:` is where the full
+comparison lives.
 
 | Finding | Means |
 |---|---|
@@ -1068,6 +1105,7 @@ in both implementations, so the two agree on *what* is wrong:
 | `malformed_states` | `states` is not a map of screen state → `{ data }` |
 | `malformed_calls` | `calls` is not an id, a list of two or more ids in call order, or null — a list of one is a string wearing brackets (round 27) |
 | `undescribed_form` (warning) | `opens` points at a contract outside the validated set — honest incompleteness, the counterpart of `undescribed_counterpart` |
+| `form_calls_undescribed` (warning) | validated together with cards, a `calls` entry names an operation no card in the set describes (round 29) |
 
 ### 7.6 Scoping the checks per repository
 
@@ -1122,6 +1160,7 @@ where the format broke:
 | 26 | **Four of round 25's candidates, the first round under the §8 promise** — twins that run one handler and could only repeat each other's steps; a leak the elements had and the groups did not; a screen that renders with nothing describing it; three different reasons read as one "no test" | Two optional fields: `variant_of` (§5.2e) and `coverage_gaps[].kind` (§5.9); one optional config key, `uncontracted_screens`; two warnings over fields 1.0 already had, `field_out_of_state` and `form_uncontracted_screen` (§7.5). Every new error is about a new field |
 | 27 | **A chain behind one button** — a pilot's frontend role describing a draft's footer: "save as plan" renames the draft, then publishes it; "start" also starts a pass. One operation per control let the form contract name one step and the cards another, and neither could be checked against the other | One spelling of an optional field: `calls:` as a list in call order (§7.5) — the shown_when rule reads the first operation, and every operation of the chain must be described. The one new error, `malformed_calls`, is about the new spelling only |
 | 28 | **Context hid the collapse; a line number was demanded where §5.7 advised against one** — a pilot catalogue re-measured its screens and wrote where and why into every refusal: each value became unique, and refusals sharing one status line stopped being reported. Most of its step sources named files only — steps spread across a file, code that moves — and one line-numbered source it checked had drifted about 110 lines in silence; the schema refused the file-only ones (issue #12). On its 93 cards the new reading turns 33 `outcomes_indistinguishable` warnings into 47, none lost | None new. `outcomes_indistinguishable` compares the words inside «…» or “…” — case-folded and NFC-normalised, a mark part of the word before it, spans of two words of two letters or more, as a set — and falls back to the whole value; computed from the 1.2 key, it still reports every pair 1.2 reported (§5.7). `steps[].source` accepts a path alone and `path#Symbol` besides `path:line` — what §5.7 already recommended; a widening, not a break: every card with zero errors under 1.2 still has none. No new code |
+| 29 | **Protection the caller never sees, and a contract read only after its screen** — a pilot's request queue guards five writes with a conditional write on a revision the server keeps to itself, and the vocabulary offered only `none_by_design`, a label that said the opposite of the code; a contract written ahead of its screen had its `calls` read by nothing until the screen rendered (issue #13); `validate` pointed at a config, an empty directory or plain Markdown printed `0 error(s)` over nothing, and a card with a line above its front matter dropped out of the count in silence (issue #14) | One value of an existing field: `concurrency.mode: server_read_version` (§5.4) — a widening, as in round 28: every card with zero errors under 1.3 still has none. Check 5 reads the `calls` of a `designed` contract before its screen renders, `form_calls_undescribed` and `shown_when_conflicts_transition` there as warnings (§7.5); `validate` reads `calls` against the cards of the same run, a warning (§7.5). A path with nothing to validate is refused with exit 2, and a collected file without front matter is `missing_required_field` — a validator that accepted what this document forbade, fixed (§6). No new code |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

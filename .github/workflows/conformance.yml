@@ -103,3 +103,9 @@ jobs:
           fi
           echo "both implementations reported:"
           cat /tmp/ts.codes
+
+      # What `validate` does with its paths is not a card verdict, so the corpora cannot hold it:
+      # a path with nothing to validate is refused, a card whose front matter does not open the file
+      # is an error, and contracts validated with cards have their `calls` read against them.
+      - name: validate on its paths, both implementations
+        run: bash tests/fixtures/validate-cli/run.sh

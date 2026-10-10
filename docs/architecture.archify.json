@@ -67,7 +67,7 @@
       "id": "corpus",
       "type": "database",
       "label": "Conformance corpus",
-      "sublabel": "82 + 51 cases, both readings",
+      "sublabel": "84 + 54 cases, both readings",
       "pos": [
         640,
         56
@@ -326,7 +326,7 @@
       "dot": "emerald",
       "title": "Two readings, one corpus",
       "items": [
-        "TypeScript reference and Python prototype must report the same codes on 133 cases",
+        "TypeScript reference and Python prototype must report the same codes on 138 cases",
         "A new case must fail on the previous published box"
       ]
     },

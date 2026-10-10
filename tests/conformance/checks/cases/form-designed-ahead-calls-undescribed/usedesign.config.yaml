@@ -1,0 +1,6 @@
+usedesign_config: 1
+cards:
+  - ./*.op.md
+forms:
+  - ./*.contract.md
+form_inventory: form-inventory.json

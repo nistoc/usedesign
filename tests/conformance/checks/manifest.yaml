@@ -294,6 +294,37 @@ cases:
       whose screen nothing rendered is expected, not a vanished screen — a warning, counted
       separately. And the flag cannot go stale silently: the second contract says `designed`
       while its screen renders, and is told so — then compared in full all the same.
+  - dir: form-designed-ahead-calls-undescribed
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built, form_calls_undescribed]
+    note: >-
+      Issue #13. A contract written before its screen names an operation no card describes — a
+      typo, `finsh` for `finish`. `calls` is chosen at exactly this stage, and comparing it with the
+      cards needs no inventory; before round 29 the absent screen ended the contract's reading at
+      `form_not_yet_built`, and the typo surfaced on the day the screen rendered.
+  - dir: form-designed-ahead-shown-when-conflict
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built, shown_when_conflicts_transition]
+    note: >-
+      Issue #13, the second half. The control is shown in `finished`, the card departs from
+      `active`; the rule reads the contract and the card, so it runs before the screen exists. A
+      warning on this path — a new check over existing fields arrives as a warning (§8) — while a
+      rendered screen keeps the error (form-shown-when-conflict). An implementation reporting an
+      error here fails the case.
+  - dir: form-designed-ahead-no-cards-key
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built]
+    absent_warnings: [form_calls_undescribed, no_cards_found]
+    note: >-
+      The guard. A frontend-only repository declares no `cards:` — nothing to compare `calls`
+      with — and stays as quiet as before round 29: an id it cannot look up is not reported as
+      undescribed. Only a declared `cards:` key switches the comparison on for an unbuilt screen.
   - dir: form-family
     check: 5
     expect: pass

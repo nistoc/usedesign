@@ -304,6 +304,10 @@ def run_conformance() -> int:
         for code in case.get("warnings", []):
             if code not in warnings:
                 problems.append(f"missing warning `{code}`")
+        # Round 29, as the card corpus did in round 28: a check that must stay quiet is pinned too.
+        for code in case.get("absent_warnings", []):
+            if code in warnings:
+                problems.append(f"unexpected warning `{code}`")
 
         if problems:
             failed += 1
@@ -774,6 +778,66 @@ def check_storage(config: dict, base: str) -> tuple[list[Finding], dict]:
                       "produced_by": data.get("produced_by", "")}
 
 
+# The card-only half of the controls rule: every operation of a `calls` chain is described by a
+# card, and a control shown in a state its first operation cannot depart from is a conflict. It
+# reads the contract and the cards, never the inventory — so since round 29 (issue #13) it runs for
+# a rendered screen (the conflict an error) and for a contract designed ahead of its screen (a
+# warning: a new check over existing fields, §8). See the TypeScript twin.
+def judge_calls(contract_id: str, name: str, control: dict, shown_when, data_of, card_by_id: dict,
+                findings: list, conflict: str) -> None:
+    # A chain (round 27: `calls` as a list, in call order) is judged by its FIRST operation
+    # — the chain departs from where that one does; every later step departs from
+    # whatever the step before it left, which no screen state shows. Each operation of
+    # the chain must still have a card.
+    raw_calls = control.get("calls")
+    if isinstance(raw_calls, str) and raw_calls:
+        chain = [raw_calls]
+    elif isinstance(raw_calls, list):
+        chain = [str(entry) for entry in raw_calls if isinstance(entry, str) and entry]
+    else:
+        chain = []
+    for step, later in enumerate(chain):
+        if step > 0 and later not in card_by_id:
+            findings.append(Finding("form_calls_undescribed",
+                                    f"{contract_id}: control `{name}` calls `{later}` "
+                                    f"(step {step + 1} of {len(chain)}), "
+                                    "which no card describes", "warning"))
+    if not chain:
+        return
+    # How the first operation is named in a finding: bare for one, with its chain for several.
+    calls = (f"`{chain[0]}` (first of `{' → '.join(chain)}`)" if len(chain) > 1
+             else f"`{chain[0]}`")
+    card = card_by_id.get(chain[0])
+    if card is None:
+        findings.append(Finding("form_calls_undescribed",
+                                f"{contract_id}: control `{name}` calls {calls}, "
+                                "which no card describes", "warning"))
+        return
+    if not shown_when:
+        return
+    # `from` is one state or a SET of states (round 18): the control must be shown
+    # only in states that belong to the set, and in at least one of them.
+    transition = card.get("data_transition")
+    raw_from = transition.get("from") if isinstance(transition, dict) else None
+    if isinstance(raw_from, list):
+        from_set = [str(s) for s in raw_from]
+    elif raw_from:
+        from_set = [str(raw_from)]
+    else:
+        from_set = []
+    if from_set and "none" not in from_set and "any" not in from_set:
+        mismatch = [s for s in shown_when if data_of(s) not in from_set]
+        if mismatch or not any(data_of(s) in from_set for s in shown_when):
+            mapped = ""
+            if any(data_of(s) != s for s in shown_when):
+                mapped = f" (data states [{', '.join(data_of(s) for s in shown_when)}])"
+            findings.append(Finding(
+                "shown_when_conflicts_transition",
+                f"{contract_id}: control `{name}` is shown in "
+                f"[{', '.join(shown_when)}]{mapped} but {calls} departs from "
+                f"`{' | '.join(from_set)}`", conflict))
+
+
 # ─────────────────────────── check 5 — the form matches its contract ────────────────────────────
 #
 # The one check whose reference is authored rather than measured: the contract says what the owner
@@ -853,6 +917,14 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
         # The flag cannot go stale silently — a screen that renders while the contract still
         # says designed is reported too.
         maturity = str(fm.get("maturity") or "implemented")
+        # Screen state → data state through the contract's `states:` map (issue #11);
+        # identity when unmapped.
+        state_map = fm.get("states") if isinstance(fm.get("states"), dict) else {}
+
+        def data_of(state: str, _map=state_map) -> str:
+            spec = _map.get(state)
+            return str(spec["data"]) if isinstance(spec, dict) and spec.get("data") else state
+
         if states is None:
             if maturity == "designed":
                 designed_ahead += 1
@@ -860,6 +932,15 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                                         f"{contract_id}: screen `{screen}` is absent from the "
                                         "inventory — designed ahead of the code "
                                         "(`maturity: designed`)", "warning"))
+                # `calls` is chosen while the contract is `designed`, and comparing it with the
+                # cards needs no inventory (issue #13). Only where the config declares `cards:`.
+                if config.get("cards"):
+                    for control in fm.get("controls") or []:
+                        if not isinstance(control, dict):
+                            continue
+                        name = str(control.get("control_pattern") or control.get("control") or "")
+                        judge_calls(contract_id, name, control, control.get("shown_when"),
+                                    data_of, card_by_id, findings, "warning")
             else:
                 findings.append(Finding("form_screen_missing",
                                         f"{contract_id}: screen `{screen}` is absent from the "
@@ -873,14 +954,6 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
         every_state = list(states.keys())
         mine = claimed.setdefault(screen, {"fields": set(), "controls": set(),
                                            "field_families": [], "control_families": []})
-
-        # Screen state → data state through the contract's `states:` map (issue #11);
-        # identity when unmapped.
-        state_map = fm.get("states") if isinstance(fm.get("states"), dict) else {}
-
-        def data_of(state: str, _map=state_map) -> str:
-            spec = _map.get(state)
-            return str(spec["data"]) if isinstance(spec, dict) and spec.get("data") else state
 
         def count_of(regex: re.Pattern, names: set) -> int:
             return sum(1 for n in names if regex.match(n))
@@ -974,54 +1047,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                 findings.append(Finding("control_missing",
                                         f"{contract_id}: control `{name}` appears in no state at all"))
 
-            # A chain (round 27: `calls` as a list, in call order) is judged by its FIRST operation
-            # — the chain departs from where that one does; every later step departs from
-            # whatever the step before it left, which no screen state shows. Each operation of
-            # the chain must still have a card.
-            raw_calls = control.get("calls")
-            if isinstance(raw_calls, str) and raw_calls:
-                chain = [raw_calls]
-            elif isinstance(raw_calls, list):
-                chain = [str(entry) for entry in raw_calls if isinstance(entry, str) and entry]
-            else:
-                chain = []
-            for step, later in enumerate(chain):
-                if step > 0 and later not in card_by_id:
-                    findings.append(Finding("form_calls_undescribed",
-                                            f"{contract_id}: control `{name}` calls `{later}` "
-                                            f"(step {step + 1} of {len(chain)}), "
-                                            "which no card describes", "warning"))
-            # How the first operation is named in a finding: bare for one, with its chain for several.
-            calls = (f"`{chain[0]}` (first of `{' → '.join(chain)}`)" if len(chain) > 1
-                     else f"`{chain[0]}`" if chain else "")
-            if chain:
-                card = card_by_id.get(chain[0])
-                if card is None:
-                    findings.append(Finding("form_calls_undescribed",
-                                            f"{contract_id}: control `{name}` calls {calls}, "
-                                            "which no card describes", "warning"))
-                elif shown_when:
-                    # `from` is one state or a SET of states (round 18): the control must be shown
-                    # only in states that belong to the set, and in at least one of them.
-                    transition = card.get("data_transition")
-                    raw_from = transition.get("from") if isinstance(transition, dict) else None
-                    if isinstance(raw_from, list):
-                        from_set = [str(s) for s in raw_from]
-                    elif raw_from:
-                        from_set = [str(raw_from)]
-                    else:
-                        from_set = []
-                    if from_set and "none" not in from_set and "any" not in from_set:
-                        mismatch = [s for s in shown_when if data_of(s) not in from_set]
-                        if mismatch or not any(data_of(s) in from_set for s in shown_when):
-                            mapped = ""
-                            if any(data_of(s) != s for s in shown_when):
-                                mapped = f" (data states [{', '.join(data_of(s) for s in shown_when)}])"
-                            findings.append(Finding(
-                                "shown_when_conflicts_transition",
-                                f"{contract_id}: control `{name}` is shown in "
-                                f"[{', '.join(shown_when)}]{mapped} but {calls} departs from "
-                                f"`{' | '.join(from_set)}`"))
+            judge_calls(contract_id, name, control, shown_when, data_of, card_by_id,
+                        findings, "error")
 
         for entry in fm.get("removed") or []:
             name = str(entry.get("control") or "")

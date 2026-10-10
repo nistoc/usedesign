@@ -106,6 +106,14 @@ endings that show it, unless the context quotes other screen text too; every pai
 reported is still reported (a 1.2 warning may grow, or merge with another). And a step's `source`
 may name a file alone or `path#Symbol`, as SPEC §5.7 already advised (issue #12).
 
+**v1.4** adds one value to an existing field and no code. `concurrency.mode: server_read_version`
+names a write the server guards on its own — it reads a revision, then writes only over it — where
+the caller sends none; until now such a card could only say `none_by_design` and contradict itself
+in `rationale`. Check 5 reads the `calls` of a contract written ahead of its screen, as warnings,
+and `validate` reads `calls` against the cards of the same run (issue #13). `validate` refuses a
+path with nothing to validate instead of passing it, and a card whose front matter does not open
+the file is an error, not a silent skip (issue #14).
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in
@@ -157,7 +165,7 @@ enshrining one tool's bugs.
 
 The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
 [impl/](impl/) rather than by default. It validates cards against the schema and the cross-card
-rules, runs all three checks, and passes both corpora — **82 / 82 cards and 51 / 51 repository cases**.
+rules, runs all three checks, and passes both corpora — **84 / 84 cards and 54 / 54 repository cases**.
 
 ```bash
 npx usedesign check usedesign.config.yaml
@@ -174,7 +182,7 @@ report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 82 card cases and 51 repository cases, verdicts, codes **and warnings**
+- [x] Conformance corpus — 84 card cases and 54 repository cases, verdicts, codes **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))
@@ -190,7 +198,7 @@ report about the same repository.
       components, and the errors are the product's TODO list (SPEC §7.5); form contracts are
       validated with named codes, grouping by purpose included, group membership verified
       against the rendered container chains
-- [x] `usedesign check` — the five checks, holding the 51-case repository corpus; a repository
+- [x] `usedesign check` — the five checks, holding the 54-case repository corpus; a repository
       declares which checks apply to it (`checks: [5]`, SPEC §7.6)
 - [x] `usedesign scaffold` — a draft card per undescribed route, read from the application's own
       OpenAPI. Every draft fails validation on purpose: a shell that validated would look like a
