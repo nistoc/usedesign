@@ -8,7 +8,7 @@ directory and must earn the name by passing the same corpus:
 
 | Directory | Status |
 |---|---|
-| `typescript/` | Reference implementation — validate and all three checks; **14/14 and 20/20**; not yet published to npm |
+| `typescript/` | Reference implementation — validate and the five checks; **84/84 and 54/54**; published to npm as `usedesign` |
 | `python/` | Prototype — the same rules on a second runtime, kept so the corpus is never agreed with by only one tool |
 
 ## The one rule

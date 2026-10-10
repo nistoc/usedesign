@@ -63,14 +63,37 @@ function summarise(title: string, findings: Finding[]): number {
   return errors(findings).length;
 }
 
-/** A named file that is a usedesign config, not a card: the natural wrong argument (issue #14). */
-function isUsedesignConfig(path: string): boolean {
+/**
+ * A named file that is a usedesign config, not a card: the natural wrong argument (issue #14).
+ * Written as a plain YAML document or fenced like front matter — both are configs.
+ */
+function isUsedesignConfig(path: string, fm: Record<string, any> | null): boolean {
+  if (fm && "usedesign_config" in fm) return true;
   try {
     const parsed = parseYaml(readFileSync(path, "utf8"));
     return Boolean(parsed && typeof parsed === "object" && "usedesign_config" in parsed);
   } catch {
     return false;
   }
+}
+
+/**
+ * The front matter of a file `validate` was given, or why there is none. A card or contract whose
+ * front matter cannot be read carries none of the required keys (§8), so it is reported with its
+ * cause, never skipped (round 29, issue #14): the same reading in both implementations.
+ */
+function readFront(path: string): { fm: Record<string, any> | null; problem: string } {
+  let fm: unknown;
+  try {
+    fm = frontMatter(path);
+  } catch (e) {
+    return { fm: null, problem: `front matter is not valid YAML — ${String((e as Error).message).split("\n")[0]}` };
+  }
+  if (Array.isArray(fm)) return { fm: null, problem: "front matter is a list — a card's fields are a mapping" };
+  if (!fm) {
+    return { fm: null, problem: "no front matter — the file must open with a `---` line, carry its fields, and close them with a second `---` line" };
+  }
+  return { fm: fm as Record<string, any>, problem: "" };
 }
 
 function commandValidate(paths: string[], withSchema: boolean): number {
@@ -84,12 +107,13 @@ function commandValidate(paths: string[], withSchema: boolean): number {
       if (collectCards([path]).length === 0) {
         refusals.push(`\`${path}\` holds no card (*.op.md) and no form contract (*.contract.md) — nothing to validate`);
       }
-    } else if (!/\.(op|contract)\.md$/.test(path) && !frontMatter(path)) {
-      refusals.push(
-        isUsedesignConfig(path)
-          ? `\`${path}\` is a usedesign config — \`usedesign check ${path}\` reads it; \`validate\` takes cards, form contracts or their directories`
-          : `\`${path}\` has no front matter — it is neither a card nor a form contract`,
-      );
+    } else if (!/\.(op|contract)\.md$/.test(path)) {
+      const { fm } = readFront(path);
+      if (isUsedesignConfig(path, fm)) {
+        refusals.push(`\`${path}\` is a usedesign config — \`usedesign check ${path}\` reads it; \`validate\` takes cards, form contracts or their directories`);
+      } else if (!fm) {
+        refusals.push(`\`${path}\` has no front matter — it is neither a card nor a form contract`);
+      }
     }
   }
   if (refusals.length > 0) {
@@ -102,13 +126,14 @@ function commandValidate(paths: string[], withSchema: boolean): number {
   const cards = new Map<string, { path: string; fm: Record<string, any> }>();
   const forms = new Map<string, { path: string; fm: Record<string, any> }>();
   // A card or contract file without front matter — one empty line or a heading above the opening
-  // fence — used to vanish from the count. It is named now, as the conformance runner names it.
-  const unreadable: string[] = [];
+  // fence — used to vanish from the count. It is counted and named now, with its cause.
+  const unreadable: { path: string; problem: string }[] = [];
   for (const path of files) {
-    const fm = frontMatter(path);
+    const { fm, problem } = readFront(path);
     if (fm) (fm["usedesign_form"] === 1 ? forms : cards).set(String(fm["id"]), { path, fm });
-    else unreadable.push(path);
+    else unreadable.push({ path, problem });
   }
+  const unreadableForms = unreadable.filter(({ path }) => path.endsWith(".contract.md")).length;
   const known = new Set(cards.keys());
   const knownForms = new Set(forms.keys());
 
@@ -119,9 +144,7 @@ function commandValidate(paths: string[], withSchema: boolean): number {
     errorCount += errors(findings).length;
     warningCount += warnings(findings).length;
   };
-  for (const path of unreadable) {
-    show(path, [new Finding("missing_required_field", "no front matter — the opening `---` must be the first line of the file")]);
-  }
+  for (const { path, problem } of unreadable) show(path, [new Finding("missing_required_field", problem)]);
   for (const [, { path, fm }] of [...cards.entries()].sort()) {
     show(path, [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known)]);
   }
@@ -129,7 +152,8 @@ function commandValidate(paths: string[], withSchema: boolean): number {
     show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms, cards.size > 0 ? known : null)]);
   }
   console.log(
-    `\n${cards.size} card(s), ${forms.size} form contract(s): ${errorCount} error(s), ${warningCount} warning(s)`,
+    `\n${cards.size + unreadable.length - unreadableForms} card(s), ${forms.size + unreadableForms} form contract(s): ` +
+      `${errorCount} error(s), ${warningCount} warning(s)`,
   );
   return errorCount > 0 ? 1 : 0;
 }

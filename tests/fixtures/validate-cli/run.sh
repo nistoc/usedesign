@@ -7,34 +7,56 @@ set -u
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
 cd "$here"
-mkdir -p empty
 
-fail() { echo "::error::$1"; cat /tmp/usedesign-validate-cli.txt; exit 1; }
+# What git cannot hold is made here and removed on exit: an empty directory, a byte-order mark,
+# bytes that are not UTF-8.
+scratch="$(mktemp -d)"
+out="$scratch/out.txt"
+trap 'rm -rf "$scratch"' EXIT
+mkdir -p "$scratch/empty" "$scratch/bom"
+printf '\xef\xbb\xbf' > "$scratch/bom/sample.session.finish.op.md"
+cat cards/sample.session.finish.op.md >> "$scratch/bom/sample.session.finish.op.md"
+printf '\xff\xfe\x00\x01' > "$scratch/bin.dat"
+
+fail() { echo "::error::$1"; cat "$out"; exit 1; }
 expect() {
   local want="$1"; shift
-  "$@" > /tmp/usedesign-validate-cli.txt 2>&1
+  "$@" > "$out" 2>&1
   local got=$?
   [ "$got" -eq "$want" ] || fail "\`$*\` exited $got, expected $want"
 }
-says() { grep -q -- "$1" /tmp/usedesign-validate-cli.txt || fail "expected \`$1\` in the output"; }
+says() { grep -q -- "$1" "$out" || fail "expected \`$1\` in the output"; }
 
 for impl in ts py; do
-  if [ "$impl" = ts ]; then v=(node "$root/impl/typescript/dist/cli.js" validate); else v=(python "$root/impl/python/validate.py"); fi
+  if [ "$impl" = ts ]; then
+    v=(node "$root/impl/typescript/dist/cli.js" validate); c=(node "$root/impl/typescript/dist/cli.js" check)
+  else
+    v=(python "$root/impl/python/validate.py"); c=(python "$root/impl/python/check.py")
+  fi
   echo "— $impl"
 
   # A path with nothing to validate is refused, not passed over an empty set (#14).
   expect 2 "${v[@]}" usedesign.config.yaml; says "usedesign check usedesign.config.yaml"
-  expect 2 "${v[@]}" empty;                 says "nothing to validate"
+  expect 2 "${v[@]}" closed.config.yaml;    says "usedesign check closed.config.yaml"
+  expect 2 "${v[@]}" "$scratch/empty";      says "nothing to validate"
   expect 2 "${v[@]}" docs;                  says "nothing to validate"
   expect 2 "${v[@]}" docs/notes.md;         says "has no front matter"
+  expect 2 "${v[@]}" "$scratch/bin.dat";    says "has no front matter"
 
-  # A collected card whose front matter does not open the file is an error, not a silent skip (#14).
-  expect 1 "${v[@]}" broken;                says "missing_required_field"
+  # A collected card whose front matter cannot be read is an error and is counted, not skipped (#14):
+  # a line above the fence, no closing fence, YAML that does not parse, a list where fields belong.
+  expect 1 "${v[@]}" broken;                says "4 card(s), 0 form contract(s): 4 error(s)"
+  says "close them with a second"; says "not valid YAML"; says "front matter is a list"
+  # A byte-order mark decides nothing.
+  expect 0 "${v[@]}" "$scratch/bom";        says "1 card(s), 0 form contract(s): 0 error(s)"
 
   # Contracts validated with cards: `calls` is read against the cards of the same run (#13).
   expect 0 "${v[@]}" cards forms;           says "form_calls_undescribed"
   # Contracts alone: nothing to compare against, nothing said.
   expect 0 "${v[@]}" forms
-  grep -q form_calls_undescribed /tmp/usedesign-validate-cli.txt && fail "contracts alone must not report form_calls_undescribed"
+  grep -q form_calls_undescribed "$out" && fail "contracts alone must not report form_calls_undescribed"
+
+  # `cards: []` is a declared glob that matched nothing, in both implementations.
+  expect 0 "${c[@]}" cards-empty.config.yaml; says "no_cards_found"
   echo "  ok"
 done

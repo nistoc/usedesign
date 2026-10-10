@@ -1,6 +1,6 @@
 # usedesign — TypeScript
 
-The reference implementation: validates Operation Cards and runs the three checks against a
+The reference implementation: validates Operation Cards and runs the five checks against a
 repository.
 
 ```bash
@@ -13,14 +13,13 @@ whole CI contract.
 
 ## Status
 
-**Complete against the corpus, not yet published to npm.** Everything below runs today from a
-clone; `npx usedesign` will work once the package is released, and this README will not claim it
-does before then.
+**Complete against the corpus, published to npm as `usedesign`.** Everything below runs from a
+clone as well as through `npx usedesign`.
 
 | | |
 |---|---|
-| Cards corpus | **14 / 14** |
-| Repository corpus | **20 / 20** |
+| Cards corpus | **84 / 84** |
+| Repository corpus | **54 / 54** |
 | Runtime | Node ≥ 20, no native modules |
 | Dependencies | `ajv`, `ajv-formats`, `yaml`, `fast-xml-parser` |
 

@@ -61,7 +61,9 @@ class Finding:
 
 def front_matter(path: str):
     """Return the parsed YAML front matter, or None if the file has none."""
-    text = open(path, encoding="utf-8").read()
+    # A byte-order mark must not decide whether a card parses, and bytes that are not UTF-8 must
+    # not crash the run: read as the TypeScript twin reads (round 29).
+    text = open(path, encoding="utf-8-sig", errors="replace").read()
     if not text.startswith("---"):
         return None
     end = text.find("\n---", 3)
@@ -734,13 +736,33 @@ def collect(paths: list[str]) -> list[str]:
     return sorted(files)
 
 
-def is_usedesign_config(path: str) -> bool:
-    """A named file that is a usedesign config, not a card (issue #14)."""
+def is_usedesign_config(path: str, fm) -> bool:
+    """A named file that is a usedesign config, not a card (issue #14) — plain or fenced."""
+    if isinstance(fm, dict) and "usedesign_config" in fm:
+        return True
     try:
-        parsed = yaml.safe_load(open(path, encoding="utf-8"))
+        parsed = yaml.safe_load(open(path, encoding="utf-8-sig", errors="replace"))
     except Exception:
         return False
     return isinstance(parsed, dict) and "usedesign_config" in parsed
+
+
+def read_front(path: str):
+    """The front matter of a file `validate` was given, or why there is none (round 29, issue #14).
+
+    A card or contract whose front matter cannot be read carries none of the required keys (§8),
+    so it is reported with its cause, never skipped. See the TypeScript twin.
+    """
+    try:
+        fm = front_matter(path)
+    except yaml.YAMLError as e:
+        return None, f"front matter is not valid YAML — {str(e).splitlines()[0]}"
+    if isinstance(fm, list):
+        return None, "front matter is a list — a card's fields are a mapping"
+    if not isinstance(fm, dict):
+        return None, ("no front matter — the file must open with a `---` line, carry its fields, "
+                      "and close them with a second `---` line")
+    return fm, ""
 
 
 def run_files(paths: list[str]) -> int:
@@ -754,11 +776,14 @@ def run_files(paths: list[str]) -> int:
             if not collect([path]):
                 refusals.append(f"`{path}` holds no card (*.op.md) and no form contract "
                                 "(*.contract.md) — nothing to validate")
-        elif not re.search(r"\.(op|contract)\.md$", path) and not front_matter(path):
-            refusals.append(
-                f"`{path}` is a usedesign config — `usedesign check {path}` reads it; `validate` "
-                "takes cards, form contracts or their directories" if is_usedesign_config(path)
-                else f"`{path}` has no front matter — it is neither a card nor a form contract")
+        elif not re.search(r"\.(op|contract)\.md$", path):
+            fm, _ = read_front(path)
+            if is_usedesign_config(path, fm):
+                refusals.append(f"`{path}` is a usedesign config — `usedesign check {path}` reads "
+                                "it; `validate` takes cards, form contracts or their directories")
+            elif fm is None:
+                refusals.append(f"`{path}` has no front matter — it is neither a card nor a form "
+                                "contract")
     if refusals:
         for refusal in refusals:
             print(f"validate.py: {refusal}", file=sys.stderr)
@@ -766,15 +791,17 @@ def run_files(paths: list[str]) -> int:
     files = collect(paths)
     cards: dict = {}
     forms: dict = {}
-    # A card or contract file without front matter used to vanish from the count; it is named now.
+    # A card or contract file without front matter used to vanish from the count; it is counted
+    # and named now, with its cause.
     unreadable = []
     for path in files:
-        fm = front_matter(path)
-        if fm:
+        fm, problem = read_front(path)
+        if fm is not None:
             target = forms if fm.get("usedesign_form") == 1 else cards
             target[fm.get("id")] = (path, fm)
         else:
-            unreadable.append(path)
+            unreadable.append((path, problem))
+    unreadable_forms = sum(1 for path, _ in unreadable if path.endswith(".contract.md"))
     known = set(cards)
     known_forms = set(forms)
 
@@ -788,16 +815,15 @@ def run_files(paths: list[str]) -> int:
             errors += finding.severity == "error"
             warnings += finding.severity == "warning"
 
-    for path in unreadable:
-        show(path, [Finding("missing_required_field",
-                            "no front matter — the opening `---` must be the first line of the file")])
+    for path, problem in unreadable:
+        show(path, [Finding("missing_required_field", problem)])
     for _, (path, fm) in sorted(cards.items()):
         show(path, validate(fm, os.path.basename(path), known))
     for _, (path, fm) in sorted(forms.items()):
         show(path, validate_form(fm, os.path.basename(path), known_forms,
                                  known if cards else None))
-    print(f"\n{len(cards)} card(s), {len(forms)} form contract(s): "
-          f"{errors} error(s), {warnings} warning(s)")
+    print(f"\n{len(cards) + len(unreadable) - unreadable_forms} card(s), "
+          f"{len(forms) + unreadable_forms} form contract(s): {errors} error(s), {warnings} warning(s)")
     return 1 if errors else 0
 
 

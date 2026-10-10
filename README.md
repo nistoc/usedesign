@@ -111,8 +111,9 @@ names a write the server guards on its own — it reads a revision, then writes 
 the caller sends none; until now such a card could only say `none_by_design` and contradict itself
 in `rationale`. Check 5 reads the `calls` of a contract written ahead of its screen, as warnings,
 and `validate` reads `calls` against the cards of the same run (issue #13). `validate` refuses a
-path with nothing to validate instead of passing it, and a card whose front matter does not open
-the file is an error, not a silent skip (issue #14).
+path with nothing to validate instead of passing it, and a card whose front matter cannot be
+read — a line above the opening `---`, no closing `---`, YAML that does not parse — is counted and
+reported as an error, not skipped in silence (issue #14).
 
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`

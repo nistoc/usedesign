@@ -1,0 +1,6 @@
+---
+usedesign_config: 1
+checks: [5]
+cards:
+  - cards/*.op.md
+---

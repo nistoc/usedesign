@@ -889,7 +889,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     # always there; then the glob matches nothing and every `calls:` reads as "undescribed" —
     # a fact about the checkout, not the cards. Named once.
     cards, card_findings = load_card_files(config, base)
-    if config.get("cards") and any(f.code == "no_cards_found" for f in card_findings):
+    # `cards: []` is declared, as in the TypeScript twin (an empty list is not an absent key).
+    if config.get("cards") is not None and any(f.code == "no_cards_found" for f in card_findings):
         findings.append(Finding("no_cards_found",
                                 "the `cards` patterns matched nothing — every `calls:` below is "
                                 "unverifiable here, not undescribed", "warning"))
@@ -934,7 +935,7 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                                         "(`maturity: designed`)", "warning"))
                 # `calls` is chosen while the contract is `designed`, and comparing it with the
                 # cards needs no inventory (issue #13). Only where the config declares `cards:`.
-                if config.get("cards"):
+                if config.get("cards") is not None:
                     for control in fm.get("controls") or []:
                         if not isinstance(control, dict):
                             continue
