@@ -1,0 +1,2 @@
+This case is about a maturity claim, not about paths; the directory exists so that `code_root`
+resolves and check 3 gets as far as the claim it is meant to exercise.

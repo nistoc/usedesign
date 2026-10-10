@@ -111,6 +111,17 @@ one**. It produces a rule that is right in the direction it was designed for and
 mirror, and it is the second time in three checks that a rule survived the design note and died in
 contact with the corpus.
 
+**It was narrowed a second time, by a real repository.** A service shipped its door before its
+room: sign-in and permission were built and tested, and the operation behind them answered 501.
+Four `designed` cards named those passing tests, and the rule called every one of them
+under-claimed. They were not — "its tests pass" was the same necessary condition read as a
+sufficient one, one level down. Passing tests of the door say nothing about the room. The rule now
+fires only when a passing test of the card's own covers its **last** step: the proof §5.2e rule 4
+already accepts that an operation goes all the way through, for the same reason. A card whose
+tests stop short of the last step is honestly `designed`, whatever else passes. The corpus pins
+both sides — `maturity-understated` (the last step covered: warned) and
+`maturity-understated-door-only` (only the door covered: quiet).
+
 ## 5. Diagnostics
 
 | Code | | Meaning |

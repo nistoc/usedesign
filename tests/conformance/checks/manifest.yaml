@@ -176,8 +176,20 @@ cases:
     expect: pass
     warnings: [maturity_understated]
     note: >-
-      The card claims `designed` while the test it names passes. Advisory, and on probation — no
-      real card in this repository under-claims, so there is no evidence the rule is safe.
+      The card claims `designed` while the test it names passes and covers its last step. Advisory,
+      and on probation — no real card in this repository under-claims, so there is no evidence the
+      rule is safe.
+
+  - dir: maturity-understated-door-only
+    check: 3
+    expect: pass
+    absent_warnings: [maturity_understated]
+    note: >-
+      A `designed` card whose two passing tests prove only the door — sign-in and permission — and
+      whose last step has no test: the operation behind the door answers 501. Its tests pass, and the
+      claim is still honest. Found on a real repository the first time a service shipped its door
+      before its room; the rule now asks for a passing test on the last step, the same proof §5.2e
+      rule 4 accepts that an operation goes all the way through.
 
   - dir: action-suffix
     check: 1

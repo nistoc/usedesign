@@ -633,10 +633,13 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
 
         # Tier 2 — the claim is derived from the report, not from prose.
         passing = []
+        covered = set()
         for test in fm.get("tests") or []:
             matched = find_cases(test.get("id", ""), by_full, by_name) if have_report else []
             if matched and all(c.status == "passed" for c in matched):
                 passing.append(test.get("id"))
+                refs = test.get("covers")
+                covered.update(r for r in (refs if isinstance(refs, list) else [refs]) if isinstance(r, str))
 
         if level >= LEVELS.index("tested") and not passing:
             findings.append(Finding(
@@ -648,10 +651,16 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
         # sufficient for it — one smoke test does not make an operation covered, and a checker
         # cannot judge which it is. Nagging every honest `implemented` card would retire this rule
         # within a week.
-        if have_report and level < LEVELS.index("implemented") and passing:
+        # And only when a passing test covers the LAST step — the proof §5.2e rule 4 accepts that
+        # an operation goes all the way through. Tests of the door alone (sign-in, permission) pass
+        # in front of an operation that answers 501; that card is honestly `designed`.
+        steps = [s.get("id") for s in fm.get("steps") or [] if isinstance(s, dict)]
+        last = steps[-1] if steps else None
+        if have_report and level < LEVELS.index("implemented") and isinstance(last, str) and last in covered:
             findings.append(Finding(
                 "maturity_understated",
-                f"{card_id}: claims `{maturity}` while {len(passing)} of its tests pass",
+                f"{card_id}: claims `{maturity}` while a passing test of its own covers its last step "
+                f"`{last}` ({len(passing)} of its tests pass)",
                 "warning"))
 
         # Tier 3 — what cannot be verified must expire.

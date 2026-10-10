@@ -19,7 +19,7 @@ clone as well as through `npx usedesign`.
 | | |
 |---|---|
 | Cards corpus | **84 / 84** |
-| Repository corpus | **54 / 54** |
+| Repository corpus | **55 / 55** |
 | Runtime | Node ≥ 20, no native modules |
 | Dependencies | `ajv`, `ajv-formats`, `yaml`, `fast-xml-parser` |
 

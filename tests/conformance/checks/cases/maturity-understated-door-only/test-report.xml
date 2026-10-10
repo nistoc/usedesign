@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="corpus" tests="2">
+  <testsuite name="corpus">
+    <testcase classname="DoorTests" name="without_a_token_is_401"/>
+    <testcase classname="DoorTests" name="outside_the_group_is_403"/>
+  </testsuite>
+</testsuites>

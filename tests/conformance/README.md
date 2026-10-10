@@ -123,7 +123,7 @@ how a fork begins.
 | `maturity_without_passing_test` | error | `tested` or above with no named test passing in the report |
 | `evidence_undated` | warning | An unverifiable claim with no date — it can never go stale |
 | `evidence_stale` | warning | A dated claim past the horizon. Reports silence, not absence |
-| `maturity_understated` | warning | A card below `implemented` whose tests pass. Advisory, and narrowed once already |
+| `maturity_understated` | warning | A card below `implemented` with a passing test on its last step. Advisory, and narrowed twice already |
 
 ## What the corpus deliberately does not test
 
