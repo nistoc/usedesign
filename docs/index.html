@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>usedesign — one description per operation</title>
-<meta name="description" content="A presentation of the Operation Card format (SPEC v1.0): one description per operation, with every screen, contract, test and migration pointing back to it.">
+<meta name="description" content="A presentation of the Operation Card format (SPEC v1.3): one description per operation, with every screen, contract, test and migration pointing back to it.">
 <style>
 /* ─────────────────────────────  tokens  ───────────────────────────── */
 :root{
@@ -1245,10 +1245,10 @@ svg.diagram{ width:100%; height:auto; display:block; }
                 <tr><th data-i18n="sA-04">Promised in this deck</th><th data-i18n="sA-05">What exists</th></tr>
               </thead>
               <tbody>
-                <tr><td data-i18n="sA-06">Specification and schema</td><td data-i18n="sA-07">SPEC v1.0 through 24 rounds; three schemas</td></tr>
+                <tr><td data-i18n="sA-06">Specification and schema</td><td data-i18n="sA-07">SPEC v1.3 through 28 rounds; three schemas</td></tr>
                 <tr><td data-i18n="sA-08">Three checks</td><td data-i18n="sA-09"><strong>Five:</strong> routes, steps, maturity, storage, forms</td></tr>
                 <tr><td data-i18n="sA-10">A CLI: <code>validate</code>, <code>gen openapi</code>, <code>check</code></td><td data-i18n="sA-11"><code>validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code> · <code>conformance</code>. <em class="hl2">gen openapi</em> never built — the direction reversed: the route inventory is <em class="hl">taken from</em> OpenAPI</td></tr>
-                <tr><td data-i18n="sA-12">A second implementation</td><td data-i18n="sA-13">A Python prototype; the same codes on 87 corpus cases</td></tr>
+                <tr><td data-i18n="sA-12">A second implementation</td><td data-i18n="sA-13">A Python prototype; the same codes on 133 corpus cases</td></tr>
                 <tr><td data-i18n="sA-14">Published</td><td data-i18n="sA-15">19 versions, 0.2.0 → 1.3.0, with provenance; publish is green only once the registry serves the box</td></tr>
                 <tr><td data-i18n="sA-16">Never promised here</td><td data-i18n="sA-17">Form contracts and check 5; a starter kit; drafts from OpenAPI; a foreign pilot</td></tr>
               </tbody>
@@ -1368,7 +1368,7 @@ svg.diagram{ width:100%; height:auto; display:block; }
           <ul class="mt-s anim">
             <li data-i18n="sC-06"><strong>Two gates, one box.</strong> Each product repository runs <code class="mono">npx usedesign@&lt;pin&gt;</code> from the registry; nothing is installed, the version is frozen per repository.</li>
             <li data-i18n="sC-07"><strong>Evidence is what the product says about itself.</strong> A route inventory, a JUnit report, a live-store inventory, real components rendered per state. Sources are never parsed.</li>
-            <li data-i18n="sC-08"><strong>Two readings, one corpus.</strong> The TypeScript box and the Python prototype must report the same codes on 87 cases before anything is published.</li>
+            <li data-i18n="sC-08"><strong>Two readings, one corpus.</strong> The TypeScript box and the Python prototype must report the same codes on 133 cases before anything is published.</li>
           </ul>
         </div>
       </div>
@@ -1382,8 +1382,8 @@ svg.diagram{ width:100%; height:auto; display:block; }
 
         <div class="grid g-side mt-l">
           <ul class="roadmap">
-            <li data-i18n="s20-03" class="done anim"><span class="box">✓</span><span><strong>Specification, schema, examples, starter kit</strong><br><span class="sub small">SPEC v1.0 through 24 rounds; three schemas; five cards over a fictional library</span></span></li>
-            <li data-i18n="s20-04b" class="done anim"><span class="box">✓</span><span><strong>Two implementations, one corpus, CI</strong><br><span class="sub small">TypeScript on three Node versions and a Python prototype agree on 54 + 39 cases; all five checks</span></span></li>
+            <li data-i18n="s20-03" class="done anim"><span class="box">✓</span><span><strong>Specification, schema, examples, starter kit</strong><br><span class="sub small">SPEC v1.3 through 28 rounds; three schemas; five cards over a fictional library</span></span></li>
+            <li data-i18n="s20-04b" class="done anim"><span class="box">✓</span><span><strong>Two implementations, one corpus, CI</strong><br><span class="sub small">TypeScript on three Node versions and a Python prototype agree on 82 + 51 cases; all five checks</span></span></li>
             <li data-i18n="s20-05" class="done anim"><span class="box">✓</span><span><code>usedesign validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code><br><span class="sub small">Named codes; five invariants; a frontend gate sees the server’s cards</span></span></li>
             <li data-i18n="s20-05b" class="done anim"><span class="box">✓</span><span><strong>Published, with build provenance</strong><br><span class="sub small">19 versions, 0.2.0 → 1.3.0; the run waits for the box</span></span></li>
             <li data-i18n="s20-06" class="anim"><span class="box">✗</span><span><code>usedesign gen openapi</code><br><span class="sub small">Dropped — the direction reversed: the inventory is taken from OpenAPI</span></span></li>
@@ -1739,9 +1739,9 @@ window.USEDESIGN_RU = {
 
 's20-01': '22 — куда это идёт',
 's20-02': 'Дорожная карта',
-'s20-03': '<span class="box">✓</span><span><strong>Спецификация, схема, примеры, стартовый набор</strong><br><span class="sub small">SPEC v1.0 через 24 захода; три схемы; пять карточек на выдуманной библиотеке</span></span>',
+'s20-03': '<span class="box">✓</span><span><strong>Спецификация, схема, примеры, стартовый набор</strong><br><span class="sub small">SPEC v1.3 через 28 заходов; три схемы; пять карточек на выдуманной библиотеке</span></span>',
 's20-04': '<span class="box">✓</span><span><strong>Примеры и стартовый набор</strong><br><span class="sub small">Пять карточек на выдуманной библиотеке; первый час команды</span></span>',
-'s20-04b': '<span class="box">✓</span><span><strong>Две реализации, один корпус, CI</strong><br><span class="sub small">TypeScript на трёх версиях Node и прототип на Python согласны на 54 + 39 случаях; все пять проверок</span></span>',
+'s20-04b': '<span class="box">✓</span><span><strong>Две реализации, один корпус, CI</strong><br><span class="sub small">TypeScript на трёх версиях Node и прототип на Python согласны на 82 + 51 случаях; все пять проверок</span></span>',
 's20-05': '<span class="box">✓</span><span><code>usedesign validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code><br><span class="sub small">Именованные коды; пять инвариантов; гейт фронта видит карточки сервера</span></span>',
 's20-07': '<span class="box">✓</span><span><code>usedesign check</code><br><span class="sub small">Пять инвариантов; гейт фронта видит карточки сервера через соседний checkout</span></span>',
 's20-07b': '<span class="box">✓</span><span><strong>Эталонная реализация и CI</strong><br><span class="sub small">TypeScript на трёх версиях Node; рядом прототип на Python</span></span>',
@@ -1778,13 +1778,13 @@ window.USEDESIGN_RU = {
 'sA-04': 'Обещано в этой колоде',
 'sA-05': 'Что есть',
 'sA-06': 'Спецификация и схема',
-'sA-07': 'SPEC v1.0 через 24 захода; три схемы',
+'sA-07': 'SPEC v1.3 через 28 заходов; три схемы',
 'sA-08': 'Три проверки',
 'sA-09': '<strong>Пять:</strong> маршруты, шаги, зрелость, хранилище, формы',
 'sA-10': 'CLI: <code>validate</code>, <code>gen openapi</code>, <code>check</code>',
 'sA-11': '<code>validate</code> · <code>check</code> · <code>preview</code> · <code>scaffold</code> · <code>conformance</code>. <em class="hl2">gen openapi</em> не построен — направление развернулось: перечень маршрутов <em class="hl">берётся из</em> OpenAPI',
 'sA-12': 'Вторая реализация',
-'sA-13': 'Прототип на Python; одни коды на 87 случаях корпуса',
+'sA-13': 'Прототип на Python; одни коды на 133 случаях корпуса',
 'sA-14': 'Опубликован',
 'sA-15': '19 версий, 0.2.0 → 1.3.0, с подписью происхождения; публикация зелёная, только когда реестр отдаёт коробку',
 'sA-16': 'Здесь не обещалось',
@@ -1812,7 +1812,7 @@ window.USEDESIGN_RU = {
 'sC-05': 'Три репозитория на одной странице: формат с двумя проверяющими и корпусом; сервер с карточками операций; фронт с контрактами форм. Панорамирование, масштаб, трассировка связи, смена темы.',
 'sC-06': '<strong>Два гейта, одна коробка.</strong> Каждый репозиторий продукта запускает <code class="mono">npx usedesign@&lt;pin&gt;</code> из реестра; ничего не ставится, версия закреплена на репозиторий.',
 'sC-07': '<strong>Доказательство — то, что продукт говорит о себе.</strong> Перечень маршрутов, отчёт JUnit, перечень живого хранилища, настоящие компоненты, отрендеренные по состояниям. Исходники не разбираются никогда.',
-'sC-08': '<strong>Два чтения, один корпус.</strong> Коробка на TypeScript и прототип на Python обязаны давать одни коды на 87 случаях, прежде чем что-либо публикуется.',
+'sC-08': '<strong>Два чтения, один корпус.</strong> Коробка на TypeScript и прототип на Python обязаны давать одни коды на 133 случаях, прежде чем что-либо публикуется.',
 's20-06b': '<span class="box">✓</span><span><strong>Версия 1.0 — объявлена 13 сентября 2026</strong><br><span class="sub small">Критерий держался семнадцать заходов; обязательные ключи заморожены, новые проверки приходят предупреждениями</span></span>',
 's20-06c': '<span class="box"></span><span><strong>95 маршрутов первого продукта</strong><br><span class="sub small">Внедрение, а не инструмент: десять первых названы, все десять описаны — карточки у 18 из 113 маршрутов</span></span>',
 's20-14b': 'docs/architecture.html — карта',
@@ -1821,7 +1821,7 @@ window.USEDESIGN_RU = {
 
 window.USEDESIGN_RU_META = {
   title: 'usedesign — одно описание на операцию',
-  description: 'Презентация формата «карточка операции» (SPEC v1.0): одно описание на операцию, на которое ссылаются каждый экран, контракт, тест и миграция.',
+  description: 'Презентация формата «карточка операции» (SPEC v1.3): одно описание на операцию, на которое ссылаются каждый экран, контракт, тест и миграция.',
   themeLabel: 'Переключить светлую или тёмную тему',
   langLabel: 'Switch language to English',
   langButton: 'EN',

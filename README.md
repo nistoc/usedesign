@@ -157,7 +157,7 @@ enshrining one tool's bugs.
 
 The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
 [impl/](impl/) rather than by default. It validates cards against the schema and the cross-card
-rules, runs all three checks, and passes both corpora — **24 / 24 cards and 23 / 23 repository cases**.
+rules, runs all three checks, and passes both corpora — **82 / 82 cards and 51 / 51 repository cases**.
 
 ```bash
 npx usedesign check usedesign.config.yaml
@@ -174,7 +174,7 @@ report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 54 card cases and 39 repository cases, verdicts, codes **and warnings**
+- [x] Conformance corpus — 82 card cases and 51 repository cases, verdicts, codes **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))
@@ -190,7 +190,7 @@ report about the same repository.
       components, and the errors are the product's TODO list (SPEC §7.5); form contracts are
       validated with named codes, grouping by purpose included, group membership verified
       against the rendered container chains
-- [x] `usedesign check` — the five checks, holding the 29-case repository corpus; a repository
+- [x] `usedesign check` — the five checks, holding the 51-case repository corpus; a repository
       declares which checks apply to it (`checks: [5]`, SPEC §7.6)
 - [x] `usedesign scaffold` — a draft card per undescribed route, read from the application's own
       OpenAPI. Every draft fails validation on purpose: a shell that validated would look like a
