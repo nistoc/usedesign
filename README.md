@@ -115,6 +115,13 @@ path with nothing to validate instead of passing it, and a card whose front matt
 read — a line above the opening `---`, no closing `---`, YAML that does not parse — is counted and
 reported as an error, not skipped in silence (issue #14).
 
+**1.4.1** changes the tools, not the format. `validate` refuses a path that does not exist by
+name, with exit 2, as the Python implementation does; 1.4.0 read it as a card whose front
+matter is not valid YAML, counted it and exited 1 (issue #14). Check 3 warns
+`maturity_understated` only when a passing test of the card's own covers its last step: tests
+that prove only the door — sign-in, permission — pass in front of an operation that is not built
+yet, and that card is honestly `designed` (`design/maturity-evidence.md` §4).
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in
