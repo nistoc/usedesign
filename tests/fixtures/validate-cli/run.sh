@@ -42,6 +42,11 @@ for impl in ts py; do
   expect 2 "${v[@]}" docs;                  says "nothing to validate"
   expect 2 "${v[@]}" docs/notes.md;         says "has no front matter"
   expect 2 "${v[@]}" "$scratch/bin.dat";    says "has no front matter"
+  # A path that does not exist is refused by name, alone or beside a good one — never read as a card
+  # whose front matter is not valid YAML (1.4.0 did that: «1 card(s)», exit 1).
+  expect 2 "${v[@]}" nope;                  says "\`nope\`: no such file or directory"
+  expect 2 "${v[@]}" cards nope.op.md;      says "\`nope.op.md\`: no such file or directory"
+  grep -q "card(s)" "$out" && fail "a missing path must stop the run before any card is counted"
 
   # A collected card whose front matter cannot be read is an error and is counted, not skipped (#14):
   # a line above the fence, no closing fence, YAML that does not parse, a list where fields belong.

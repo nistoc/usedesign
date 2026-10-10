@@ -98,11 +98,16 @@ function readFront(path: string): { fm: Record<string, any> | null; problem: str
 
 function commandValidate(paths: string[], withSchema: boolean): number {
   // Round 29 (issue #14): a path that exists and yields nothing to validate is refused, as a path
-  // that does not exist already is (exit 2). Before, it was dropped without a word and the summary
+  // that does not exist is (exit 2). Before, it was dropped without a word and the summary
   // reported a clean result over an empty set — the config, the natural wrong argument, included.
   const refusals: string[] = [];
   for (const path of paths) {
-    if (!existsSync(path)) continue; // reported below as before: ENOENT, exit 2
+    // 1.4.1: refused here and named, as in the Python twin. 1.4.0 passed it on to `readFront`, which
+    // read the ENOENT as front matter that is not valid YAML — counted a card, exit 1 instead of 2.
+    if (!existsSync(path)) {
+      refusals.push(`\`${path}\`: no such file or directory`);
+      continue;
+    }
     if (statSync(path).isDirectory()) {
       if (collectCards([path]).length === 0) {
         refusals.push(`\`${path}\` holds no card (*.op.md) and no form contract (*.contract.md) — nothing to validate`);
