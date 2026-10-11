@@ -142,6 +142,20 @@ traceback). The 1.4.1 tool dropped a link that leads nowhere in silence; its `va
 without read permission as front matter that is not valid YAML, and its `check` stopped on one with
 a bare system error; the Python implementation stopped on both with a traceback.
 
+**1.4.3** changes the tools, not the format. Two cards — or two contracts — with one id stop
+`validate` with exit 2, and both files are named: 1.4.2 kept one of them and dropped the other in
+silence. A field of another type than the schema gives it — `steps: 5`, an interface that is a
+text, a step id that is a number — no longer stops `validate` with a stack trace: the rules read it
+as absent, and the schema names what is wrong. In check 3, `since: 2026-02-30` is no date and is
+reported as `evidence_undated`; 1.4.2 carried it over to 2 March and called the claim stale or
+fresh by the clock. `?` in a pattern matches one character outside the Basic Multilingual Plane
+too, not one half of it. Collection lists each directory once (24 000 files: 2.6 s → 0.3 s), and
+`validate` collects once. The Python prototype now validates against the JSON Schema as the
+reference does — the same messages, in the same order — reads the front matter as YAML 1.2,
+counts days in UTC, orders text as JavaScript does and reads a field only in its type; the two
+print the same lines on the corpus and on the fixtures of `tests/fixtures/validate-cli/`. The
+corpus holds 84 + 56 cases.
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in
