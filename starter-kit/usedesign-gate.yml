@@ -92,10 +92,10 @@ jobs:
 
           # `2>&1`: с 1.4.0 validate отказывает пустому `cards/` (код 2) и пишет причину в stderr —
           # без перенаправления сводка показала бы пустую строку вместо причины.
-          npx --yes usedesign@1.4.0 validate usedesign/cards/ 2>&1 | tee /tmp/ud-validate.txt
+          npx --yes usedesign@1.4.2 validate usedesign/cards/ 2>&1 | tee /tmp/ud-validate.txt
           VSTATUS=${PIPESTATUS[0]}
 
-          npx --yes usedesign@1.4.0 check usedesign/usedesign.config.yaml | tee /tmp/ud-check.txt
+          npx --yes usedesign@1.4.2 check usedesign/usedesign.config.yaml | tee /tmp/ud-check.txt
           STATUS=${PIPESTATUS[0]}
 
           {
