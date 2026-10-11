@@ -122,6 +122,26 @@ matter is not valid YAML, counted it and exited 1 (issue #14). Check 3 warns
 that prove only the door — sign-in, permission — pass in front of an operation that is not built
 yet, and that card is honestly `designed` (`design/maturity-evidence.md` §4).
 
+**1.4.2** changes the tools, not the format: both implementations collect the files a pattern
+names with one algorithm, step for step, and read them alike. Before, the TypeScript walk and
+Python's glob found different files in places. A directory reached through a link is read, and a
+loop of links is walked once (the TypeScript tool skipped such a directory; Python's glob walked
+the loop to the system's depth limit). A card reached two ways — a link, two patterns, two paths
+given to `validate` — is read once. A name that starts with a dot is matched only by a pattern
+segment that starts with a dot: drafts in `.drafts/` and an editor's lock file beside a card are
+not cards (the TypeScript tool read them). `[` and `]` in a pattern are plain characters, and
+letter case counts (Python's glob read `[ab]` as a set, and ignored case on Windows). A directory
+named like a card is not a document, and `**` at the end of a `cards:` pattern matches files, as
+Python's glob does. An entry that cannot be opened — a link that leads nowhere, a file without
+read permission — is a card that cannot be read: `validate` counts it as `missing_required_field`
+and names the cause (SPEC §6), and `check` and `preview` stop with exit 2 and name it. A directory
+whose list of files cannot be read stops `validate`, `check` and `preview` the same way (the
+TypeScript tool stopped with a bare system error; Python's glob passed over it in silence), and so
+does front matter that is not valid YAML in `check` (the Python `check` stopped with a
+traceback). The 1.4.1 tool dropped a link that leads nowhere in silence; its `validate` read a file
+without read permission as front matter that is not valid YAML, and its `check` stopped on one with
+a bare system error; the Python implementation stopped on both with a traceback.
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in
