@@ -52,6 +52,17 @@ config wild      'checks: [3]' 'cards:' '  - linked/*/*.op.md'
 config loop      'checks: [3]' 'cards:' '  - loop/**'
 config forms2    'checks: [5]' 'forms:' '  - formsreal/*.contract.md' '  - formslinked/*.contract.md' 'form_inventory: form-inventory.json'
 config formsdang 'checks: [5]' 'forms:' '  - formsdang/*.contract.md' 'form_inventory: form-inventory.json'
+# One id, one document (1.4.3): two cards with one id, two contracts with one id; two cards with
+# no id at all are not twins. A name of one character outside the BMP — two UTF-16 code units —
+# matched by `?`; ids that sort apart by code point and by UTF-16 code unit (U+FF5E, U+1F600).
+mkdir -p "$scratch/sameid" "$scratch/sameform" "$scratch/noid" "$scratch/astral" "$scratch/order"
+cp "$card" "$scratch/sameid/a.op.md"; cp "$card" "$scratch/sameid/b.op.md"
+cp forms/session.contract.md "$scratch/sameform/a.contract.md"; cp forms/session.contract.md "$scratch/sameform/b.contract.md"
+sed '/^id: /d' "$card" > "$scratch/noid/a.op.md"; sed '/^id: /d' "$card" > "$scratch/noid/b.op.md"
+grin="$(printf '\360\237\230\200')"; tilde="$(printf '\357\275\236')"
+cp "$card" "$scratch/astral/$grin.op.md"
+as "$grin" > "$scratch/order/a.op.md"; as "$tilde" > "$scratch/order/b.op.md"
+config astral    'checks: [3]' 'cards:' '  - astral/?.op.md'
 # A symbolic link; on Windows without the right to make one, a junction, which both implementations
 # follow as they follow a link.
 link() {
@@ -137,6 +148,15 @@ for impl in ts py; do
   expect 1 "${c[@]}" "$scratch/upper.config.yaml"; says "no_cards_found"
   # Front matter that does not parse stops `check` with exit 2 and the card's name.
   expect 2 "${c[@]}" "$scratch/badyaml.config.yaml"; says "badyaml.op.md\` front matter is not valid YAML"
+  # Two documents with one id stop the run with both names (1.4.3): kept by id, one of them left
+  # the run without a word. Two cards with no id are two cards, each refused for it.
+  expect 2 "${v[@]}" "$scratch/sameid";     says "carry the same id \`sample.session.finish\`"
+  says "a.op.md\` and \`"; says "b.op.md\` carry"
+  grep -q "card(s)" "$out" && fail "two cards with one id must stop the run before any card is counted"
+  expect 2 "${v[@]}" "$scratch/sameform";   says "carry the same id \`sample.session.panel\`"
+  expect 1 "${v[@]}" "$scratch/noid";       says "2 card(s), 0 form contract(s)"
+  # `?` is one character, one outside the BMP too (1.4.3); the reference took one UTF-16 code unit.
+  expect 0 "${c[@]}" "$scratch/astral.config.yaml"; says "1 card(s), 0 evidence path(s)"
   if [ "$links" = yes ]; then
     # A directory reached through a link is read, and a card reached two ways is read once — by one
     # pattern, by two patterns, by two paths given to `validate`.
@@ -176,6 +196,18 @@ for impl in ts py; do
   echo "  ok"
 done
 
+# Both implementations order documents as JavaScript compares text, by UTF-16 code unit (1.4.3):
+# U+1F600 before U+FF5E. Python compared code points and printed the two cards the other way round.
+echo "— order, line for line"
+node "$root/impl/typescript/dist/cli.js" validate "$scratch/order" > "$scratch/order.ts.txt" 2>&1
+python "$root/impl/python/validate.py" "$scratch/order" > "$scratch/order.py.txt" 2>&1
+if ! diff --strip-trailing-cr "$scratch/order.ts.txt" "$scratch/order.py.txt"; then
+  echo "::error::validate orders the cards differently in the two implementations"; exit 1
+fi
+[ "$(grep -m1 -o "^  [A-Za-z]* *[ab]\.op\.md" "$scratch/order.ts.txt" | grep -o "[ab]\.op\.md")" = a.op.md ] \
+  || { echo "::error::the card with U+1F600 must come first"; cat "$scratch/order.ts.txt"; exit 1; }
+echo "  ok"
+
 # Both implementations count «N days ago» in UTC (1.4.3); Python counted from the local date, a day
 # apart near midnight east or west of UTC. At any hour the local date of one of these two zones
 # differs from UTC's: UTC+13 from 11:00 UTC on, UTC−11 before it.
@@ -207,6 +239,6 @@ for flag in "" --no-schema; do
 done
 grep -q "schema_violation" "$scratch/schema.ts.txt" && { echo "::error::--no-schema still reports schema_violation"; exit 1; }
 node "$root/impl/typescript/dist/cli.js" validate schema > "$out" 2>&1
-# Two empty outputs are the same too: the schema must have spoken (38 lines at 1.4.3).
+# Two empty outputs are the same too: the schema must have spoken (74 lines at 1.4.3).
 [ "$(grep -c "schema_violation" "$out")" -ge 20 ] || { echo "::error::schema/ drew too few schema_violation lines"; cat "$out"; exit 1; }
 echo "  ok"

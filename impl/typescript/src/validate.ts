@@ -103,6 +103,25 @@ const GROUP_KEYS = new Set(["group", "role", "contains", "note"]);
 const GROUP_ROLES = ["header", "footer", "section", "table", "list", "toolbar", "menu"];
 const REMOVED_KEYS = new Set(["control", "was", "verdict"]);
 
+// ── reading a field in its type (1.4.3) ─────────────────────────────────────────────────────
+//
+// A rule reads a field only in the type the format gives it: a list as a list, a map as a map, an
+// id, a reference or a name as a string, a status as an integer. Any other value is absent to the
+// rules, and the schema layer names its type. Before, a number where a list belongs threw here
+// (`responses: 412`), a string was walked letter by letter as if it were steps, `[]` counted as a
+// value here and as nothing in the Python prototype, which stopped with a traceback on most of
+// these. An enumeration keeps its own rule: a value outside the list, of whatever type, is reported
+// as written. A key is looked up among the map's own keys — `toString` is not an outcome.
+const isMap = (value: unknown): value is Record<string, any> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+const list = (value: unknown): any[] => (Array.isArray(value) ? value : []);
+const map = (value: unknown): Record<string, any> => (isMap(value) ? value : {});
+const text = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
+const status = (value: unknown): number | undefined => (Number.isInteger(value) ? (value as number) : undefined);
+/** Absent for a required key: not written, null, or an empty string. */
+const absent = (value: unknown): boolean => value === undefined || value === null || value === "";
+const has = (object: object, key: string): boolean => Object.prototype.hasOwnProperty.call(object, key);
+
 /**
  * One line names ONE anchor or ONE family, never both and never neither. A family (issue #10)
  * is a pattern with `*`; a "pattern" without a wildcard is a literal wearing the wrong key,
@@ -115,13 +134,13 @@ function anchorOrFamily(
   where: string,
   err: (code: string, detail: string) => void,
 ): string | undefined {
-  const literal = line[literalKey];
-  const pattern = line[patternKey];
+  const literal = text(line[literalKey]);
+  const pattern = text(line[patternKey]);
   if (!literal && !pattern) err("missing_required_field", `${where}: \`${literalKey}\` (or \`${patternKey}\`) is absent`);
   if (literal && pattern) {
     err("literal_and_pattern", `${where}: both \`${literalKey}\` and \`${patternKey}\` — one line names one anchor or one family, never both`);
   }
-  if (pattern && !String(pattern).includes("*")) {
+  if (pattern && !pattern.includes("*")) {
     err("pattern_without_wildcard", `${where}: \`${pattern}\` has no \`*\` — a family without a wildcard is a literal; write \`${literalKey}:\``);
   }
   const atLeast = line["at_least"];
@@ -131,7 +150,7 @@ function anchorOrFamily(
   if (atLeast !== undefined && !pattern) {
     err("malformed_at_least", `${where}: \`at_least\` belongs to a family line (\`${patternKey}\`) — a single anchor is present or it is not`);
   }
-  return literal ? String(literal) : pattern ? String(pattern) : undefined;
+  return literal || pattern || undefined;
 }
 
 /**
@@ -157,7 +176,7 @@ export function validateForm(
     if (!FORM_KEYS.has(key)) err("unknown_field", `\`${key}\` is not part of the form contract format`);
   }
 
-  const formId: string = fm["id"] ?? "";
+  const formId: string = text(fm["id"]) ?? "";
   if (formId && !OPERATION_ID.test(formId)) {
     err("malformed_form_id", `\`${formId}\` is not <area>.<object>.<name>`);
   }
@@ -173,15 +192,15 @@ export function validateForm(
   // every entry names the data state it lives in.
   const stateMap = fm["states"];
   if (stateMap !== undefined) {
-    if (!stateMap || typeof stateMap !== "object" || Array.isArray(stateMap)) {
+    if (!isMap(stateMap)) {
       err("malformed_states", "`states` must be a map of screen state → { data: <data state> }");
     } else {
       for (const [state, spec] of Object.entries<any>(stateMap)) {
-        if (!spec || typeof spec !== "object" || Array.isArray(spec)) {
+        if (!isMap(spec)) {
           err("missing_required_field", `states.${state}: \`data\` is absent`);
           continue;
         }
-        if (!spec["data"]) err("missing_required_field", `states.${state}: \`data\` is absent`);
+        if (!text(spec["data"])) err("missing_required_field", `states.${state}: \`data\` is absent`);
         for (const key of Object.keys(spec)) {
           if (!STATE_KEYS.has(key)) err("unknown_field", `states.${state}: \`${key}\` is not part of a state line`);
         }
@@ -189,11 +208,11 @@ export function validateForm(
     }
   }
 
-  const presents: any[] = Array.isArray(fm["presents"]) ? fm["presents"] : [];
+  const presents = list(fm["presents"]);
   const seenFields = new Set<string>();
   for (const [index, element] of presents.entries()) {
-    if (!element || typeof element !== "object") continue;
-    if (!element["shows"]) err("missing_required_field", `presents[${index}]: \`shows\` is absent`);
+    if (!isMap(element)) continue;
+    if (!text(element["shows"])) err("missing_required_field", `presents[${index}]: \`shows\` is absent`);
     for (const key of Object.keys(element)) {
       if (!ELEMENT_KEYS.has(key)) err("unknown_field", `presents[${index}]: \`${key}\` is not part of an element line`);
     }
@@ -204,10 +223,10 @@ export function validateForm(
     }
   }
 
-  const controls: any[] = Array.isArray(fm["controls"]) ? fm["controls"] : [];
+  const controls = list(fm["controls"]);
   const seenControls = new Set<string>();
   for (const [index, control] of controls.entries()) {
-    if (!control || typeof control !== "object") continue;
+    if (!isMap(control)) continue;
     for (const key of Object.keys(control)) {
       if (!CONTROL_KEYS.has(key)) err("unknown_field", `controls[${index}]: \`${key}\` is not part of a control line`);
     }
@@ -216,9 +235,9 @@ export function validateForm(
       if (seenControls.has(name)) err("duplicate_control", `\`${name}\` appears more than once in controls`);
       seenControls.add(name);
     }
-    const opens = control["opens"];
+    const opens = text(control["opens"]);
     if (opens && knownForms !== null && !knownForms.has(opens)) {
-      warn("undescribed_form", `control \`${name}\` opens \`${opens}\`, which no contract in this set describes`);
+      warn("undescribed_form", `control \`${name ?? ""}\` opens \`${opens}\`, which no contract in this set describes`);
     }
     // `calls` names the operation a control runs, or null for local behaviour — and since round 27
     // the chain it runs, in call order: a draft's «save as plan» renames it, then publishes it.
@@ -243,7 +262,7 @@ export function validateForm(
       for (const [step, id] of chain.entries()) {
         if (!knownCards.has(id)) {
           const where = chain.length > 1 ? ` (step ${step + 1} of ${chain.length})` : "";
-          warn("form_calls_undescribed", `control \`${name}\` calls \`${id}\`${where}, which no card in this set describes`);
+          warn("form_calls_undescribed", `control \`${name ?? ""}\` calls \`${id}\`${where}, which no card in this set describes`);
         }
       }
     }
@@ -257,30 +276,31 @@ export function validateForm(
   const members = new Set([...seenFields, ...seenControls]);
   const seenGroups = new Set<string>();
   const claimed = new Map<string, string>();
-  for (const [index, group] of (Array.isArray(fm["groups"]) ? fm["groups"] : []).entries()) {
-    if (!group || typeof group !== "object") continue;
+  for (const [index, group] of list(fm["groups"]).entries()) {
+    if (!isMap(group)) continue;
     for (const required of ["group", "role", "contains"]) {
-      if (!group[required]) err("missing_required_field", `groups[${index}]: \`${required}\` is absent`);
+      if (absent(group[required])) err("missing_required_field", `groups[${index}]: \`${required}\` is absent`);
     }
     for (const key of Object.keys(group)) {
       if (!GROUP_KEYS.has(key)) err("unknown_field", `groups[${index}]: \`${key}\` is not part of a group line`);
     }
-    const name = group["group"];
+    const name = text(group["group"]);
     if (name) {
       if (seenGroups.has(name)) err("duplicate_group", `\`${name}\` appears more than once in groups`);
       seenGroups.add(name);
     }
     const role = group["role"];
-    if (role && !GROUP_ROLES.includes(role)) {
+    if (!absent(role) && !GROUP_ROLES.includes(role)) {
       err("invalid_enum_value", `groups[${index}]: role \`${role}\` is not one of ${GROUP_ROLES}`);
     }
-    for (const member of Array.isArray(group["contains"]) ? group["contains"] : []) {
+    for (const member of list(group["contains"])) {
+      if (typeof member !== "string") continue;
       if (!members.has(member)) {
-        err("unknown_group_member", `group \`${name}\` contains \`${member}\`, which no element or control declares`);
+        err("unknown_group_member", `group \`${name ?? ""}\` contains \`${member}\`, which no element or control declares`);
       }
       const already = claimed.get(member);
       if (already && already !== name) {
-        err("element_in_two_groups", `\`${member}\` sits in \`${already}\` and \`${name}\` — an element renders in one place`);
+        err("element_in_two_groups", `\`${member}\` sits in \`${already}\` and \`${name ?? ""}\` — an element renders in one place`);
       }
       if (name) claimed.set(member, name);
     }
@@ -288,13 +308,13 @@ export function validateForm(
 
   // One document both requiring and forbidding a control is not incompleteness — it is the
   // contract disagreeing with itself, and no amount of code can satisfy it.
-  for (const [index, removed] of (Array.isArray(fm["removed"]) ? fm["removed"] : []).entries()) {
-    if (!removed || typeof removed !== "object") continue;
-    if (!removed["control"]) err("missing_required_field", `removed[${index}]: \`control\` is absent`);
+  for (const [index, removed] of list(fm["removed"]).entries()) {
+    if (!isMap(removed)) continue;
+    if (!text(removed["control"])) err("missing_required_field", `removed[${index}]: \`control\` is absent`);
     for (const key of Object.keys(removed)) {
       if (!REMOVED_KEYS.has(key)) err("unknown_field", `removed[${index}]: \`${key}\` is not part of a removed line`);
     }
-    const name = removed["control"];
+    const name = text(removed["control"]);
     if (name && seenControls.has(name)) {
       err("removed_also_required", `\`${name}\` is listed in controls and in removed — the contract both requires and forbids it`);
     }
@@ -422,7 +442,7 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     if (!(field in fm)) err("missing_required_field", `\`${field}\` is absent`);
   }
 
-  const cardId: string = fm["id"] ?? "";
+  const cardId: string = text(fm["id"]) ?? "";
   if (cardId && !OPERATION_ID.test(cardId)) {
     err("malformed_operation_id", `\`${cardId}\` is not <area>.<object>.<action>`);
   }
@@ -443,26 +463,26 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // states — resume from finished | partial | abandoned. Measured on a live service, where the only
   // honest alternative was `from: any`, which switches the shown_when rule off. One state is written
   // as a string; a one-element set is that string wearing brackets.
-  const fromValue = fm["data_transition"] && typeof fm["data_transition"] === "object" ? fm["data_transition"].from : undefined;
+  const fromValue = map(fm["data_transition"]).from;
   if (Array.isArray(fromValue)) {
     if (fromValue.length < 2) err("malformed_transition", "`data_transition.from` as a set needs at least two states — one state is written as a string");
     if (new Set(fromValue.map(String)).size !== fromValue.length) err("malformed_transition", "`data_transition.from` lists the same state twice");
   }
 
   // ── steps ──────────────────────────────────────────────────────────────────────────────────
-  const steps: any[] = fm["steps"] ?? [];
+  const steps = list(fm["steps"]);
   const stepIds = new Set<string>();
   for (const step of steps) {
-    const sid: string = step?.id ?? "";
+    const sid: string = text(map(step).id) ?? "";
     if (!STEP_ID.test(sid)) err("malformed_step_id", `\`${sid}\` is not s<N>-<name>`);
     else if (stepIds.has(sid)) err("duplicate_step_id", `\`${sid}\` appears more than once`);
     stepIds.add(sid);
   }
 
   // ── maturity vs evidence ───────────────────────────────────────────────────────────────────
-  const evidence: Record<string, unknown> = fm["maturity_evidence"] ?? {};
-  const tests: any[] = fm["tests"] ?? [];
-  if (maturity && maturity in EVIDENCE_FOR) {
+  const evidence = map(fm["maturity_evidence"]);
+  const tests = list(fm["tests"]);
+  if (typeof maturity === "string" && has(EVIDENCE_FOR, maturity)) {
     // Every level implies the ones below it.
     for (const level of ["implemented", "tested", "in_production"]) {
       if (MATURITY.indexOf(maturity) >= MATURITY.indexOf(level)) {
@@ -480,21 +500,22 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // claim, and it rots by hand: cards keep "5 tests" after the sixth was cited, or after one was
   // dropped. The format's own example library was clean when this arrived; the product's cards had been kept in step by hand three times in one day.
   const testedProse = evidence["tested"];
-  const testedMatch = typeof testedProse === "number" ? [null, String(testedProse)] : /^\s*(\d+)/.exec(String(testedProse ?? ""));
+  const testedMatch =
+    typeof testedProse === "number" ? [null, String(testedProse)] : typeof testedProse === "string" ? /^\s*(\d+)/.exec(testedProse) : null;
   if (testedMatch && Number(testedMatch[1]) !== tests.length) {
     warn("tested_count_mismatch", `maturity_evidence.tested says ${testedMatch[1]}, tests[] lists ${tests.length} — the count went stale`);
   }
 
   // ── concurrency ────────────────────────────────────────────────────────────────────────────
-  const concurrency: Record<string, unknown> = fm["concurrency"] ?? {};
+  const concurrency = map(fm["concurrency"]);
   const mode = concurrency["mode"] as string | undefined;
   if (mode !== undefined && !CONCURRENCY_MODES.includes(mode)) {
     err("invalid_enum_value", `concurrency.mode \`${mode}\` is not one of ${CONCURRENCY_MODES}`);
   }
-  if (mode && mode !== "etag_required" && !concurrency["rationale"]) {
+  if (text(mode) && mode !== "etag_required" && !text(concurrency["rationale"])) {
     err("relaxation_without_rationale", `mode \`${mode}\` weakens protection without a rationale`);
   }
-  if (mode === "idempotency_by_formula" && !concurrency["formula"]) {
+  if (mode === "idempotency_by_formula" && !text(concurrency["formula"])) {
     err("missing_required_field", "idempotency_by_formula without `formula`");
   }
   // Round 24, from the first card a pilot's backend role wrote unaided: a soft delete that reads
@@ -509,42 +530,46 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   }
 
   // ── interfaces ─────────────────────────────────────────────────────────────────────────────
-  const interfaces: Record<string, any> = fm["interfaces"] ?? {};
+  const interfaces = map(fm["interfaces"]);
   if (Object.keys(interfaces).length === 0) {
     err("missing_required_field", "at least one interface is required");
   }
   for (const [name, iface] of Object.entries(interfaces)) {
-    const transport = iface?.transport;
-    if (!transport) err("missing_transport", `interface \`${name}\` does not declare a transport`);
+    const transport = map(iface).transport;
+    if (absent(transport)) err("missing_transport", `interface \`${name}\` does not declare a transport`);
     else if (!TRANSPORTS.includes(transport)) {
       err("invalid_enum_value", `interface \`${name}\`: transport \`${transport}\` is unknown`);
     }
-    for (const ref of iface?.covers_steps ?? []) {
+    for (const ref of list(map(iface).covers_steps)) {
+      if (typeof ref !== "string") continue;
       if (!stepIds.has(ref)) err("unknown_step_reference", `interface \`${name}\` covers unknown step \`${ref}\``);
     }
   }
 
   // ── tests ──────────────────────────────────────────────────────────────────────────────────
   const covered = new Set<string>();
-  for (const test of tests) {
-    const refs: any[] = Array.isArray(test?.covers) ? test.covers : [test?.covers];
+  for (const test of tests.map(map)) {
+    const id = text(test.id) ?? "";
+    const refs: unknown[] = Array.isArray(test.covers) ? test.covers : [test.covers];
     for (const ref of refs) {
-      if (!stepIds.has(ref)) err("unknown_step_reference", `test \`${test?.id}\` covers unknown step \`${ref}\``);
+      if (typeof ref !== "string") continue;
+      if (!stepIds.has(ref)) err("unknown_step_reference", `test \`${id}\` covers unknown step \`${ref}\``);
       covered.add(ref);
     }
-    if (!TEST_LEVELS.includes(test?.level)) {
-      err("invalid_enum_value", `test \`${test?.id}\`: level \`${test?.level}\` is unknown`);
+    if (test.level !== undefined && !TEST_LEVELS.includes(test.level)) {
+      err("invalid_enum_value", `test \`${id}\`: level \`${test.level}\` is unknown`);
     }
   }
 
-  const gaps = new Set<string>((fm["coverage_gaps"] ?? []).map((gap: any) => gap?.step));
+  const gapEntries = list(fm["coverage_gaps"]).filter(isMap);
+  const gaps = new Set<string>(gapEntries.map((gap) => gap.step).filter((step) => typeof step === "string"));
   for (const gap of gaps) {
     if (!stepIds.has(gap)) err("unknown_step_reference", `coverage_gaps names unknown step \`${gap}\``);
   }
-  for (const entry of (fm["coverage_gaps"] ?? []) as any[]) {
-    const kind = entry?.kind;
+  for (const entry of gapEntries) {
+    const kind = entry.kind;
     if (kind !== undefined && !GAP_KINDS.includes(kind)) {
-      err("invalid_enum_value", `coverage_gaps \`${entry?.step}\`: kind \`${kind}\` is not one of ${GAP_KINDS}`);
+      err("invalid_enum_value", `coverage_gaps \`${text(entry.step) ?? ""}\`: kind \`${kind}\` is not one of ${GAP_KINDS}`);
     }
   }
 
@@ -554,8 +579,9 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // shared code is its own evidence. Whether the original agrees is check 2's question.
   const inheritedSteps = new Set<string>();
   const variant = fm["variant_of"];
-  if (variant && typeof variant === "object") {
-    for (const sid of Array.isArray(variant.inherits) ? variant.inherits : []) {
+  if (isMap(variant)) {
+    for (const sid of list(variant.inherits)) {
+      if (typeof sid !== "string") continue;
       if (!stepIds.has(sid)) {
         err("variant_inherits_unlisted_step", `\`variant_of.inherits\` names \`${sid}\`, which is not one of this card's steps — a variant lists every step it runs`);
       }
@@ -563,7 +589,8 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     }
     if (evidence["implemented"] !== undefined && typeof variant.shared === "string") {
       const own = (Array.isArray(evidence["implemented"]) ? evidence["implemented"] : [evidence["implemented"]])
-        .flatMap((item: unknown) => String(item).split("+"))
+        .filter((item: unknown): item is string => typeof item === "string")
+        .flatMap((item) => item.split("+"))
         .map((part: string) => part.trim().replace(/:\d+$/, ""));
       const shared = variant.shared.trim().replace(/:\d+$/, "");
       if (!own.includes(shared)) {
@@ -583,20 +610,23 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // Three rules that need nothing but the card itself. Each one exists because the field it
   // guards is otherwise a claim nobody can be wrong about — and a claim nobody can be wrong
   // about is a claim nobody maintains.
-  const outcomes: any[] = fm["outcomes"] ?? [];
-  const outcomeIds = new Set<string>(outcomes.map((o: any) => o?.id));
+  const outcomes = list(fm["outcomes"]).map(map);
+  const outcomeIds = new Set<string>(outcomes.map((o) => o.id).filter((id) => typeof id === "string"));
+  const stepLines = steps.map(map);
+  const violation = (step: Record<string, any>) => map(step.on_violation);
 
   for (const [name, iface] of Object.entries<any>(interfaces)) {
-    const declared: number[] = iface?.responses ?? [];
+    const declared = list(map(iface).responses).filter((code) => status(code) !== undefined);
     if (declared.length === 0) continue; // the field is optional; absent is not a claim
 
     const returned = new Map<number, string>();
-    for (const step of steps) {
-      const code = step?.on_violation?.http;
-      if (typeof code === "number") returned.set(code, `step \`${step.id}\``);
+    for (const step of stepLines) {
+      const code = status(violation(step).http);
+      if (code !== undefined) returned.set(code, `step \`${text(step.id) ?? ""}\``);
     }
     for (const outcome of outcomes) {
-      if (typeof outcome?.http === "number") returned.set(outcome.http, `outcome \`${outcome.id}\``);
+      const code = status(outcome.http);
+      if (code !== undefined) returned.set(code, `outcome \`${text(outcome.id) ?? ""}\``);
     }
     for (const [code, who] of returned) {
       if (!declared.includes(code)) {
@@ -610,20 +640,21 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // shape of `steps[]` — violated, therefore stopped, therefore an error code — does not fit it.
   // A warning, not an error, because the honest bulk card would otherwise be unwritable.
   const perItem = fm["per_item"];
-  for (const step of steps) {
-    const code = step?.on_violation?.http;
-    if (typeof code === "number" && code >= 200 && code < 300) {
-      if (perItem) {
+  for (const step of stepLines) {
+    const code = status(violation(step).http);
+    const sid = text(step.id) ?? "";
+    if (code !== undefined && code >= 200 && code < 300) {
+      if (isMap(perItem)) {
         // With `per_item` declared there is a true place to write this, so writing it falsely
         // is a mistake rather than a shortage of vocabulary.
         err(
           "per_item_failure_as_violation",
-          `step \`${step.id}\` answers ${code}; this card declares \`per_item\`, so a per-item failure belongs there and carries no status`,
+          `step \`${sid}\` answers ${code}; this card declares \`per_item\`, so a per-item failure belongs there and carries no status`,
         );
       } else {
         warn(
           "violation_with_success_status",
-          `step \`${step.id}\` is violated yet answers ${code} — either a typo, or this is a per-item failure and belongs in \`per_item\``,
+          `step \`${sid}\` is violated yet answers ${code} — either a typo, or this is a per-item failure and belongs in \`per_item\``,
         );
       }
     }
@@ -634,12 +665,13 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // it. A request thread suspends on `done`, a *job state*, and waits there for a person. The
   // axis survived that; its check did not.
   const continuation = fm["continuation"];
-  if (continuation && typeof continuation === "object") {
-    const jobStates: string[] = fm["async_execution"]?.job_states ?? [];
-    if (!outcomeIds.has(continuation.after) && !jobStates.includes(continuation.after)) {
+  if (isMap(continuation)) {
+    const jobStates = list(map(fm["async_execution"]).job_states);
+    const after = text(continuation.after) ?? "";
+    if (!outcomeIds.has(after) && !jobStates.includes(after)) {
       err(
         "continuation_without_outcome",
-        `\`continuation.after\` names \`${continuation.after}\`, which is neither a declared outcome nor a job state`,
+        `\`continuation.after\` names \`${after}\`, which is neither a declared outcome nor a job state`,
       );
     }
   }
@@ -660,16 +692,19 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // which asks a genuinely different question. Six errors, all false, on the first honest card.
   const outcomeVocabulary = new Map<string, string>();
   for (const outcome of outcomes) {
-    if (outcome?.id) outcomeVocabulary.set(outcome.id, "outcomes");
+    const id = text(outcome.id);
+    if (id) outcomeVocabulary.set(id, "outcomes");
   }
   const transition = fm["data_transition"];
-  if (transition && typeof transition === "object") {
-    const targets: any[] = Array.isArray(transition.to) ? transition.to : transition.to ? [transition.to] : [];
-    for (const target of targets) outcomeVocabulary.set(target, "data_transition.to");
+  if (isMap(transition)) {
+    const targets: unknown[] = Array.isArray(transition.to) ? transition.to : [transition.to];
+    for (const target of targets) {
+      if (text(target)) outcomeVocabulary.set(target as string, "data_transition.to");
+    }
   }
-  for (const step of steps) {
-    const error = step?.on_violation?.error;
-    if (error) outcomeVocabulary.set(error, `step \`${step.id}\``);
+  for (const step of stepLines) {
+    const error = text(violation(step).error);
+    if (error) outcomeVocabulary.set(error, `step \`${text(step.id) ?? ""}\``);
   }
   // Per-item failures belong here and job states do not, and the line between them is not taste.
   // A per-item failure arrives in THIS call's response — the user is looking at the screen when
@@ -677,8 +712,9 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // measured a bulk screen that discards the response body entirely: ten items selected, three
   // rejected inside a 200, and the page says nothing at all. Without these in the vocabulary the
   // card had no way to admit it, which is the one thing this field exists to prevent.
-  for (const failure of fm["per_item"]?.failures ?? []) {
-    if (failure?.code) outcomeVocabulary.set(failure.code, "per_item failure");
+  for (const failure of list(map(perItem).failures)) {
+    const code = text(map(failure).code);
+    if (code) outcomeVocabulary.set(code, "per_item failure");
   }
   // Round 23 wrote two read cards whose screens could describe every refusal and not the one
   // ending the user came for. A read has no `data_transition.to`, and with a single ending it has
@@ -692,8 +728,8 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     .map(([id]) => id);
   const hasDefaultSuccess = namedSuccesses.length === 0;
   for (const [name, iface] of Object.entries<any>(interfaces)) {
-    const covers = iface?.covers_outcomes;
-    if (!covers || typeof covers !== "object") continue;
+    const covers = map(iface).covers_outcomes;
+    if (!isMap(covers)) continue;
     for (const key of Object.keys(covers)) {
       if (key === "ok") {
         if (!hasDefaultSuccess) {
@@ -712,7 +748,7 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
       }
     }
     for (const [id, where] of outcomeVocabulary) {
-      if (!(id in covers)) {
+      if (!has(covers, id)) {
         err(
           "outcome_not_covered",
           `interface \`${name}\`: outcome \`${id}\` (${where}) is absent from covers_outcomes — write it, even as null`,
@@ -724,7 +760,7 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     // A warning, not an error: cards written before round 23 had no way to name the success,
     // and a gate must not turn red on them for a word that did not exist when they were written.
     if (hasDefaultSuccess) {
-      if (!("ok" in covers)) {
+      if (!has(covers, "ok")) {
         warn(
           "default_success_uncovered",
           `interface \`${name}\`: the default success has no line in covers_outcomes — write \`ok:\`, even as null`,
@@ -758,13 +794,14 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   }
 
   for (const [name, iface] of Object.entries<any>(interfaces)) {
-    for (const parameter of iface?.parameters ?? []) {
-      if (parameter?.handling !== "decorative") continue;
-      const path: string = iface?.path ?? "";
-      if (!path.includes(`{${parameter.name}}`)) {
+    for (const parameter of list(map(iface).parameters).map(map)) {
+      const pname = text(parameter.name);
+      if (parameter.handling !== "decorative" || pname === undefined) continue;
+      const path = text(map(iface).path) ?? "";
+      if (!path.includes(`{${pname}}`)) {
         err(
           "decorative_parameter_not_in_path",
-          `interface \`${name}\`: \`${parameter.name}\` is declared decorative but does not appear in \`${path || "(no path)"}\``,
+          `interface \`${name}\`: \`${pname}\` is declared decorative but does not appear in \`${path || "(no path)"}\``,
         );
       }
     }
@@ -790,8 +827,8 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   // #1: a compliance read had to pick between two lies, and the smaller lie was still a lie.
   if ("data_transition" in fm && fm["data_transition"] === null) {
     const provenance = fm["provenance"];
-    const recordsOnly = provenance && typeof provenance === "object" && provenance.records_only === true;
-    if (!fm["mutates"] && provenance !== "none" && !recordsOnly) {
+    const recordsOnly = isMap(provenance) && provenance.records_only === true;
+    if (!writesWithoutTransition && provenance !== "none" && !recordsOnly) {
       err(
         "write_without_effect",
         "`data_transition: null` with neither `mutates`, `provenance: none`, nor `records_only: true` — the write does not say what it changes",
@@ -801,16 +838,13 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
 
   // ── cross-card references ──────────────────────────────────────────────────────────────────
   if (knownIds !== null) {
-    const reversibility = fm["reversibility"];
-    if (reversibility && typeof reversibility === "object") {
-      const target = reversibility.reversible_via;
-      if (target && !knownIds.has(target)) {
-        warn("undescribed_counterpart", `\`reversible_via\` points at undescribed \`${target}\``);
-      }
+    const target = text(map(fm["reversibility"]).reversible_via);
+    if (target && !knownIds.has(target)) {
+      warn("undescribed_counterpart", `\`reversible_via\` points at undescribed \`${target}\``);
     }
-    const serves = fm["serves_step"];
-    if (serves && !knownIds.has(serves.operation)) {
-      warn("undescribed_counterpart", `\`serves_step\` points at undescribed \`${serves.operation}\``);
+    const serves = text(map(fm["serves_step"]).operation);
+    if (serves !== undefined && !knownIds.has(serves)) {
+      warn("undescribed_counterpart", `\`serves_step\` points at undescribed \`${serves}\``);
     }
   }
 

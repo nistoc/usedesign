@@ -143,19 +143,44 @@ function commandValidate(paths: string[], withSchema: boolean): number {
   const files = once(keyed);
   // Two document kinds share one command, told apart by the front-matter marker. Cross-reference
   // sets are per-kind: a form's `opens` must name a form, never an operation.
-  const cards = new Map<string, { path: string; fm: Record<string, any> }>();
-  const forms = new Map<string, { path: string; fm: Record<string, any> }>();
+  type Doc = { path: string; fm: Record<string, any> };
+  const cards: Doc[] = [];
+  const forms: Doc[] = [];
   // A card or contract file without front matter — one empty line or a heading above the opening
   // fence — used to vanish from the count. It is counted and named now, with its cause.
   const unreadable: { path: string; problem: string }[] = [];
   for (const path of files) {
     const { fm, problem } = readFront(path);
-    if (fm) (fm["usedesign_form"] === 1 ? forms : cards).set(String(fm["id"]), { path, fm });
+    if (fm) (fm["usedesign_form"] === 1 ? forms : cards).push({ path, fm });
     else unreadable.push({ path, problem });
   }
+  // One id, one document (1.4.3). Kept by id, the second file of an id replaced the first, and one
+  // card left the run without a word — `2 card(s)` for three files; so did two cards without an
+  // id. Which of the two the others point at cannot be told, so the run stops and names both.
+  const twins: string[] = [];
+  for (const documents of [cards, forms]) {
+    const first = new Map<string, string>();
+    for (const { path, fm } of documents) {
+      const id = fm["id"];
+      if (typeof id !== "string" || !id) continue;
+      const before = first.get(id);
+      if (before === undefined) first.set(id, path);
+      else twins.push(`\`${before}\` and \`${path}\` carry the same id \`${id}\` — an id names one document, and the others point at it by that id`);
+    }
+  }
+  if (twins.length > 0) {
+    for (const twin of twins) console.error(`usedesign validate: ${twin}`);
+    return 2;
+  }
   const unreadableForms = unreadable.filter(({ path }) => path.endsWith(".contract.md")).length;
-  const known = new Set(cards.keys());
-  const knownForms = new Set(forms.keys());
+  const idsOf = (documents: Doc[]) =>
+    new Set(documents.map(({ fm }) => fm["id"]).filter((id): id is string => typeof id === "string"));
+  const known = idsOf(cards);
+  const knownForms = idsOf(forms);
+  // By id as String() writes it, then by path.
+  const before = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+  const inOrder = (documents: Doc[]) =>
+    [...documents].sort((a, b) => before(String(a.fm["id"]), String(b.fm["id"])) || before(a.path, b.path));
 
   let errorCount = 0;
   let warningCount = 0;
@@ -165,14 +190,14 @@ function commandValidate(paths: string[], withSchema: boolean): number {
     warningCount += warnings(findings).length;
   };
   for (const { path, problem } of unreadable) show(path, [new Finding("missing_required_field", problem)]);
-  for (const [, { path, fm }] of [...cards.entries()].sort()) {
+  for (const { path, fm } of inOrder(cards)) {
     show(path, [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known)]);
   }
-  for (const [, { path, fm }] of [...forms.entries()].sort()) {
-    show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms, cards.size > 0 ? known : null)]);
+  for (const { path, fm } of inOrder(forms)) {
+    show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms, cards.length > 0 ? known : null)]);
   }
   console.log(
-    `\n${cards.size + unreadable.length - unreadableForms} card(s), ${forms.size + unreadableForms} form contract(s): ` +
+    `\n${cards.length + unreadable.length - unreadableForms} card(s), ${forms.length + unreadableForms} form contract(s): ` +
       `${errorCount} error(s), ${warningCount} warning(s)`,
   );
   return errorCount > 0 ? 1 : 0;

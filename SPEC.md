@@ -613,10 +613,12 @@ being reported, in silence. The rule has known limits:
 - **The two runtimes still differ at the edges, as in 1.2.** Trimming is each runtime's own:
   Python's `strip()` also removes U+0085 and U+001C–U+001F, JavaScript's `trim()` also removes
   U+FEFF, so a value compared whole that begins or ends with one of them is grouped differently.
-  The Python prototype reads YAML 1.1, where a bare `no`, `off`, `1:20` or a date is not text and
-  is not compared; quote such a value. YAML 1.1 also reads a raw U+0085, U+2028 or U+2029 as a line
-  break: inside an unquoted value it can stop PyYAML with a `ScannerError`, and the Python
-  prototype aborts the run where TypeScript reads the value. Quoting stops the abort, but only an
+  Up to 1.4.2 the Python prototype read YAML 1.1, where a bare `no`, `off`, `1:20` or a date is
+  not text and was not compared; since 1.4.3 it resolves values as the TypeScript parser does
+  (YAML 1.2), and they are text in both. Its scanner is still PyYAML's, which reads a raw U+0085,
+  U+2028 or U+2029 as a line break: inside an unquoted value it can stop PyYAML with a
+  `ScannerError`, and the Python prototype refuses the card as front matter that is not valid YAML
+  where TypeScript reads the value. Quoting stops the refusal, but only an
   escape in double quotes — `"\x85"`, `"\u2028"` — gives both readers the same text: inside
   quotes PyYAML folds a raw U+0085 into a space and drops the spaces around a raw U+2028 or
   U+2029. Write a character beyond U+FFFF as `\U0001F600`, never as a surrogate pair

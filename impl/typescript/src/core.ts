@@ -130,10 +130,14 @@ export function loadConfig(path: string): { config: Config; base: string } {
   return { config, base: dirname(resolve(path)) };
 }
 
-/** Translate one glob segment into a regular expression. `*` and `?` do not cross a separator. */
+/**
+ * Translate one glob segment into a regular expression. `*` and `?` do not cross a separator, and
+ * `?` is one character — one code point, as in the Python prototype: without the `u` flag it was
+ * one UTF-16 unit, and `?.op.md` missed `😀.op.md` (1.4.3).
+ */
 function segmentToRegExp(segment: string): RegExp {
   const escaped = segment.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/\\\\]*").replace(/\?/g, "[^/\\\\]");
-  return new RegExp(`^${escaped}$`);
+  return new RegExp(`^${escaped}$`, "u");
 }
 
 /** Whether `path` leads to a directory, through a link too; false where nothing can be read. */

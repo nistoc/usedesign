@@ -53,6 +53,43 @@ EVIDENCE_FOR = {  # maturity level -> evidence key it must carry
 }
 
 
+# ── reading a field in its type (1.4.3) ──────────────────────────────────────
+#
+# A rule reads a field only in the type the format gives it: a list as a list, a map as a map, an
+# id, a reference or a name as a string, a status as an integer. Any other value is absent to the
+# rules, and the schema layer names its type. Before, a field of another type stopped this
+# prototype with a traceback in 35 places, and `[]` counted as nothing here and as a value in the
+# twin. An enumeration keeps its own rule: a value outside the list, of whatever type, is reported
+# as JavaScript writes it. See the TypeScript twin.
+
+def _list(value) -> list:
+    return value if isinstance(value, list) else []
+
+
+def _map(value) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _text(value):
+    return value if isinstance(value, str) else None
+
+
+def _status(value):
+    """An integer, as Number.isInteger has it: `200.0` is 200, `true` is not a number."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value) if abs(value) <= 2 ** 53 else value
+    return None
+
+
+def _absent(value) -> bool:
+    """Absent for a required key: not written, null, or an empty string."""
+    return value is None or value == "" and isinstance(value, str)
+
+
 class Finding:
     __slots__ = ("code", "detail", "severity")
 
@@ -63,33 +100,18 @@ class Finding:
         return f"{self.code}: {self.detail}"
 
 
-class _Reader(yaml.SafeLoader):
-    """PyYAML's safe loader, but a date that does not exist stays the text it is (1.4.3).
-
-    YAML 1.1 reads an unquoted `2026-02-30` as a date, and PyYAML stopped the run on it with a
-    traceback; the TypeScript twin reads YAML 1.2, where it is a string, and its schema says the
-    date is not one.
-    """
-
-
-def _timestamp(loader, node):
-    try:
-        return yaml.SafeLoader.construct_yaml_timestamp(loader, node)
-    except ValueError:
-        return loader.construct_scalar(node)
-
-
-_Reader.add_constructor("tag:yaml.org,2002:timestamp", _timestamp)
-
-
 def front_matter(path: str):
-    """Return the parsed YAML front matter, or None if the file has none."""
+    """Return the parsed YAML front matter, or None if the file has none.
+
+    Read as the TypeScript twin reads it — YAML 1.2, numbers as JavaScript holds them, a key
+    written twice refused — for the rules as for the schema (1.4.3). The rules read YAML 1.1 here:
+    `yes` and `on` were booleans, an unquoted date a date, `!!float 1` the number 1.0, while the
+    twin read the text.
+    """
     text = front_matter_text(path)
     if text is None:
         return None
-    # A key written twice is not YAML to the TypeScript twin's parser; PyYAML kept the last (1.4.3).
-    json_schema.load(text)
-    return yaml.load(text, Loader=_Reader)
+    return json_schema.load(text)
 
 
 def is_contract(fm: dict) -> bool:
@@ -450,7 +472,7 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         if field not in fm:
             err("missing_required_field", f"`{field}` is absent")
 
-    card_id = fm.get("id", "")
+    card_id = _text(fm.get("id")) or ""
     if card_id and not OPERATION_ID.match(card_id):
         err("malformed_operation_id", f"`{card_id}` is not <area>.<object>.<action>")
     if filename and card_id and os.path.splitext(filename)[0] != f"{card_id}.op":
@@ -466,22 +488,22 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
 
     # `data_transition.from` may be a SET (round 18): an operation departing from any of several
     # states. One state is written as a string; a one-element set is that string wearing brackets.
-    transition_value = fm.get("data_transition")
-    from_value = transition_value.get("from") if isinstance(transition_value, dict) else None
+    from_value = _map(fm.get("data_transition")).get("from")
     if isinstance(from_value, list):
         if len(from_value) < 2:
             err("malformed_transition",
                 "`data_transition.from` as a set needs at least two states — one state is written as a string")
-        if len({str(s) for s in from_value}) != len(from_value):
+        if len({json_schema.js_string(s) for s in from_value}) != len(from_value):
             err("malformed_transition", "`data_transition.from` lists the same state twice")
 
     # ── steps ────────────────────────────────────────────────────────────────
-    steps = fm.get("steps") or []
+    steps = _list(fm.get("steps"))
+    step_lines = [_map(step) for step in steps]
     # In the order the card writes them, as the TypeScript twin's Set keeps them: a set here put the
     # `step_unproven` warnings in an order that changed from run to run (1.4.3).
     step_ids: dict[str, None] = {}
-    for step in steps:
-        sid = step.get("id", "")
+    for step in step_lines:
+        sid = _text(step.get("id")) or ""
         if not STEP_ID.match(sid):
             err("malformed_step_id", f"`{sid}` is not s<N>-<name>")
         elif sid in step_ids:
@@ -489,9 +511,9 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         step_ids[sid] = None
 
     # ── maturity vs evidence ─────────────────────────────────────────────────
-    evidence = fm.get("maturity_evidence") or {}
-    tests = fm.get("tests") or []
-    if maturity in EVIDENCE_FOR:
+    evidence = _map(fm.get("maturity_evidence"))
+    tests = _list(fm.get("tests"))
+    if isinstance(maturity, str) and maturity in EVIDENCE_FOR:
         # Every level implies the ones below it.
         for level in ("implemented", "tested", "in_production"):
             if MATURITY.index(maturity) >= MATURITY.index(level):
@@ -503,21 +525,30 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         err("maturity_without_tests", f"`{maturity}` claimed with an empty `tests[]`")
     # `maturity_evidence.tested` is advisory prose — but a leading number is a claim that rots by
     # hand ("5 tests" kept after the sixth was cited); the product's cards were kept in step by hand three times in one day.
-    tested_prose = evidence.get("tested") if isinstance(evidence, dict) else None
-    tested_match = re.match(r"\s*(\d+)", str(tested_prose)) if isinstance(tested_prose, (int, str)) else None
-    if tested_match and int(tested_match.group(1)) != len(tests):
+    # A number is the claim itself, as the twin reads it (`1.5` too); text opens with one or not.
+    tested_prose = evidence.get("tested")
+    said = None
+    if isinstance(tested_prose, (int, float)) and not isinstance(tested_prose, bool):
+        said = json_schema.js_string(tested_prose)
+        stale = tested_prose != len(tests)
+    elif isinstance(tested_prose, str):
+        tested_match = re.match(r"\s*([0-9]+)", tested_prose)
+        if tested_match:
+            said = tested_match.group(1)
+            stale = int(said) != len(tests)
+    if said is not None and stale:
         warn("tested_count_mismatch",
-             f"maturity_evidence.tested says {tested_match.group(1)}, tests[] lists {len(tests)} — the count went stale")
+             f"maturity_evidence.tested says {said}, tests[] lists {len(tests)} — the count went stale")
 
     # ── concurrency ──────────────────────────────────────────────────────────
-    concurrency = fm.get("concurrency") or {}
+    concurrency = _map(fm.get("concurrency"))
     mode = concurrency.get("mode")
     if "mode" in concurrency and mode not in CONCURRENCY_MODES:
         err("invalid_enum_value",
             f"concurrency.mode `{json_schema.js_string(mode)}` is not one of {','.join(CONCURRENCY_MODES)}")
-    if mode and mode != "etag_required" and not concurrency.get("rationale"):
+    if _text(mode) and mode != "etag_required" and not _text(concurrency.get("rationale")):
         err("relaxation_without_rationale", f"mode `{mode}` weakens protection without a rationale")
-    if mode == "idempotency_by_formula" and not concurrency.get("formula"):
+    if mode == "idempotency_by_formula" and not _text(concurrency.get("formula")):
         err("missing_required_field", "idempotency_by_formula without `formula`")
     # Round 24: a soft delete that reads no If-Match between two neighbours that require one,
     # with nothing in the code to say why. `none_by_design` asserts an intent nobody measured;
@@ -529,40 +560,47 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
              "or closed (an `etag_*` mode)")
 
     # ── interfaces ───────────────────────────────────────────────────────────
-    interfaces = fm.get("interfaces") or {}
+    interfaces = _map(fm.get("interfaces"))
     if not interfaces:
         err("missing_required_field", "at least one interface is required")
     for name, iface in interfaces.items():
-        transport = iface.get("transport")
-        if not transport:
+        transport = _map(iface).get("transport")
+        if _absent(transport):
             err("missing_transport", f"interface `{name}` does not declare a transport")
         elif transport not in TRANSPORTS:
-            err("invalid_enum_value", f"interface `{name}`: transport `{transport}` is unknown")
-        for ref in iface.get("covers_steps") or []:
-            if ref not in step_ids:
+            err("invalid_enum_value",
+                f"interface `{name}`: transport `{json_schema.js_string(transport)}` is unknown")
+        for ref in _list(_map(iface).get("covers_steps")):
+            if isinstance(ref, str) and ref not in step_ids:
                 err("unknown_step_reference", f"interface `{name}` covers unknown step `{ref}`")
 
     # ── tests ────────────────────────────────────────────────────────────────
     covered: set[str] = set()
-    for test in tests:
+    for test in map(_map, tests):
+        test_id = _text(test.get("id")) or ""
         refs = test.get("covers")
         refs = refs if isinstance(refs, list) else [refs]
         for ref in refs:
+            if not isinstance(ref, str):
+                continue
             if ref not in step_ids:
-                err("unknown_step_reference", f"test `{test.get('id')}` covers unknown step `{ref}`")
+                err("unknown_step_reference", f"test `{test_id}` covers unknown step `{ref}`")
             covered.add(ref)
-        if test.get("level") not in TEST_LEVELS:
-            err("invalid_enum_value", f"test `{test.get('id')}`: level `{test.get('level')}` is unknown")
+        if "level" in test and test["level"] not in TEST_LEVELS:
+            err("invalid_enum_value",
+                f"test `{test_id}`: level `{json_schema.js_string(test['level'])}` is unknown")
 
-    gaps = {gap.get("step") for gap in (fm.get("coverage_gaps") or [])}
+    gap_entries = [entry for entry in _list(fm.get("coverage_gaps")) if isinstance(entry, dict)]
+    # In the card's order, as the twin's Set keeps them.
+    gaps = dict.fromkeys(entry["step"] for entry in gap_entries if isinstance(entry.get("step"), str))
     for gap in gaps:
         if gap not in step_ids:
             err("unknown_step_reference", f"coverage_gaps names unknown step `{gap}`")
-    for entry in fm.get("coverage_gaps") or []:
+    for entry in gap_entries:
         # `kind: null` is a kind outside the three too, as the TypeScript twin reads it (1.4.3);
         # here it passed, and without the schema the card was valid.
         if "kind" in entry and entry["kind"] not in GAP_KINDS:
-            err("invalid_enum_value", f"coverage_gaps `{entry.get('step')}`: kind "
+            err("invalid_enum_value", f"coverage_gaps `{_text(entry.get('step')) or ''}`: kind "
                 f"`{json_schema.js_string(entry['kind'])}` is not one of {','.join(GAP_KINDS)}")
 
     # ── a variant of another operation (SPEC 5.2e) ──────────────────────────────────────────────
@@ -571,7 +609,9 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     inherited_steps: set[str] = set()
     variant = fm.get("variant_of")
     if isinstance(variant, dict):
-        for sid in variant.get("inherits") or []:
+        for sid in _list(variant.get("inherits")):
+            if not isinstance(sid, str):
+                continue
             if sid not in step_ids:
                 err("variant_inherits_unlisted_step",
                     f"`variant_of.inherits` names `{sid}`, which is not one of this card's steps — "
@@ -579,10 +619,10 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
             inherited_steps.add(sid)
         implemented = evidence.get("implemented")
         shared = variant.get("shared")
-        if implemented is not None and isinstance(shared, str):
+        if "implemented" in evidence and isinstance(shared, str):
             items = implemented if isinstance(implemented, list) else [implemented]
             own = [re.sub(r":\d+$", "", part.strip())
-                   for item in items for part in str(item).split("+")]
+                   for item in items if isinstance(item, str) for part in item.split("+")]
             shared = re.sub(r":\d+$", "", shared.strip())
             if shared not in own:
                 err("variant_shared_not_implemented",
@@ -596,42 +636,47 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     #
     # Three rules that need nothing but the card itself. Each guards a field that would
     # otherwise be a claim nobody can be wrong about — and nobody maintains those.
-    outcomes = fm.get("outcomes") or []
-    outcome_ids = {o.get("id") for o in outcomes}
+    outcomes = [_map(o) for o in _list(fm.get("outcomes"))]
+    outcome_ids = {o["id"] for o in outcomes if isinstance(o.get("id"), str)}
+
+    def violation(step: dict) -> dict:
+        return _map(step.get("on_violation"))
 
     for name, iface in interfaces.items():
-        declared = iface.get("responses") or []
+        declared = [code for code in map(_status, _list(_map(iface).get("responses"))) if code is not None]
         if not declared:            # the field is optional; absent is not a claim
             continue
         returned: dict[int, str] = {}
-        for step in steps:
-            code = (step.get("on_violation") or {}).get("http")
-            if isinstance(code, int):
-                returned[code] = f"step `{step.get('id')}`"
+        for step in step_lines:
+            code = _status(violation(step).get("http"))
+            if code is not None:
+                returned[code] = f"step `{_text(step.get('id')) or ''}`"
         for outcome in outcomes:
-            if isinstance(outcome.get("http"), int):
-                returned[outcome["http"]] = f"outcome `{outcome.get('id')}`"
+            code = _status(outcome.get("http"))
+            if code is not None:
+                returned[code] = f"outcome `{_text(outcome.get('id')) or ''}`"
         for code, who in returned.items():
             if code not in declared:
                 err("undeclared_response",
-                    f"interface `{name}`: {who} returns {code}, absent from `responses`")
+                    f"interface `{name}`: {who} returns {json_schema.js_string(code)}, absent from `responses`")
 
     # A violated step that answers with success is either a typo or not a violation at all. The
     # second case is real: a bulk operation reports per-item failures inside a 200, and the shape
     # of `steps[]` — violated, therefore stopped, therefore an error code — does not fit it.
     per_item = fm.get("per_item")
-    for step in steps:
-        code = (step.get("on_violation") or {}).get("http")
-        if isinstance(code, int) and 200 <= code < 300:
-            if per_item:
+    for step in step_lines:
+        code = _status(violation(step).get("http"))
+        sid = _text(step.get("id")) or ""
+        if code is not None and 200 <= code < 300:
+            if isinstance(per_item, dict):
                 # With `per_item` there is a true place for this, so writing it falsely is a
                 # mistake rather than a shortage of vocabulary.
                 err("per_item_failure_as_violation",
-                    f"step `{step.get('id')}` answers {code}; this card declares `per_item`, so a "
+                    f"step `{sid}` answers {code}; this card declares `per_item`, so a "
                     "per-item failure belongs there and carries no status")
             else:
                 warn("violation_with_success_status",
-                     f"step `{step.get('id')}` is violated yet answers {code} — either a typo, or "
+                     f"step `{sid}` is violated yet answers {code} — either a typo, or "
                      "this is a per-item failure and belongs in `per_item`")
 
     # `after` may name an outcome or a job state. Axis F was designed from one example and its
@@ -639,10 +684,11 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     # for a person.
     continuation = fm.get("continuation")
     if isinstance(continuation, dict):
-        job_states = (fm.get("async_execution") or {}).get("job_states") or []
-        if continuation.get("after") not in outcome_ids and continuation.get("after") not in job_states:
+        job_states = _list(_map(fm.get("async_execution")).get("job_states"))
+        after = _text(continuation.get("after")) or ""
+        if after not in outcome_ids and after not in job_states:
             err("continuation_without_outcome",
-                f"`continuation.after` names `{continuation.get('after')}`, "
+                f"`continuation.after` names `{after}`, "
                 "which is neither a declared outcome nor a job state")
 
     # ── covers_outcomes ──────────────────────────────────────────────────────
@@ -659,25 +705,27 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     # and watched through `observe_via`, a different operation with a screen of its own.
     outcome_vocabulary: dict[str, str] = {}
     for outcome in outcomes:
-        if outcome.get("id"):
+        if _text(outcome.get("id")):
             outcome_vocabulary[outcome["id"]] = "outcomes"
     transition = fm.get("data_transition")
     if isinstance(transition, dict):
         raw_to = transition.get("to")
-        targets = raw_to if isinstance(raw_to, list) else ([raw_to] if raw_to else [])
+        targets = raw_to if isinstance(raw_to, list) else [raw_to]
         for target in targets:
-            outcome_vocabulary[target] = "data_transition.to"
-    for step in steps:
-        error_id = (step.get("on_violation") or {}).get("error")
+            if _text(target):
+                outcome_vocabulary[target] = "data_transition.to"
+    for step in step_lines:
+        error_id = _text(violation(step).get("error"))
         if error_id:
-            outcome_vocabulary[error_id] = f"step `{step.get('id')}`"
+            outcome_vocabulary[error_id] = f"step `{_text(step.get('id')) or ''}`"
     # Per-item failures belong here and job states do not. A per-item failure arrives in THIS
     # call's response — the user is watching the screen when it happens; a job state is the
     # record's later life, seen through `observe_via`. Round 11 measured a bulk screen that
     # discards the response body: ten selected, three rejected inside a 200, nothing shown.
-    for failure in (fm.get("per_item") or {}).get("failures") or []:
-        if failure.get("code"):
-            outcome_vocabulary[failure["code"]] = "per_item failure"
+    for failure in _list(_map(per_item).get("failures")):
+        code = _text(_map(failure).get("code"))
+        if code:
+            outcome_vocabulary[code] = "per_item failure"
     # Round 23 wrote two read cards whose screens could describe every refusal and not the one
     # ending the user came for. A read has no `data_transition.to`, and with a single ending no
     # `outcomes[]` either — the list exists only for endings that differ in shape — so the
@@ -688,7 +736,7 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
                        if where in ("outcomes", "data_transition.to")]
     has_default_success = not named_successes
     for name, iface in interfaces.items():
-        covers = iface.get("covers_outcomes")
+        covers = _map(iface).get("covers_outcomes")
         if not isinstance(covers, dict):
             continue
         for key in covers:
@@ -740,13 +788,14 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
                      "the user cannot tell them apart")
 
     for name, iface in interfaces.items():
-        for parameter in iface.get("parameters") or []:
-            if parameter.get("handling") != "decorative":
+        for parameter in map(_map, _list(_map(iface).get("parameters"))):
+            pname = _text(parameter.get("name"))
+            if parameter.get("handling") != "decorative" or pname is None:
                 continue
-            path = iface.get("path") or ""
-            if "{" + str(parameter.get("name")) + "}" not in path:
+            path = _text(_map(iface).get("path")) or ""
+            if "{" + pname + "}" not in path:
                 err("decorative_parameter_not_in_path",
-                    f"interface `{name}`: `{parameter.get('name')}` is declared decorative "
+                    f"interface `{name}`: `{pname}` is declared decorative "
                     f"but does not appear in `{path or '(no path)'}`")
 
     # An operation that produces no effect has nothing to reverse. Saying `reversible` there
@@ -754,7 +803,7 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     # said it — the field is required and, until round 7, had no honest value for them.
     # `mutates` is the format's own word for "writes without a state change" (round 21: a card
     # for logging a set — transition null, mutates seven fields — was called read-only here).
-    writes_without_transition = bool(fm.get("mutates"))
+    writes_without_transition = len(_list(fm.get("mutates"))) > 0
     if (fm.get("data_transition", False) is None
             and not writes_without_transition
             and fm.get("provenance") == "none"
@@ -766,22 +815,19 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     if "data_transition" in fm and fm["data_transition"] is None:
         provenance = fm.get("provenance")
         records_only = isinstance(provenance, dict) and provenance.get("records_only") is True
-        if not fm.get("mutates") and provenance != "none" and not records_only:
+        if not writes_without_transition and provenance != "none" and not records_only:
             err("write_without_effect",
                 "`data_transition: null` with neither `mutates`, `provenance: none`, "
                 "nor `records_only: true` — the write does not say what it changes")
 
     # ── cross-card references ────────────────────────────────────────────────
     if known_ids is not None:
-        reversibility = fm.get("reversibility")
-        if isinstance(reversibility, dict):
-            target = reversibility.get("reversible_via")
-            if target and target not in known_ids:
-                warn("undescribed_counterpart", f"`reversible_via` points at undescribed `{target}`")
-        serves = fm.get("serves_step")
-        if serves and serves.get("operation") not in known_ids:
-            warn("undescribed_counterpart",
-                 f"`serves_step` points at undescribed `{serves.get('operation')}`")
+        target = _text(_map(fm.get("reversibility")).get("reversible_via"))
+        if target and target not in known_ids:
+            warn("undescribed_counterpart", f"`reversible_via` points at undescribed `{target}`")
+        serves = _text(_map(fm.get("serves_step")).get("operation"))
+        if serves is not None and serves not in known_ids:
+            warn("undescribed_counterpart", f"`serves_step` points at undescribed `{serves}`")
 
     return out
 
@@ -812,15 +858,15 @@ def anchor_or_family(line: dict, literal_key: str, pattern_key: str, where: str,
     A "pattern" without a wildcard is a literal wearing the wrong key, and would silently
     match nothing the literal key would have matched.
     """
-    literal = line.get(literal_key)
-    pattern = line.get(pattern_key)
+    literal = _text(line.get(literal_key))
+    pattern = _text(line.get(pattern_key))
     if not literal and not pattern:
         err("missing_required_field", f"{where}: `{literal_key}` (or `{pattern_key}`) is absent")
     if literal and pattern:
         err("literal_and_pattern",
             f"{where}: both `{literal_key}` and `{pattern_key}` — one line names one anchor "
             "or one family, never both")
-    if pattern and "*" not in str(pattern):
+    if pattern and "*" not in pattern:
         err("pattern_without_wildcard",
             f"{where}: `{pattern}` has no `*` — a family without a wildcard is a literal; "
             f"write `{literal_key}:`")
@@ -835,7 +881,7 @@ def anchor_or_family(line: dict, literal_key: str, pattern_key: str, where: str,
         err("malformed_at_least",
             f"{where}: `at_least` belongs to a family line (`{pattern_key}`) — a single anchor "
             "is present or it is not")
-    return str(literal) if literal else (str(pattern) if pattern else None)
+    return literal or pattern or None
 
 
 def validate_form(fm: dict, filename: str = "",
@@ -859,8 +905,8 @@ def validate_form(fm: dict, filename: str = "",
         if key not in FORM_KEYS:
             err("unknown_field", f"`{key}` is not part of the form contract format")
 
-    form_id = fm.get("id") or ""
-    if form_id and not OPERATION_ID.match(str(form_id)):
+    form_id = _text(fm.get("id")) or ""
+    if form_id and not OPERATION_ID.match(form_id):
         err("malformed_form_id", f"`{form_id}` is not <area>.<object>.<name>")
 
     # `maturity: designed` marks a contract written before its screen (issue #8) — two values,
@@ -880,7 +926,7 @@ def validate_form(fm: dict, filename: str = "",
                 if not isinstance(spec, dict):
                     err("missing_required_field", f"states.{state}: `data` is absent")
                     continue
-                if not spec.get("data"):
+                if not _text(spec.get("data")):
                     err("missing_required_field", f"states.{state}: `data` is absent")
                 for key in spec:
                     if key not in STATE_KEYS:
@@ -891,7 +937,7 @@ def validate_form(fm: dict, filename: str = "",
     for index, element in enumerate(presents):
         if not isinstance(element, dict):
             continue
-        if not element.get("shows"):
+        if not _text(element.get("shows")):
             err("missing_required_field", f"presents[{index}]: `shows` is absent")
         for key in element:
             if key not in ELEMENT_KEYS:
@@ -915,10 +961,10 @@ def validate_form(fm: dict, filename: str = "",
             if name in seen_controls:
                 err("duplicate_control", f"`{name}` appears more than once in controls")
             seen_controls.add(name)
-        opens = control.get("opens")
+        opens = _text(control.get("opens"))
         if opens and known_forms is not None and opens not in known_forms:
             warn("undescribed_form",
-                 f"control `{name}` opens `{opens}`, which no contract in this set describes")
+                 f"control `{name or ''}` opens `{opens}`, which no contract in this set describes")
         # `calls` names the operation a control runs, or null for local behaviour — and since
         # round 27 the chain it runs, in call order: a draft's «save as plan» renames it, then
         # publishes it. A list of one is a string wearing brackets (the round 18 reason for
@@ -951,7 +997,7 @@ def validate_form(fm: dict, filename: str = "",
                 if op not in known_cards:
                     where = f" (step {step + 1} of {len(chain)})" if len(chain) > 1 else ""
                     warn("form_calls_undescribed",
-                         f"control `{name}` calls `{op}`{where}, which no card in this set describes")
+                         f"control `{name or ''}` calls `{op}`{where}, which no card in this set describes")
 
     # ── groups ───────────────────────────────────────────────────────────────
     # Grouping by purpose: headers, footers, tables, and which controls sit where. Array order
@@ -966,28 +1012,30 @@ def validate_form(fm: dict, filename: str = "",
         if not isinstance(group, dict):
             continue
         for required in ("group", "role", "contains"):
-            if not group.get(required):
+            if _absent(group.get(required)):
                 err("missing_required_field", f"groups[{index}]: `{required}` is absent")
         for key in group:
             if key not in GROUP_KEYS:
                 err("unknown_field", f"groups[{index}]: `{key}` is not part of a group line")
-        name = group.get("group")
+        name = _text(group.get("group"))
         if name:
             if name in seen_groups:
                 err("duplicate_group", f"`{name}` appears more than once in groups")
             seen_groups.add(name)
         role = group.get("role")
-        if role and role not in GROUP_ROLES:
-            err("invalid_enum_value", f"groups[{index}]: role `{role}` is not one of {','.join(GROUP_ROLES)}")
-        contains = group.get("contains") if isinstance(group.get("contains"), list) else []
-        for member in contains:
+        if not _absent(role) and role not in GROUP_ROLES:
+            err("invalid_enum_value", f"groups[{index}]: role `{json_schema.js_string(role)}` is not one of "
+                f"{','.join(GROUP_ROLES)}")
+        for member in _list(group.get("contains")):
+            if not isinstance(member, str):
+                continue
             if member not in members:
                 err("unknown_group_member",
-                    f"group `{name}` contains `{member}`, which no element or control declares")
+                    f"group `{name or ''}` contains `{member}`, which no element or control declares")
             already = claimed.get(member)
             if already and already != name:
                 err("element_in_two_groups",
-                    f"`{member}` sits in `{already}` and `{name}` — an element renders in one place")
+                    f"`{member}` sits in `{already}` and `{name or ''}` — an element renders in one place")
             if name:
                 claimed[member] = name
 
@@ -997,12 +1045,12 @@ def validate_form(fm: dict, filename: str = "",
     for index, entry in enumerate(removed):
         if not isinstance(entry, dict):
             continue
-        if not entry.get("control"):
+        if not _text(entry.get("control")):
             err("missing_required_field", f"removed[{index}]: `control` is absent")
         for key in entry:
             if key not in REMOVED_KEYS:
                 err("unknown_field", f"removed[{index}]: `{key}` is not part of a removed line")
-        name = entry.get("control")
+        name = _text(entry.get("control"))
         if name and name in seen_controls:
             err("removed_also_required",
                 f"`{name}` is listed in controls and in removed — "
@@ -1039,11 +1087,17 @@ def once_per_file(paths: list[str]) -> list[str]:
     return _once({path: real_of(path) for path in paths})
 
 
+def utf16_order(text: str) -> bytes:
+    """A sort key that orders strings as JavaScript's sort does — by UTF-16 units, where a character
+    outside the BMP comes before U+E000…U+FFFF; Python orders by code point (1.4.3)."""
+    return text.encode("utf-16-be", "surrogatepass")
+
+
 def _once(keyed: dict[str, str]) -> list[str]:
     """Paths in order, each real path once — the first path in that order stands for it."""
     seen: set[str] = set()
     out = []
-    for path in sorted(keyed):
+    for path in sorted(keyed, key=utf16_order):
         if keyed[path] in seen:
             continue
         seen.add(keyed[path])
@@ -1119,21 +1173,45 @@ def run_files(paths: list[str], with_schema: bool = True) -> int:
         for found, real in (collected[path] if path in collected else collect_keyed([path])).items():
             keyed.setdefault(found, real)
     files = _once(keyed)
-    cards: dict = {}
-    forms: dict = {}
+    cards: list = []
+    forms: list = []
     # A card or contract file without front matter used to vanish from the count; it is counted
     # and named now, with its cause.
     unreadable = []
     for path in files:
         fm, problem = read_front(path)
         if fm is not None:
-            target = forms if is_contract(fm) else cards
-            target[fm.get("id")] = (path, fm)
+            (forms if is_contract(fm) else cards).append((path, fm))
         else:
             unreadable.append((path, problem))
+    # One id, one document (1.4.3). Kept by id, the second file of an id replaced the first, and
+    # one card left the run without a word — `2 card(s)` for three files. Which of the two the
+    # others point at cannot be told, so the run stops and names both. See the TypeScript twin.
+    twins = []
+    for documents in (cards, forms):
+        first: dict[str, str] = {}
+        for path, fm in documents:
+            doc_id = fm.get("id")
+            if not isinstance(doc_id, str) or not doc_id:
+                continue
+            if doc_id in first:
+                twins.append(f"`{first[doc_id]}` and `{path}` carry the same id `{doc_id}` — an id "
+                             "names one document, and the others point at it by that id")
+            else:
+                first[doc_id] = path
+    if twins:
+        for twin in twins:
+            print(f"validate.py: {twin}", file=sys.stderr)
+        return 2
     unreadable_forms = sum(1 for path, _ in unreadable if path.endswith(".contract.md"))
-    known = set(cards)
-    known_forms = set(forms)
+    known = {fm["id"] for _, fm in cards if isinstance(fm.get("id"), str)}
+    known_forms = {fm["id"] for _, fm in forms if isinstance(fm.get("id"), str)}
+
+    def in_order(documents: list) -> list:
+        # By id as JavaScript writes it, then by path, both in the twin's order.
+        return sorted(documents, key=lambda doc: (
+            utf16_order(json_schema.js_string(doc[1]["id"]) if "id" in doc[1] else "undefined"),
+            utf16_order(doc[0])))
 
     errors = warnings = 0
 
@@ -1147,9 +1225,9 @@ def run_files(paths: list[str], with_schema: bool = True) -> int:
 
     for path, problem in unreadable:
         show(path, [Finding("missing_required_field", problem)])
-    for _, (path, fm) in sorted(cards.items()):
+    for path, fm in in_order(cards):
         show(path, (schema_findings(path) if with_schema else []) + validate(fm, os.path.basename(path), known))
-    for _, (path, fm) in sorted(forms.items()):
+    for path, fm in in_order(forms):
         show(path, (schema_findings(path, form=True) if with_schema else [])
              + validate_form(fm, os.path.basename(path), known_forms, known if cards else None))
     print(f"\n{len(cards) + len(unreadable) - unreadable_forms} card(s), "

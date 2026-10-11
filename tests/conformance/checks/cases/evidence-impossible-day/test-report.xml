@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="corpus" tests="1">
+  <testsuite name="corpus">
+    <testcase classname="SampleTests" name="does_the_thing"/>
+  </testsuite>
+</testsuites>

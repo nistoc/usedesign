@@ -610,9 +610,11 @@ export function checkMaturity(config: Config, base: string, today = new Date()):
     if (level >= LEVELS.indexOf("in_production")) {
       const deployed = evidence["deployed"];
       if (deployed && typeof deployed === "object" && !Array.isArray(deployed)) {
-        const raw = String(deployed.since ?? "");
-        const since = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T00:00:00Z`) : new Date("invalid");
-        if (Number.isNaN(since.getTime())) {
+        // A day the calendar has (1.4.3): `new Date` carried 2026-02-30 over to 2 March and called it
+        // stale, where the Python prototype said it is not a date. Year 0 is none either.
+        const raw = typeof deployed.since === "string" ? deployed.since : "";
+        const since = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00Z` : NaN);
+        if (Number.isNaN(since.getTime()) || since.getUTCFullYear() < 1 || since.toISOString().slice(0, 10) !== raw) {
           findings.push(new Finding("evidence_undated", `${cardId}: \`deployed.since\` is not a date`));
           continue;
         }

@@ -684,8 +684,13 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
         if level >= LEVELS.index("in_production"):
             deployed = evidence.get("deployed")
             if isinstance(deployed, dict):
+                # Text of the form YYYY-MM-DD naming a day the calendar has, as the twin reads it
+                # (1.4.3): fromisoformat also took 20260101 and 2026-W01-1 since Python 3.11.
+                raw = deployed.get("since")
                 try:
-                    since = date.fromisoformat(str(deployed.get("since")))
+                    if not (isinstance(raw, str) and re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", raw)):
+                        raise ValueError(raw)
+                    since = date.fromisoformat(raw)
                 except ValueError:
                     findings.append(Finding(
                         "evidence_undated",

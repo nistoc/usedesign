@@ -55,6 +55,7 @@ class _Core(yaml.SafeLoader):
 
 
 _Core.yaml_implicit_resolvers = {}
+_SCALARS = {}
 for _tag, _pattern, _first in [
     ("null", r"^(?:~|[Nn]ull|NULL)?$", ["~", "n", "N", ""]),
     ("bool", r"^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$", list("tTfF")),
@@ -63,7 +64,18 @@ for _tag, _pattern, _first in [
               r"|[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+"
               r"|[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*))$", list("-+.0123456789")),
 ]:
-    _Core.add_implicit_resolver(f"tag:yaml.org,2002:{_tag}", re.compile(_pattern), _first)
+    _SCALARS[_tag] = re.compile(_pattern)
+    _Core.add_implicit_resolver(f"tag:yaml.org,2002:{_tag}", _SCALARS[_tag], _first)
+
+
+def _tagged(kind: str, construct):
+    """A scalar under an explicit tag whose text is not of that kind — `!!float 1`, `!!int 1.5`,
+    `!!bool yes` — stays the text, as the twin's parser leaves it with an "Unresolved tag" warning
+    (1.4.3). PyYAML made `!!float 1` the number 1.0, and stopped the run on `!!int 1.5`."""
+    def construct_kind(loader, node):
+        text = loader.construct_scalar(node)
+        return construct(loader, node) if _SCALARS[kind].match(text) else text
+    return construct_kind
 
 
 def _int(loader, node):
@@ -85,9 +97,11 @@ def _float(loader, node):
     return math.nan if text.lower() == ".nan" else float(text)
 
 
-_Core.add_constructor("tag:yaml.org,2002:int", _int)
-_Core.add_constructor("tag:yaml.org,2002:float", _float)
-_Core.add_constructor("tag:yaml.org,2002:bool", lambda loader, node: loader.construct_scalar(node).lower() == "true")
+_Core.add_constructor("tag:yaml.org,2002:int", _tagged("int", _int))
+_Core.add_constructor("tag:yaml.org,2002:float", _tagged("float", _float))
+_Core.add_constructor("tag:yaml.org,2002:bool", _tagged(
+    "bool", lambda loader, node: loader.construct_scalar(node).lower() == "true"))
+_Core.add_constructor("tag:yaml.org,2002:null", _tagged("null", lambda loader, node: None))
 
 
 def js_string(value) -> str:

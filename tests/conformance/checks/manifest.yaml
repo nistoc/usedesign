@@ -163,6 +163,15 @@ cases:
       `deployed: production` with no date. Not an error — but a claim that can never go stale is a
       claim nobody will ever be asked to look at again.
 
+  - dir: evidence-impossible-day
+    check: 3
+    expect: fail
+    codes: [evidence_undated]
+    note: >-
+      `since: 2026-02-30`, a day the calendar lacks — not a date, an error, where no date at all is
+      a warning. Up to 1.4.2 the TypeScript reference carried it over to 2 March and called it
+      stale or fresh by the clock, while the Python prototype refused it; both refuse it now (1.4.3).
+
   - dir: evidence-stale
     check: 3
     expect: pass
