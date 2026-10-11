@@ -812,7 +812,11 @@ read — a line above the opening `---`, no closing `---`, YAML that does not pa
 the fields belong — used to drop out of the count in silence. It is now counted and reported as
 `missing_required_field`, an error, with its cause. Such a file carries none of the required keys
 §8 freezes, so a validator that skipped it was accepting what this document already forbade. A
-byte-order mark before the opening `---` decides nothing, in either implementation.
+byte-order mark before the opening `---` decides nothing, in either implementation. A collected
+entry that cannot be opened at all — a link that leads nowhere, a file without read permission —
+is the same case (tools 1.4.2): `validate` counts it as `missing_required_field` with the cause
+"cannot be read — …", and `check` stops with exit 2 and its name, since no check can pass over a
+card it did not read.
 
 ---
 

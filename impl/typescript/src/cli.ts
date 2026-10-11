@@ -11,7 +11,7 @@ import { parse as parseYaml } from "yaml";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { CHECKS, checkCoverage, checkForm, checkMaturity, checkRoutes, checkStorage } from "./checks.js";
-import { codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings } from "./core.js";
+import { causeOf, codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings, whyUnreadable } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { planScaffold, writeScaffold } from "./scaffold.js";
 import { commandGen } from "./gen.js";
@@ -83,10 +83,16 @@ function isUsedesignConfig(path: string, fm: Record<string, any> | null): boolea
  * cause, never skipped (round 29, issue #14): the same reading in both implementations.
  */
 function readFront(path: string): { fm: Record<string, any> | null; problem: string } {
+  // 1.4.2: a file that cannot be opened is named as such, with its cause — not read as bad YAML.
+  const why = whyUnreadable(path);
+  if (why) return { fm: null, problem: `cannot be read — ${why}` };
   let fm: unknown;
   try {
     fm = frontMatter(path);
   } catch (e) {
+    // A system error carries `syscall`; a YAML error carries a `code` of its own (BAD_INDENT …).
+    const sys = e as NodeJS.ErrnoException;
+    if (sys.syscall) return { fm: null, problem: `cannot be read — ${causeOf(sys)}` };
     return { fm: null, problem: `front matter is not valid YAML — ${String((e as Error).message).split("\n")[0]}` };
   }
   if (Array.isArray(fm)) return { fm: null, problem: "front matter is a list — a card's fields are a mapping" };
@@ -113,8 +119,10 @@ function commandValidate(paths: string[], withSchema: boolean): number {
         refusals.push(`\`${path}\` holds no card (*.op.md) and no form contract (*.contract.md) — nothing to validate`);
       }
     } else if (!/\.(op|contract)\.md$/.test(path)) {
-      const { fm } = readFront(path);
-      if (isUsedesignConfig(path, fm)) {
+      const { fm, problem } = readFront(path);
+      if (problem.startsWith("cannot be read")) {
+        refusals.push(`\`${path}\` ${problem}`);
+      } else if (isUsedesignConfig(path, fm)) {
         refusals.push(`\`${path}\` is a usedesign config — \`usedesign check ${path}\` reads it; \`validate\` takes cards, form contracts or their directories`);
       } else if (!fm) {
         refusals.push(`\`${path}\` has no front matter — it is neither a card nor a form contract`);

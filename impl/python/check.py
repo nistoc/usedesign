@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
-import glob
 import json
 import os
 import re
@@ -29,7 +28,7 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("PyYAML is required: pip install pyyaml")
 
-from validate import front_matter
+from validate import CannotRead, cause_of, expand_glob, front_matter, once_per_file, why_unreadable
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -113,19 +112,38 @@ def load_config(path: str) -> tuple[dict, str]:
 def load_card_files(config: dict, base: str) -> tuple[list[tuple[str, dict]], list[Finding]]:
     """Return [(card id, front matter)] for every card the config points at."""
     findings: list[Finding] = []
-    files: list[str] = []
+    matched: list[str] = []
     for pattern in config.get("cards") or []:
-        files += glob.glob(os.path.join(base, pattern), recursive=True)
+        matched += expand_glob(base, pattern)
+    files = once_per_file(matched)
 
     if not files:
         findings.append(Finding("no_cards_found", "the `cards` patterns matched nothing"))
 
     cards: list[tuple[str, dict]] = []
-    for path in sorted(set(files)):
-        fm = front_matter(path)
+    for path in files:
+        fm = read_document(path)
         if fm:
             cards.append((fm.get("id", os.path.basename(path)), fm))
     return cards, findings
+
+
+def read_document(path: str):
+    """The front matter of a document a config's patterns matched, as the TypeScript twin reads it.
+
+    A file nobody can open — a link that leads nowhere, no read permission — and front matter that
+    is not valid YAML stop the run with exit 2 and the file's name: no check can pass over a card
+    it did not read. Before, each ended in a traceback (1.4.2).
+    """
+    why = why_unreadable(path)
+    if why:
+        raise CannotRead(f"`{path}` cannot be read — {why}")
+    try:
+        return front_matter(path)
+    except yaml.YAMLError as e:
+        raise CannotRead(f"`{path}` front matter is not valid YAML — {str(e).splitlines()[0]}") from None
+    except OSError as e:
+        raise CannotRead(f"`{path}` cannot be read — {cause_of(e)}") from None
 
 
 def load_cards(config: dict, base: str) -> tuple[dict, dict, list[Finding]]:
@@ -908,9 +926,9 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     contracts: list[tuple[str, dict]] = []
     files: list[str] = []
     for pattern in patterns:
-        files += glob.glob(os.path.join(base, pattern), recursive=True)
-    for path in sorted(set(files)):
-        fm = front_matter(path)
+        files += expand_glob(base, pattern)
+    for path in once_per_file(files):
+        fm = read_document(path)
         if fm and fm.get("usedesign_form") == 1:
             contracts.append((str(fm.get("id", path)), fm))
     if not contracts:
@@ -1236,4 +1254,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except CannotRead as stop:
+        print(f"check.py: {stop}", file=sys.stderr)
+        sys.exit(2)

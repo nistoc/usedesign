@@ -14,7 +14,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import glob
+import errno
 import os
 import re
 import sys
@@ -70,6 +70,164 @@ def front_matter(path: str):
     if end == -1:
         return None
     return yaml.safe_load(text[3:end])
+
+
+def why_unreadable(path: str) -> str:
+    """Why a collected path cannot be opened as a file, or "" when it can (1.4.2).
+
+    A link that leads nowhere and a file without read permission are entries a listing finds and
+    a reader cannot open. This implementation stopped on both with a traceback; the TypeScript
+    twin dropped the first unseen. The words are the same in both implementations.
+    """
+    if not os.path.exists(path):
+        return "it is a link to a path that does not exist"
+    if os.path.isdir(path):
+        return "it is a directory"
+    try:
+        with open(path, "rb"):
+            pass
+    except OSError as e:
+        return cause_of(e)
+    return ""
+
+
+class CannotRead(Exception):
+    """An input the run cannot go past: it stops with the input's name and exit 2 (1.4.2)."""
+
+
+def cause_of(e: OSError) -> str:
+    """The cause of a system error, in the words both implementations print (1.4.2).
+
+    A file another process holds open on Windows is a permission error here and EBUSY in the
+    TypeScript twin, so it is "permission denied" in both.
+    """
+    if isinstance(e, PermissionError) or e.errno in (errno.EACCES, errno.EPERM, errno.EBUSY):
+        return "permission denied"
+    return errno.errorcode.get(e.errno, str(e)) if e.errno else str(e)
+
+
+# ── Which files a pattern names (1.4.2) ───────────────────────────────────────────────────────
+#
+# The algorithm of the TypeScript twin's expandGlob, step for step, in place of Python's glob, so
+# that both implementations collect the same files. Measured before the change: glob walked a loop
+# of links to the system's depth limit (exponential time with two links per level), matched `[ab]`
+# as a set and letters in either case on Windows, and the twin did none of these.
+
+def _join(directory: str, name: str) -> str:
+    """A name under a directory; a name that looks like a drive does not restart the path."""
+    return directory + name if directory.endswith(os.sep) else directory + os.sep + name
+
+
+def is_entry(path: str) -> bool:
+    """Whether anything stands at `path`, a link that leads nowhere included.
+
+    Only "does not exist" is absence: an entry the system lists and will not describe — no
+    permission, a link made by another system — goes on to the reader, which names it.
+    """
+    try:
+        os.lstat(path)
+        return True
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError:
+        return True
+
+
+def real_of(path: str) -> str:
+    """The real path of `path`; for an entry the system will not resolve — a link that leads
+    nowhere, on Windows a file without read permission — the real path of its directory and its
+    own name, so that such an entry reached two ways is still one entry."""
+    try:
+        return os.path.realpath(path, strict=True)
+    except OSError:
+        pass
+    try:
+        return _join(os.path.realpath(os.path.dirname(path) or ".", strict=True), os.path.basename(path))
+    except OSError:
+        return os.path.abspath(path)
+
+
+def listing(directory: str) -> list:
+    """The entries of a directory a pattern walks into; one that cannot be listed stops the run
+    with its name, as a file that cannot be opened does: the cards under it would go unseen."""
+    try:
+        with os.scandir(directory) as entries:
+            return list(entries)
+    except OSError as e:
+        raise CannotRead(f"`{directory}` cannot be listed — {cause_of(e)}") from None
+
+
+def _is_link(entry) -> bool:
+    """A link as the TypeScript twin's Dirent sees one: a symbolic link, and on Windows any reparse
+    point — a junction, a link made by WSL — which DirEntry.is_symlink() does not count."""
+    if entry.is_symlink():
+        return True
+    if os.name != "nt":
+        return False
+    return bool(getattr(entry.stat(follow_symlinks=False), "st_file_attributes", 0) & 0x400)  # REPARSE_POINT
+
+
+def _segment(segment: str):
+    """One glob segment as a regular expression: `*` and `?` do not cross a separator."""
+    return re.compile("".join("[^/\\\\]*" if ch == "*" else "[^/\\\\]" if ch == "?" else re.escape(ch)
+                              for ch in segment), re.DOTALL)
+
+
+def expand_glob(base: str, pattern: str) -> list[str]:
+    """Expand a pattern relative to `base`. Supports `*`, `?` and `**`.
+
+    Links to directories are followed, and a loop of them is walked once; a name that starts with
+    a dot is matched only by a segment that starts with a dot, and `**` passes it over; `[` and `]`
+    are plain characters; letter case counts. Every entry whose name matches is returned, a link
+    that leads nowhere included, so that the reader names it; directories are not.
+    """
+    segments = [s for s in re.split(r"[\\/]+", pattern) if s]
+    current = [os.path.abspath(base)]
+    for index, segment in enumerate(segments):
+        last = index == len(segments) - 1
+        found: list[str] = []
+        if segment == "**":
+            for directory in current:
+                if not os.path.isdir(directory):
+                    continue
+                # Each directory carries its real path and those of the directories above it: a
+                # link back to one of them would be walked forever and is walked once. The system
+                # is asked for a real path only at the start and at a link; below that, the
+                # parent's real path and the name are it.
+                stack = [(directory, real_of(directory), [])]
+                while stack:
+                    here, real, above = stack.pop()
+                    found.append(here)
+                    if real in above:
+                        continue
+                    for entry in listing(here):
+                        if entry.name.startswith("."):
+                            continue
+                        path = _join(here, entry.name)
+                        if not _is_link(entry) and entry.is_dir(follow_symlinks=False):
+                            stack.append((path, _join(real, entry.name), above + [real]))
+                        elif _is_link(entry) and os.path.isdir(path):
+                            stack.append((path, real_of(path), above + [real]))
+                        elif last:
+                            found.append(path)
+        elif segment in (".", ".."):
+            found += [os.path.normpath(_join(directory, segment)) for directory in current]
+        elif not re.search(r"[*?]", segment):
+            found += [_join(directory, segment) for directory in current]
+        else:
+            matcher = _segment(segment)
+            dotted = segment.startswith(".")
+            for directory in current:
+                if not os.path.isdir(directory):
+                    continue
+                for entry in listing(directory):
+                    if (entry.name.startswith(".") and not dotted) or not matcher.fullmatch(entry.name):
+                        continue
+                    path = _join(directory, entry.name)
+                    if last or (os.path.isdir(path) if _is_link(entry) else entry.is_dir(follow_symlinks=False)):
+                        found.append(path)
+        current = list(dict.fromkeys(found))
+    return once_per_file([path for path in current if is_entry(path) and not os.path.isdir(path)])
 
 
 # ── What the user reads (SPEC §5.7, round 28) ─────────────────────────────────────────────────
@@ -729,11 +887,27 @@ def collect(paths: list[str]) -> list[str]:
         if os.path.isdir(path):
             # Both document kinds, deliberately: `validate forms/` used to collect nothing and
             # print "0 card(s): 0 error(s)" — a green verdict on a directory it had not read.
-            files += glob.glob(os.path.join(path, "**", "*.op.md"), recursive=True)
-            files += glob.glob(os.path.join(path, "**", "*.contract.md"), recursive=True)
+            files += expand_glob(path, "**/*.op.md") + expand_glob(path, "**/*.contract.md")
         else:
             files.append(path)
-    return sorted(files)
+    return once_per_file(files)
+
+
+def once_per_file(paths: list[str]) -> list[str]:
+    """Paths in order, each file once however many links or patterns lead to it (1.4.2).
+
+    A loop of links gave the same card here once per level of glob's walk, and twice in the
+    TypeScript twin; the counts disagreed. See the TypeScript twin.
+    """
+    seen: set[str] = set()
+    out = []
+    for path in sorted(set(paths)):
+        key = real_of(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(path)
+    return out
 
 
 def is_usedesign_config(path: str, fm) -> bool:
@@ -753,10 +927,16 @@ def read_front(path: str):
     A card or contract whose front matter cannot be read carries none of the required keys (§8),
     so it is reported with its cause, never skipped. See the TypeScript twin.
     """
+    # 1.4.2: a file that cannot be opened is named as such, with its cause — not a traceback.
+    why = why_unreadable(path)
+    if why:
+        return None, f"cannot be read — {why}"
     try:
         fm = front_matter(path)
     except yaml.YAMLError as e:
         return None, f"front matter is not valid YAML — {str(e).splitlines()[0]}"
+    except OSError as e:
+        return None, f"cannot be read — {cause_of(e)}"
     if isinstance(fm, list):
         return None, "front matter is a list — a card's fields are a mapping"
     if not isinstance(fm, dict):
@@ -777,8 +957,10 @@ def run_files(paths: list[str]) -> int:
                 refusals.append(f"`{path}` holds no card (*.op.md) and no form contract "
                                 "(*.contract.md) — nothing to validate")
         elif not re.search(r"\.(op|contract)\.md$", path):
-            fm, _ = read_front(path)
-            if is_usedesign_config(path, fm):
+            fm, problem = read_front(path)
+            if problem.startswith("cannot be read"):
+                refusals.append(f"`{path}` {problem}")
+            elif is_usedesign_config(path, fm):
                 refusals.append(f"`{path}` is a usedesign config — `usedesign check {path}` reads "
                                 "it; `validate` takes cards, form contracts or their directories")
             elif fm is None:
@@ -899,4 +1081,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except CannotRead as stop:
+        print(f"validate.py: {stop}", file=sys.stderr)
+        sys.exit(2)

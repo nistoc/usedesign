@@ -13,7 +13,7 @@
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Config, frontMatter, expandGlob } from "./core.js";
+import { Config, expandGlob, oncePerFile, readDocument } from "./core.js";
 
 interface PreviewData {
   contracts: any[];
@@ -29,11 +29,12 @@ function bodyOf(path: string): string {
 
 export function collectPreviewData(config: Config, base: string): PreviewData {
   const contracts: any[] = [];
-  for (const pattern of ((config as any).forms as string[] | undefined) ?? []) {
-    for (const file of expandGlob(base, pattern)) {
-      const fm = frontMatter(file);
-      if (fm && fm["usedesign_form"] === 1) contracts.push({ ...fm, __body: bodyOf(file), __file: file.split(/[\\/]/).pop() });
-    }
+  const files: string[] = [];
+  for (const pattern of ((config as any).forms as string[] | undefined) ?? []) files.push(...expandGlob(base, pattern));
+  // Each contract once, however many patterns reach it (1.4.2).
+  for (const file of oncePerFile(files)) {
+    const fm = readDocument(file);
+    if (fm && fm["usedesign_form"] === 1) contracts.push({ ...fm, __body: bodyOf(file), __file: file.split(/[\\/]/).pop() });
   }
 
   let inventory: PreviewData["inventory"] = null;
