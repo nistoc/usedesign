@@ -175,3 +175,38 @@ for impl in ts py; do
   fi
   echo "  ok"
 done
+
+# Both implementations count «N days ago» in UTC (1.4.3); Python counted from the local date, a day
+# apart near midnight east or west of UTC. At any hour the local date of one of these two zones
+# differs from UTC's: UTC+13 from 11:00 UTC on, UTC−11 before it.
+echo "— days in UTC"
+stale="$root/tests/conformance/checks/cases/evidence-stale/usedesign.config.yaml"
+days() { "$@" "$stale" 2>&1 | grep -o "affirmed [0-9]* days ago"; }
+want="$(TZ=UTC days node "$root/impl/typescript/dist/cli.js" check)"
+[ -n "$want" ] || { echo "::error::the stale case printed no «affirmed N days ago»"; exit 1; }
+for tz in XXX-13 XXX+11; do
+  for impl in ts py; do
+    if [ "$impl" = ts ]; then got="$(TZ=$tz days node "$root/impl/typescript/dist/cli.js" check)"
+    else got="$(TZ=$tz days python "$root/impl/python/check.py")"; fi
+    [ "$got" = "$want" ] || { echo "::error::$impl in TZ=$tz says «$got», UTC says «$want»"; exit 1; }
+  done
+done
+echo "  ok"
+
+# Both implementations validate against schema/ (1.4.3); the Python prototype had no schema layer,
+# and a card only the schema refuses passed there. `schema/` breaks thirteen of the keywords the
+# schemas use; both must print the same lines — messages, their order, their count — with the schema
+# and without.
+echo "— the schema, line for line"
+for flag in "" --no-schema; do
+  node "$root/impl/typescript/dist/cli.js" validate $flag schema > "$scratch/schema.ts.txt" 2>&1
+  python "$root/impl/python/validate.py" $flag schema > "$scratch/schema.py.txt" 2>&1
+  if ! diff --strip-trailing-cr "$scratch/schema.ts.txt" "$scratch/schema.py.txt"; then
+    echo "::error::validate ${flag:-with the schema} prints different lines in the two implementations"; exit 1
+  fi
+done
+grep -q "schema_violation" "$scratch/schema.ts.txt" && { echo "::error::--no-schema still reports schema_violation"; exit 1; }
+node "$root/impl/typescript/dist/cli.js" validate schema > "$out" 2>&1
+# Two empty outputs are the same too: the schema must have spoken (38 lines at 1.4.3).
+[ "$(grep -c "schema_violation" "$out")" -ge 20 ] || { echo "::error::schema/ drew too few schema_violation lines"; cat "$out"; exit 1; }
+echo "  ok"

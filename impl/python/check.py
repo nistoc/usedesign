@@ -19,7 +19,7 @@ import json
 import os
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any
 from xml.etree import ElementTree
 
@@ -28,7 +28,7 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("PyYAML is required: pip install pyyaml")
 
-from validate import CannotRead, cause_of, expand_glob, front_matter, once_per_file, why_unreadable
+from validate import CannotRead, cause_of, expand_globs, front_matter, is_contract, why_unreadable
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -112,10 +112,7 @@ def load_config(path: str) -> tuple[dict, str]:
 def load_card_files(config: dict, base: str) -> tuple[list[tuple[str, dict]], list[Finding]]:
     """Return [(card id, front matter)] for every card the config points at."""
     findings: list[Finding] = []
-    matched: list[str] = []
-    for pattern in config.get("cards") or []:
-        matched += expand_glob(base, pattern)
-    files = once_per_file(matched)
+    files = expand_globs(base, config.get("cards") or [])
 
     if not files:
         findings.append(Finding("no_cards_found", "the `cards` patterns matched nothing"))
@@ -627,7 +624,9 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
                 {"cards": 0, "paths_checked": 0, "code_root": code_root or "",
                  "horizon": config.get("evidence_horizon_days", DEFAULT_HORIZON_DAYS)})
     horizon = config.get("evidence_horizon_days", DEFAULT_HORIZON_DAYS)
-    today = date.today()
+    # Today in UTC, as the TypeScript twin counts it (1.4.3). The local date put «N days ago» one
+    # day apart near midnight east or west of UTC; CI runs in UTC and compares codes, so it never saw.
+    today = datetime.now(timezone.utc).date()
 
     cards, card_findings = load_card_files(config, base)
     findings += card_findings
@@ -924,12 +923,9 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     card_by_id = dict(cards)
 
     contracts: list[tuple[str, dict]] = []
-    files: list[str] = []
-    for pattern in patterns:
-        files += expand_glob(base, pattern)
-    for path in once_per_file(files):
+    for path in expand_globs(base, patterns):
         fm = read_document(path)
-        if fm and fm.get("usedesign_form") == 1:
+        if fm and is_contract(fm):
             contracts.append((str(fm.get("id", path)), fm))
     if not contracts:
         findings.append(Finding("form_contracts_missing", "the `forms` patterns matched no contract"))

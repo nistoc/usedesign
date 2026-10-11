@@ -33,3 +33,14 @@ What `validate` does with the paths it is given, and which files `validate`, `ch
 
   In CI these cases must run: the script fails when links do not hold, and when permissions do not
   hold for a user other than root.
+- The stale case of the checks corpus, run in the zones UTC+13 and UTC−11: both implementations
+  count «N days ago» from the UTC date, as they do in UTC (1.4.3). Python counted from the local
+  date, a day apart near midnight east or west of UTC.
+- `schema/` holds five cards and a contract that break thirteen of the keywords the JSON Schema
+  uses (type, enum, oneOf, if/then, required, additionalProperties, minItems, uniqueItems,
+  minLength, format, minimum, maximum, exclusiveMinimum) — a status of 4120, `yes` for a boolean
+  (a string in YAML 1.2), a date that does not exist, a step text that is a number, among others —
+  and two more the rules read: `null` where a value is asked for, a key written twice. `validate`
+  must print the same lines in both implementations, with the schema and with `--no-schema`
+  (1.4.3): the Python prototype had no schema layer, and a card only the schema refuses passed
+  there.

@@ -8,7 +8,10 @@ runtime — a claim that is cheap to make and easy to get wrong.
 ## What it does
 
 Checks the rules a JSON Schema cannot express — cross-references between steps, tests and
-interfaces — plus the structural rules, so it can run the corpus end to end.
+interfaces — plus the structural rules, so it can run the corpus end to end. Since 1.4.3 it first
+validates against the published [JSON Schema](../../schema/), as the TypeScript implementation
+does: `json_schema.py` reads the keywords the schemas use and reports what Ajv reports there — the
+same messages, in the same order. `--no-schema` skips it.
 
 ```bash
 python validate.py --conformance      # run the conformance corpus
@@ -35,9 +38,16 @@ Requires only PyYAML.
 
 ## What it does not do
 
-- **No JSON Schema validation.** The rules are hand-written, which means the schema and this
-  prototype could drift. They are kept aligned by the corpus, not by construction — the reference
-  implementation will validate against [`schema/`](../../schema/) directly.
+- **No general JSON Schema validator.** `json_schema.py` implements the keywords
+  [`schema/`](../../schema/) uses and refuses a schema with any other, so a keyword added there
+  cannot pass here unread. It reads the front matter as YAML 1.2, as the TypeScript implementation
+  does; the rules still read YAML 1.1 ([SPEC §5.7](../../SPEC.md#57-interfaces)), and a key
+  written twice is refused in both, as there. Both layers are held to the TypeScript
+  implementation's output, line for line, on the cards of
+  [`tests/fixtures/validate-cli/schema/`](../../tests/fixtures/validate-cli/schema/) by
+  [`run.sh`](../../tests/fixtures/validate-cli/run.sh) in CI. A field of the wrong type — a step id
+  that is a number, an interface that is not a mapping — can still stop the rules here with a
+  traceback, where the TypeScript implementation goes on.
 - **Does not produce route inventories.** By design — see
   [`design/route-conformance.md`](../../design/route-conformance.md) §3. The inventory comes from
   the repository being checked.

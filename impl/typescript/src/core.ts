@@ -201,55 +201,127 @@ function listing(dir: string): Dirent[] {
  * returned, a link that leads nowhere included, so that the reader names it; directories are not.
  */
 export function expandGlob(base: string, pattern: string): string[] {
-  const segments = pattern.split(/[\\/]+/).filter((s) => s.length > 0);
-  let current = [resolve(base)];
+  return once(expandKeyed(base, pattern));
+}
 
-  for (const [index, segment] of segments.entries()) {
-    const last = index === segments.length - 1;
-    const next: string[] = [];
+/** Every file the patterns match, once however many of them reach it (1.4.3). */
+export function expandGlobs(base: string, patterns: string[]): string[] {
+  const keyed = new Map<string, string>();
+  for (const pattern of patterns) for (const [path, real] of expandKeyed(base, pattern)) put(keyed, path, real);
+  return once(keyed);
+}
+
+/** What is known of a path the walk stands at: a directory or a file with its real path, or null — to be asked of the system. */
+type Known = readonly ["dir" | "file", string] | null;
+
+function put<T>(map: Map<string, T>, path: string, value: T): void {
+  if (!map.has(path)) map.set(path, value);
+}
+
+/**
+ * What a directory listing says an entry is: "dir", "file", or null for a link, which only the
+ * system can follow, and for an entry whose type the listing did not give.
+ */
+function kindOf(entry: Dirent): "dir" | "file" | null {
+  if (entry.isSymbolicLink()) return null;
+  if (entry.isDirectory()) return "dir";
+  if (entry.isFile() || entry.isFIFO() || entry.isSocket() || entry.isBlockDevice() || entry.isCharacterDevice()) return "file";
+  return null;
+}
+
+/** Whether the walk can go into `path`: a directory, by what is known or by asking. */
+function walkable(path: string, known: Known): boolean {
+  return known === null ? isDirectory(path) : known[0] === "dir";
+}
+
+/**
+ * Every file `pattern` matches under `base`, with its real path — not yet once per file.
+ *
+ * What a directory listing told is not asked of the system again (1.4.3): an entry that is not a
+ * link is a file or a directory, and its real path is its directory's real path and its name. Only
+ * links and the names a pattern spells out are asked. `**` and a wildcard segment after it read
+ * each directory once: the segment is matched in the listing `**` walks with. Measured on 24 000
+ * files before the change: the listing read twice, and a real path, a type and an existence asked
+ * per file. See the Python twin.
+ */
+function expandKeyed(base: string, pattern: string): Map<string, string> {
+  const segments = pattern.split(/[\\/]+/).filter((s) => s.length > 0);
+  let current = new Map<string, Known>([[resolve(base), null]]);
+
+  for (let index = 0; index < segments.length; index++) {
+    const segment = segments[index]!;
+    let last = index === segments.length - 1;
+    const found = new Map<string, Known>();
 
     if (segment === "**") {
-      for (const dir of current) {
-        if (!isDirectory(dir)) continue;
+      const after = last ? "" : segments[index + 1]!;
+      const fused = after !== "" && after !== "**" && after !== "." && after !== ".." && /[*?]/.test(after);
+      const matcher = fused ? segmentToRegExp(after) : null;
+      const dotted = after.startsWith(".");
+      if (fused) last = ++index === segments.length - 1;
+      for (const [dir, known] of current) {
+        if (!walkable(dir, known)) continue;
         // Each directory carries its real path and those of the directories above it: a link back
         // to one of them would be walked forever and is walked once. The system is asked for a real
         // path only at the start and at a link; below that, the parent's real path and the name are it.
         const stack = [{ here: dir, real: realOf(dir), above: [] as string[] }];
         while (stack.length) {
           const { here, real, above } = stack.pop()!;
-          next.push(here);
-          if (above.includes(real)) continue;
+          const looped = above.includes(real);
+          if (!fused) {
+            put<Known>(found, here, ["dir", real]);
+            if (looped) continue;
+          }
           for (const entry of listing(here)) {
-            if (entry.name.startsWith(".")) continue;
-            const path = join(here, entry.name);
-            if (entry.isDirectory()) stack.push({ here: path, real: join(real, entry.name), above: [...above, real] });
+            const name = entry.name;
+            const path = join(here, name);
+            const kind = kindOf(entry);
+            let linkedDir: boolean | undefined; // whether a link leads to a directory, asked once
+            if (matcher && !(name.startsWith(".") && !dotted) && matcher.test(name)) {
+              if (kind === null) linkedDir = isDirectory(path);
+              if (last || kind === "dir" || linkedDir) put<Known>(found, path, kind ? [kind, join(real, name)] : null);
+            }
+            // A directory a link leads back to is matched in, not walked again.
+            if (looped || name.startsWith(".")) continue;
+            if (kind === "dir") stack.push({ here: path, real: join(real, name), above: [...above, real] });
             // `Dirent.isDirectory()` is false for a link and for a Windows junction (1.4.2).
-            else if (entry.isSymbolicLink() && isDirectory(path)) stack.push({ here: path, real: realOf(path), above: [...above, real] });
+            else if (kind === null && (linkedDir ?? isDirectory(path))) stack.push({ here: path, real: realOf(path), above: [...above, real] });
             // `**` at the end matches files as well (1.4.2): `cards/**` found nothing here.
-            else if (last) next.push(path);
+            else if (last && !fused) put<Known>(found, path, kind ? [kind, join(real, name)] : null);
           }
         }
       }
     } else if (segment === "." || segment === "..") {
-      next.push(...current.map((dir) => resolve(dir, segment)));
+      for (const dir of current.keys()) put<Known>(found, resolve(dir, segment), null);
     } else if (!/[*?]/.test(segment)) {
-      next.push(...current.map((dir) => join(dir, segment)));
+      for (const dir of current.keys()) put<Known>(found, join(dir, segment), null);
     } else {
       const matcher = segmentToRegExp(segment);
       const dotted = segment.startsWith(".");
-      for (const dir of current) {
-        if (!isDirectory(dir)) continue;
+      for (const [dir, known] of current) {
+        if (!walkable(dir, known)) continue;
+        let real = ""; // the directory's real path, asked once and only if a match needs it
         for (const entry of listing(dir)) {
           if ((entry.name.startsWith(".") && !dotted) || !matcher.test(entry.name)) continue;
           const path = join(dir, entry.name);
-          if (last || entry.isDirectory() || (entry.isSymbolicLink() && isDirectory(path))) next.push(path);
+          const kind = kindOf(entry);
+          if (last || kind === "dir" || (kind === null && isDirectory(path))) {
+            if (kind && !real) real = realOf(dir);
+            put<Known>(found, path, kind ? [kind, join(real, entry.name)] : null);
+          }
         }
       }
     }
-    current = [...new Set(next)];
+    current = found;
   }
 
-  return oncePerFile(current.filter((path) => isEntry(path) && !isDirectory(path)));
+  const keyed = new Map<string, string>();
+  for (const [path, known] of current) {
+    if (known === null) {
+      if (isEntry(path) && !isDirectory(path)) keyed.set(path, realOf(path));
+    } else if (known[0] === "file") keyed.set(path, known[1]);
+  }
+  return keyed;
 }
 
 /**
@@ -258,10 +330,15 @@ export function expandGlob(base: string, pattern: string): string[] {
  * reach one card through a link gave it here twice.
  */
 export function oncePerFile(paths: string[]): string[] {
+  return once(new Map(paths.map((path) => [path, realOf(path)])));
+}
+
+/** Paths in order, each real path once — the first path in that order stands for it. */
+export function once(keyed: Map<string, string>): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const path of [...new Set(paths)].sort()) {
-    const key = realOf(path);
+  for (const path of [...keyed.keys()].sort()) {
+    const key = keyed.get(path)!;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(path);
@@ -272,9 +349,7 @@ export function oncePerFile(paths: string[]): string[] {
 /** Every card the config points at, as [id, front matter]. */
 export function loadCardFiles(config: Config, base: string): { cards: [string, Card][]; findings: Finding[] } {
   const findings: Finding[] = [];
-  const matched: string[] = [];
-  for (const pattern of config.cards ?? []) matched.push(...expandGlob(base, pattern));
-  const files = oncePerFile(matched);
+  const files = expandGlobs(base, config.cards ?? []);
   if (files.length === 0) findings.push(new Finding("no_cards_found", "the `cards` patterns matched nothing"));
 
   const cards: [string, Card][] = [];
@@ -287,13 +362,20 @@ export function loadCardFiles(config: Config, base: string): { cards: [string, C
 
 /** Collect `*.op.md` and `*.contract.md` under the given files or directories. */
 export function collectCards(paths: string[]): string[] {
-  const files: string[] = [];
+  return once(collectKeyed(paths));
+}
+
+/** The cards and contracts under the given files or directories, each with its real path (1.4.3). */
+export function collectKeyed(paths: string[]): Map<string, string> {
+  const keyed = new Map<string, string>();
   for (const path of paths) {
     if (isDirectory(path)) {
       // Both document kinds, deliberately: `validate forms/` used to collect nothing and print
       // "0 card(s): 0 error(s)" — a green verdict on a directory it had not read.
-      files.push(...expandGlob(path, "**/*.op.md"), ...expandGlob(path, "**/*.contract.md"));
-    } else files.push(path);
+      for (const pattern of ["**/*.op.md", "**/*.contract.md"]) {
+        for (const [found, real] of expandKeyed(path, pattern)) put(keyed, found, real);
+      }
+    } else put(keyed, path, realOf(path));
   }
-  return oncePerFile(files);
+  return keyed;
 }

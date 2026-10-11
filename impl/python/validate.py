@@ -2,7 +2,8 @@
 """Prototype validator for the Operation Card format.
 
 Checks the rules that a JSON Schema cannot express — cross-references between steps, tests and
-interfaces — plus the structural rules, so that it can run the conformance corpus end to end.
+interfaces — plus the structural rules, so that it can run the conformance corpus end to end; and,
+first, the published JSON Schema itself, as the TypeScript twin does (1.4.3, json_schema.py).
 
 This is a prototype, not a package: it exists to prove the format is implementable on a second
 runtime and to keep the corpus honest before the reference implementation is written.
@@ -10,6 +11,7 @@ runtime and to keep the corpus honest before the reference implementation is wri
 Usage:
     python validate.py --conformance          run the conformance corpus
     python validate.py <path> [<path> ...]    validate cards (files or directories)
+    --no-schema                               skip the JSON Schema, keep the rules
 """
 from __future__ import annotations
 
@@ -24,6 +26,8 @@ try:
     import yaml
 except ImportError:  # pragma: no cover
     sys.exit("PyYAML is required: pip install pyyaml")
+
+import json_schema
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -59,8 +63,44 @@ class Finding:
         return f"{self.code}: {self.detail}"
 
 
+class _Reader(yaml.SafeLoader):
+    """PyYAML's safe loader, but a date that does not exist stays the text it is (1.4.3).
+
+    YAML 1.1 reads an unquoted `2026-02-30` as a date, and PyYAML stopped the run on it with a
+    traceback; the TypeScript twin reads YAML 1.2, where it is a string, and its schema says the
+    date is not one.
+    """
+
+
+def _timestamp(loader, node):
+    try:
+        return yaml.SafeLoader.construct_yaml_timestamp(loader, node)
+    except ValueError:
+        return loader.construct_scalar(node)
+
+
+_Reader.add_constructor("tag:yaml.org,2002:timestamp", _timestamp)
+
+
 def front_matter(path: str):
     """Return the parsed YAML front matter, or None if the file has none."""
+    text = front_matter_text(path)
+    if text is None:
+        return None
+    # A key written twice is not YAML to the TypeScript twin's parser; PyYAML kept the last (1.4.3).
+    json_schema.load(text)
+    return yaml.load(text, Loader=_Reader)
+
+
+def is_contract(fm: dict) -> bool:
+    """`usedesign_form: 1`, as the TypeScript twin tests it (`=== 1`): `true`, which Python counts
+    equal to 1, makes a card of the file there, and made a contract of it here (1.4.3)."""
+    value = fm.get("usedesign_form")
+    return value == 1 and not isinstance(value, bool)
+
+
+def front_matter_text(path: str):
+    """The YAML between the fences, or None if the file has none."""
     # A byte-order mark must not decide whether a card parses, and bytes that are not UTF-8 must
     # not crash the run: read as the TypeScript twin reads (round 29).
     text = open(path, encoding="utf-8-sig", errors="replace").read()
@@ -69,7 +109,24 @@ def front_matter(path: str):
     end = text.find("\n---", 3)
     if end == -1:
         return None
-    return yaml.safe_load(text[3:end])
+    return text[3:end]
+
+
+def schema_findings(path: str, form: bool = False) -> list[Finding]:
+    """The card or contract at `path` against its published JSON Schema (1.4.3).
+
+    The TypeScript twin runs the schema before the rules, and this prototype did not: a card with an
+    id that is not an operation id, or with a key the schema does not know, failed there and passed
+    here. Front matter the twin's YAML cannot read is its business, not the schema's.
+    """
+    try:
+        data = json_schema.load(front_matter_text(path) or "")
+    except yaml.YAMLError:
+        return []
+    if not isinstance(data, dict):
+        return []
+    name = "form-contract.schema.json" if form else "operation-card.schema.json"
+    return [Finding("schema_violation", message) for message in json_schema.messages(name, data)]
 
 
 def why_unreadable(path: str) -> str:
@@ -181,14 +238,54 @@ def expand_glob(base: str, pattern: str) -> list[str]:
     are plain characters; letter case counts. Every entry whose name matches is returned, a link
     that leads nowhere included, so that the reader names it; directories are not.
     """
+    return _once(_expand(base, pattern))
+
+
+def expand_globs(base: str, patterns: list[str]) -> list[str]:
+    """Every file the patterns match, once however many of them reach it (1.4.3)."""
+    keyed: dict[str, str] = {}
+    for pattern in patterns:
+        for path, real in _expand(base, pattern).items():
+            keyed.setdefault(path, real)
+    return _once(keyed)
+
+
+def _kind(entry):
+    """What a directory listing says an entry is: "dir", "file", or None for a link, which only
+    the system can follow."""
+    if _is_link(entry):
+        return None
+    return "dir" if entry.is_dir(follow_symlinks=False) else "file"
+
+
+def _expand(base: str, pattern: str) -> dict[str, str]:
+    """Every file `pattern` matches under `base`, with its real path — not yet once per file.
+
+    What a directory listing told is not asked of the system again (1.4.3): an entry that is not a
+    link is a file or a directory, and its real path is its directory's real path and its name. Only
+    links and the names a pattern spells out are asked. `**` and a wildcard segment after it read
+    each directory once: the segment is matched in the listing `**` walks with. Measured on 24 000
+    files before the change: the listing read twice, and a real path, a type and an existence asked
+    per file, cost the Python twin a third more than its glob had. See the TypeScript twin.
+    """
     segments = [s for s in re.split(r"[\\/]+", pattern) if s]
-    current = [os.path.abspath(base)]
-    for index, segment in enumerate(segments):
+    # Each path the walk stands at, with what is known of it: ("dir", real path), ("file", real
+    # path), or None — to be asked of the system.
+    current: dict = {os.path.abspath(base): None}
+    index = 0
+    while index < len(segments):
+        segment = segments[index]
         last = index == len(segments) - 1
-        found: list[str] = []
+        found: dict = {}
         if segment == "**":
-            for directory in current:
-                if not os.path.isdir(directory):
+            after = None if last else segments[index + 1]
+            fused = after is not None and after not in ("**", ".", "..") and bool(re.search(r"[*?]", after))
+            if fused:
+                matcher, dotted = _segment(after), after.startswith(".")
+                index += 1
+                last = index == len(segments) - 1
+            for directory, known in current.items():
+                if known is None and not os.path.isdir(directory) or known is not None and known[0] != "dir":
                     continue
                 # Each directory carries its real path and those of the directories above it: a
                 # link back to one of them would be walked forever and is walked once. The system
@@ -197,37 +294,62 @@ def expand_glob(base: str, pattern: str) -> list[str]:
                 stack = [(directory, real_of(directory), [])]
                 while stack:
                     here, real, above = stack.pop()
-                    found.append(here)
-                    if real in above:
-                        continue
-                    for entry in listing(here):
-                        if entry.name.startswith("."):
+                    looped = real in above
+                    if not fused:
+                        found.setdefault(here, ("dir", real))
+                        if looped:
                             continue
-                        path = _join(here, entry.name)
-                        if not _is_link(entry) and entry.is_dir(follow_symlinks=False):
-                            stack.append((path, _join(real, entry.name), above + [real]))
-                        elif _is_link(entry) and os.path.isdir(path):
+                    for entry in listing(here):
+                        name = entry.name
+                        path = _join(here, name)
+                        kind = _kind(entry)
+                        linked_dir = None  # whether a link leads to a directory, asked once
+                        if fused and not (name.startswith(".") and not dotted) and matcher.fullmatch(name):
+                            if kind is None:
+                                linked_dir = os.path.isdir(path)
+                            if last or kind == "dir" or linked_dir:
+                                found.setdefault(path, (kind, _join(real, name)) if kind else None)
+                        # A directory a link leads back to is matched in, not walked again.
+                        if looped or name.startswith("."):
+                            continue
+                        if kind == "dir":
+                            stack.append((path, _join(real, name), above + [real]))
+                        elif kind is None and (os.path.isdir(path) if linked_dir is None else linked_dir):
                             stack.append((path, real_of(path), above + [real]))
-                        elif last:
-                            found.append(path)
+                        elif last and not fused:
+                            found.setdefault(path, (kind, _join(real, name)) if kind else None)
         elif segment in (".", ".."):
-            found += [os.path.normpath(_join(directory, segment)) for directory in current]
+            for directory in current:
+                found.setdefault(os.path.normpath(_join(directory, segment)), None)
         elif not re.search(r"[*?]", segment):
-            found += [_join(directory, segment) for directory in current]
+            for directory in current:
+                found.setdefault(_join(directory, segment), None)
         else:
             matcher = _segment(segment)
             dotted = segment.startswith(".")
-            for directory in current:
-                if not os.path.isdir(directory):
+            for directory, known in current.items():
+                if known is None and not os.path.isdir(directory) or known is not None and known[0] != "dir":
                     continue
+                real = None  # the directory's real path, asked once and only if a match needs it
                 for entry in listing(directory):
                     if (entry.name.startswith(".") and not dotted) or not matcher.fullmatch(entry.name):
                         continue
                     path = _join(directory, entry.name)
-                    if last or (os.path.isdir(path) if _is_link(entry) else entry.is_dir(follow_symlinks=False)):
-                        found.append(path)
-        current = list(dict.fromkeys(found))
-    return once_per_file([path for path in current if is_entry(path) and not os.path.isdir(path)])
+                    kind = _kind(entry)
+                    if last or kind == "dir" or kind is None and os.path.isdir(path):
+                        if kind and real is None:
+                            real = real_of(directory)
+                        found.setdefault(path, (kind, _join(real, entry.name)) if kind else None)
+        current = found
+        index += 1
+    keyed: dict[str, str] = {}
+    for path, known in current.items():
+        if known is None:
+            if is_entry(path) and not os.path.isdir(path):
+                keyed[path] = real_of(path)
+        elif known[0] == "file":
+            keyed[path] = known[1]
+    return keyed
 
 
 # ── What the user reads (SPEC §5.7, round 28) ─────────────────────────────────────────────────
@@ -338,8 +460,9 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         err("no_owner", "neither `scenario` nor `serves_step` is present")
 
     maturity = fm.get("maturity")
-    if maturity is not None and maturity not in MATURITY:
-        err("invalid_enum_value", f"maturity `{maturity}` is not one of {MATURITY}")
+    # `maturity: null` is outside the six too, as the twin reads it (1.4.3).
+    if "maturity" in fm and maturity not in MATURITY:
+        err("invalid_enum_value", f"maturity `{json_schema.js_string(maturity)}` is not one of {','.join(MATURITY)}")
 
     # `data_transition.from` may be a SET (round 18): an operation departing from any of several
     # states. One state is written as a string; a one-element set is that string wearing brackets.
@@ -354,14 +477,16 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
 
     # ── steps ────────────────────────────────────────────────────────────────
     steps = fm.get("steps") or []
-    step_ids: set[str] = set()
+    # In the order the card writes them, as the TypeScript twin's Set keeps them: a set here put the
+    # `step_unproven` warnings in an order that changed from run to run (1.4.3).
+    step_ids: dict[str, None] = {}
     for step in steps:
         sid = step.get("id", "")
         if not STEP_ID.match(sid):
             err("malformed_step_id", f"`{sid}` is not s<N>-<name>")
         elif sid in step_ids:
             err("duplicate_step_id", f"`{sid}` appears more than once")
-        step_ids.add(sid)
+        step_ids[sid] = None
 
     # ── maturity vs evidence ─────────────────────────────────────────────────
     evidence = fm.get("maturity_evidence") or {}
@@ -387,8 +512,9 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     # ── concurrency ──────────────────────────────────────────────────────────
     concurrency = fm.get("concurrency") or {}
     mode = concurrency.get("mode")
-    if mode is not None and mode not in CONCURRENCY_MODES:
-        err("invalid_enum_value", f"concurrency.mode `{mode}` is not one of {CONCURRENCY_MODES}")
+    if "mode" in concurrency and mode not in CONCURRENCY_MODES:
+        err("invalid_enum_value",
+            f"concurrency.mode `{json_schema.js_string(mode)}` is not one of {','.join(CONCURRENCY_MODES)}")
     if mode and mode != "etag_required" and not concurrency.get("rationale"):
         err("relaxation_without_rationale", f"mode `{mode}` weakens protection without a rationale")
     if mode == "idempotency_by_formula" and not concurrency.get("formula"):
@@ -433,10 +559,11 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         if gap not in step_ids:
             err("unknown_step_reference", f"coverage_gaps names unknown step `{gap}`")
     for entry in fm.get("coverage_gaps") or []:
-        kind = entry.get("kind")
-        if kind is not None and kind not in GAP_KINDS:
-            err("invalid_enum_value",
-                f"coverage_gaps `{entry.get('step')}`: kind `{kind}` is not one of {GAP_KINDS}")
+        # `kind: null` is a kind outside the three too, as the TypeScript twin reads it (1.4.3);
+        # here it passed, and without the schema the card was valid.
+        if "kind" in entry and entry["kind"] not in GAP_KINDS:
+            err("invalid_enum_value", f"coverage_gaps `{entry.get('step')}`: kind "
+                f"`{json_schema.js_string(entry['kind'])}` is not one of {','.join(GAP_KINDS)}")
 
     # ── a variant of another operation (SPEC 5.2e) ──────────────────────────────────────────────
     # Only what the card itself can show: the inherited steps are its own listed steps, and the
@@ -698,11 +825,13 @@ def anchor_or_family(line: dict, literal_key: str, pattern_key: str, where: str,
             f"{where}: `{pattern}` has no `*` — a family without a wildcard is a literal; "
             f"write `{literal_key}:`")
     at_least = line.get("at_least")
-    if at_least is not None and (isinstance(at_least, bool)
-                                 or not isinstance(at_least, int) or at_least < 0):
+    # Number.isInteger: `1.0` is the integer 1 there, `null` and `true` are not integers (1.4.3).
+    integer = not isinstance(at_least, bool) and (
+        isinstance(at_least, int) or isinstance(at_least, float) and at_least.is_integer())
+    if "at_least" in line and (not integer or at_least < 0):
         err("malformed_at_least",
-            f"{where}: `at_least` must be a non-negative integer, got `{at_least}`")
-    if at_least is not None and not pattern:
+            f"{where}: `at_least` must be a non-negative integer, got `{json_schema.js_string(at_least)}`")
+    if "at_least" in line and not pattern:
         err("malformed_at_least",
             f"{where}: `at_least` belongs to a family line (`{pattern_key}`) — a single anchor "
             "is present or it is not")
@@ -737,8 +866,9 @@ def validate_form(fm: dict, filename: str = "",
     # `maturity: designed` marks a contract written before its screen (issue #8) — two values,
     # not the card's six: a contract has no evidence axis beyond "does the screen render".
     maturity = fm.get("maturity")
-    if maturity is not None and maturity not in FORM_MATURITY:
-        err("invalid_enum_value", f"maturity `{maturity}` is not one of {FORM_MATURITY}")
+    if "maturity" in fm and maturity not in FORM_MATURITY:
+        err("invalid_enum_value",
+            f"maturity `{json_schema.js_string(maturity)}` is not one of {','.join(FORM_MATURITY)}")
 
     # `states:` maps screen states onto data states (issue #11).
     if "states" in fm:
@@ -848,7 +978,7 @@ def validate_form(fm: dict, filename: str = "",
             seen_groups.add(name)
         role = group.get("role")
         if role and role not in GROUP_ROLES:
-            err("invalid_enum_value", f"groups[{index}]: role `{role}` is not one of {GROUP_ROLES}")
+            err("invalid_enum_value", f"groups[{index}]: role `{role}` is not one of {','.join(GROUP_ROLES)}")
         contains = group.get("contains") if isinstance(group.get("contains"), list) else []
         for member in contains:
             if member not in members:
@@ -882,15 +1012,22 @@ def validate_form(fm: dict, filename: str = "",
 
 
 def collect(paths: list[str]) -> list[str]:
-    files: list[str] = []
+    return _once(collect_keyed(paths))
+
+
+def collect_keyed(paths: list[str]) -> dict[str, str]:
+    """The cards and contracts under the given files or directories, each with its real path."""
+    keyed: dict[str, str] = {}
     for path in paths:
         if os.path.isdir(path):
             # Both document kinds, deliberately: `validate forms/` used to collect nothing and
             # print "0 card(s): 0 error(s)" — a green verdict on a directory it had not read.
-            files += expand_glob(path, "**/*.op.md") + expand_glob(path, "**/*.contract.md")
+            for pattern in ("**/*.op.md", "**/*.contract.md"):
+                for found, real in _expand(path, pattern).items():
+                    keyed.setdefault(found, real)
         else:
-            files.append(path)
-    return once_per_file(files)
+            keyed.setdefault(path, real_of(path))
+    return keyed
 
 
 def once_per_file(paths: list[str]) -> list[str]:
@@ -899,13 +1036,17 @@ def once_per_file(paths: list[str]) -> list[str]:
     A loop of links gave the same card here once per level of glob's walk, and twice in the
     TypeScript twin; the counts disagreed. See the TypeScript twin.
     """
+    return _once({path: real_of(path) for path in paths})
+
+
+def _once(keyed: dict[str, str]) -> list[str]:
+    """Paths in order, each real path once — the first path in that order stands for it."""
     seen: set[str] = set()
     out = []
-    for path in sorted(set(paths)):
-        key = real_of(path)
-        if key in seen:
+    for path in sorted(keyed):
+        if keyed[path] in seen:
             continue
-        seen.add(key)
+        seen.add(keyed[path])
         out.append(path)
     return out
 
@@ -945,15 +1086,18 @@ def read_front(path: str):
     return fm, ""
 
 
-def run_files(paths: list[str]) -> int:
+def run_files(paths: list[str], with_schema: bool = True) -> int:
     # Round 29 (issue #14): a path that exists and yields nothing to validate is refused, as a
     # missing path is (exit 2). See the TypeScript twin.
     refusals = []
+    # Each directory is collected once (1.4.3): the refusal and the run below collected it twice.
+    collected: dict[str, dict[str, str]] = {}
     for path in paths:
         if not os.path.exists(path):
             refusals.append(f"`{path}`: no such file or directory")
         elif os.path.isdir(path):
-            if not collect([path]):
+            collected[path] = collect_keyed([path])
+            if not collected[path]:
                 refusals.append(f"`{path}` holds no card (*.op.md) and no form contract "
                                 "(*.contract.md) — nothing to validate")
         elif not re.search(r"\.(op|contract)\.md$", path):
@@ -970,7 +1114,11 @@ def run_files(paths: list[str]) -> int:
         for refusal in refusals:
             print(f"validate.py: {refusal}", file=sys.stderr)
         return 2
-    files = collect(paths)
+    keyed: dict[str, str] = {}
+    for path in paths:
+        for found, real in (collected[path] if path in collected else collect_keyed([path])).items():
+            keyed.setdefault(found, real)
+    files = _once(keyed)
     cards: dict = {}
     forms: dict = {}
     # A card or contract file without front matter used to vanish from the count; it is counted
@@ -979,7 +1127,7 @@ def run_files(paths: list[str]) -> int:
     for path in files:
         fm, problem = read_front(path)
         if fm is not None:
-            target = forms if fm.get("usedesign_form") == 1 else cards
+            target = forms if is_contract(fm) else cards
             target[fm.get("id")] = (path, fm)
         else:
             unreadable.append((path, problem))
@@ -1000,16 +1148,16 @@ def run_files(paths: list[str]) -> int:
     for path, problem in unreadable:
         show(path, [Finding("missing_required_field", problem)])
     for _, (path, fm) in sorted(cards.items()):
-        show(path, validate(fm, os.path.basename(path), known))
+        show(path, (schema_findings(path) if with_schema else []) + validate(fm, os.path.basename(path), known))
     for _, (path, fm) in sorted(forms.items()):
-        show(path, validate_form(fm, os.path.basename(path), known_forms,
-                                 known if cards else None))
+        show(path, (schema_findings(path, form=True) if with_schema else [])
+             + validate_form(fm, os.path.basename(path), known_forms, known if cards else None))
     print(f"\n{len(cards) + len(unreadable) - unreadable_forms} card(s), "
           f"{len(forms) + unreadable_forms} form contract(s): {errors} error(s), {warnings} warning(s)")
     return 1 if errors else 0
 
 
-def run_conformance() -> int:
+def run_conformance(with_schema: bool = True) -> int:
     manifest = yaml.safe_load(open(os.path.join(CORPUS, "manifest.yaml"), encoding="utf-8"))
     passed = failed = 0
 
@@ -1018,10 +1166,10 @@ def run_conformance() -> int:
         fm = front_matter(path)
         if not fm:
             findings = [Finding("missing_required_field", "no front matter")]
-        elif fm.get("usedesign_form") == 1:
-            findings = validate_form(fm, os.path.basename(path))
+        elif is_contract(fm):
+            findings = (schema_findings(path, form=True) if with_schema else []) + validate_form(fm, os.path.basename(path))
         else:
-            findings = validate(fm, os.path.basename(path))
+            findings = (schema_findings(path) if with_schema else []) + validate(fm, os.path.basename(path))
         errors = [f for f in findings if f.severity == "error"]
         verdict = "invalid" if errors else "valid"
         codes = sorted({f.code for f in errors})
@@ -1070,14 +1218,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate Operation Cards.")
     parser.add_argument("paths", nargs="*", help="card files or directories")
     parser.add_argument("--conformance", action="store_true", help="run the conformance corpus")
+    parser.add_argument("--no-schema", action="store_true", help="skip the JSON Schema, keep the rules")
     args = parser.parse_args()
 
     if args.conformance:
-        return run_conformance()
+        return run_conformance(not args.no_schema)
     if not args.paths:
         parser.print_help()
         return 2
-    return run_files(args.paths)
+    return run_files(args.paths, not args.no_schema)
 
 
 if __name__ == "__main__":

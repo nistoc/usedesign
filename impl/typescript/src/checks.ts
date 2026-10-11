@@ -10,7 +10,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { XMLParser } from "fast-xml-parser";
-import { Card, Config, Finding, expandGlob, loadCardFiles, oncePerFile, readDocument } from "./core.js";
+import { Card, Config, Finding, expandGlobs, loadCardFiles, readDocument } from "./core.js";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
@@ -935,9 +935,7 @@ export function checkForm(config: Config, base: string): CheckResult {
   const cardById = new Map<string, Card>(cards);
 
   const contracts: [string, Card][] = [];
-  const files: string[] = [];
-  for (const pattern of patterns) files.push(...expandGlob(base, pattern));
-  for (const path of oncePerFile(files)) {
+  for (const path of expandGlobs(base, patterns)) {
     const fm = readDocument(path);
     if (fm && fm["usedesign_form"] === 1) contracts.push([String(fm["id"] ?? path), fm]);
   }

@@ -11,7 +11,7 @@ import { parse as parseYaml } from "yaml";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { CHECKS, checkCoverage, checkForm, checkMaturity, checkRoutes, checkStorage } from "./checks.js";
-import { causeOf, codesOf, collectCards, errors, Finding, frontMatter, loadConfig, warnings, whyUnreadable } from "./core.js";
+import { causeOf, codesOf, collectKeyed, errors, Finding, frontMatter, loadConfig, once, warnings, whyUnreadable } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { planScaffold, writeScaffold } from "./scaffold.js";
 import { commandGen } from "./gen.js";
@@ -107,6 +107,8 @@ function commandValidate(paths: string[], withSchema: boolean): number {
   // that does not exist is (exit 2). Before, it was dropped without a word and the summary
   // reported a clean result over an empty set — the config, the natural wrong argument, included.
   const refusals: string[] = [];
+  // Each directory is collected once (1.4.3): the refusal and the run below collected it twice.
+  const collected = new Map<string, Map<string, string>>();
   for (const path of paths) {
     // 1.4.1: refused here and named, as in the Python twin. 1.4.0 passed it on to `readFront`, which
     // read the ENOENT as front matter that is not valid YAML — counted a card, exit 1 instead of 2.
@@ -115,7 +117,8 @@ function commandValidate(paths: string[], withSchema: boolean): number {
       continue;
     }
     if (statSync(path).isDirectory()) {
-      if (collectCards([path]).length === 0) {
+      collected.set(path, collectKeyed([path]));
+      if (collected.get(path)!.size === 0) {
         refusals.push(`\`${path}\` holds no card (*.op.md) and no form contract (*.contract.md) — nothing to validate`);
       }
     } else if (!/\.(op|contract)\.md$/.test(path)) {
@@ -133,7 +136,11 @@ function commandValidate(paths: string[], withSchema: boolean): number {
     for (const refusal of refusals) console.error(`usedesign validate: ${refusal}`);
     return 2;
   }
-  const files = collectCards(paths);
+  const keyed = new Map<string, string>();
+  for (const path of paths) {
+    for (const [found, real] of collected.get(path) ?? collectKeyed([path])) if (!keyed.has(found)) keyed.set(found, real);
+  }
+  const files = once(keyed);
   // Two document kinds share one command, told apart by the front-matter marker. Cross-reference
   // sets are per-kind: a form's `opens` must name a form, never an operation.
   const cards = new Map<string, { path: string; fm: Record<string, any> }>();

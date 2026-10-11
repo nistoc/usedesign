@@ -59,9 +59,11 @@ reason: `outcomes_indistinguishable` cases give the outcomes it groups, as both 
 print them — in the order of the map, the grouped ones last, so a wider or a different group does
 not match.
 
-The Python prototype does not validate against the JSON Schema, so a case whose only point is what
-the schema accepts or refuses — the `step-source-*` cases of round 28, say — is exercised by the
-TypeScript runner alone; the Python runner passes it whatever the schema says.
+Both runners validate against the JSON Schema before the rules — the Python prototype since 1.4.3;
+before, a case whose only point is what the schema accepts or refuses (the `step-source-*` cases
+of round 28) was exercised by the TypeScript runner alone. No case here is refused by the schema
+alone, so an implementation of the rules alone can still pass the corpus; that the two schema
+layers print the same lines is held by [`validate-cli/run.sh`](../fixtures/validate-cli/run.sh).
 
 Every card case is a real card, and its Markdown body explains what it is probing — read the case
 before arguing with it.
