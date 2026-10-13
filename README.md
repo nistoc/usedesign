@@ -163,6 +163,16 @@ same.
 Read only in its type, such an id had become absent to the rules: with the schema layer the
 schema still named it, with `--no-schema` the card passed with no error. The format is unchanged.
 
+**v1.5** adds one spelling to an optional field. A `covers_outcomes` value may name its line
+instead of quoting it among other words: a pair `{shows, where, note}` — the line the user reads,
+the place it appears, and the rest — or a list of two or more pairs for an outcome that shows
+several lines. `outcomes_indistinguishable` compares the lines of `shows`, a line of one word too,
+beside the quoted spans of text values, and never `where`: the same words in two places tell the
+user the same thing. Text values read as before; the one new error (`malformed_outcome_pair`) is
+about the new spelling only, and without the schema it also names a value that is no text, pair
+or null — a number — which 1.4 passed over in silence. A card written with pairs needs 1.5: 1.4
+refuses it as a schema violation. The corpus holds 93 + 56 cases.
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in
