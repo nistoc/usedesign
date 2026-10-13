@@ -593,3 +593,76 @@ cases:
       `αί ab cd` and `άι ab cd` — the known limit of §5.7. It pins that folding runs before NFC:
       an implementation that decomposes first, or normalises before folding, reads both as
       `άι ab cd` and warns.
+
+  # ── Round 30: the line and its place, written apart (§5.7) ────────────────────────────────────
+  # A covers_outcomes value may be a pair {shows, where, note?}, or a list of two or more pairs.
+  # `shows` is compared, `where` and `note` are not. On the published 1.4 box every pair is a
+  # schema_violation.
+  - file: valid/outcomes-pair-same-line-two-places.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `forbidden`"]
+    note: >-
+      One line in two places, in another case and with other punctuation, one of the two with a
+      note that quotes a button of two words. An implementation that compares `where`, compares
+      `note`, or reads `shows` without rules 1 and 3 stays silent here.
+  - file: valid/outcomes-pair-beside-text.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `forbidden`"]
+    note: >-
+      A pair beside a text value that quotes that line alone. The two keys live together, so a map
+      half rewritten into pairs still reports its shared lines; an implementation that keeps pairs
+      in a pool of their own stays silent here.
+  - file: valid/outcomes-pair-one-word.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `forbidden`"]
+    note: >-
+      A line of one word. The floor of rule 4 tells a quoted button from a message and does not
+      apply to `shows`, which is the line by declaration; an implementation that applies it compares
+      `Failed` and `failed!` whole and stays silent.
+  - file: valid/outcomes-pair-glyph.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `forbidden`"]
+    note: >-
+      Lines with no word left after rule 3 are compared as rule 1 leaves them: the tick stays apart
+      from the crosses. An implementation that reads an empty line groups all three; one that skips
+      trimming keeps the crosses apart.
+  - file: valid/outcomes-pair-list.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `not_found`"]
+    note: >-
+      Two outcomes showing the same two lines in another order, and a third showing one of them. A
+      list compares as the set of its lines; an implementation that compares in order, or matches
+      one line inside a set, reads another group.
+  - file: invalid/outcome-pair-list-of-one.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      A list of one pair is a pair wearing brackets, the round 27 reason for `calls`. One line is
+      written as the pair itself.
+  - file: invalid/outcome-pair-without-where.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      `where` is required: a line with no place is what a quoted text value already says.
+  - file: invalid/outcome-pair-unknown-key.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      `text` where `shows` was meant. Read leniently, the outcome would be compared with nothing,
+      in silence.
+  - file: invalid/outcome-shown-as-a-number.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      A status code where the line belongs. The schema always refused it; without the schema layer
+      1.4 skipped the value without a word.

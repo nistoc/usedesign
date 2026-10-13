@@ -63,6 +63,13 @@ sed '/^id: /d' "$card" > "$scratch/noid/a.op.md"; sed '/^id: /d' "$card" > "$scr
 mkdir -p "$scratch/wrongid"
 sed 's/^id: .*/id: 1/' "$card" > "$scratch/wrongid/a.op.md"; sed 's/^id: .*/id: {a: 1}/' "$card" > "$scratch/wrongid/b.op.md"
 sed 's/^id: .*/id: true/' forms/session.contract.md > "$scratch/wrongid/c.contract.md"
+# The line and its place (1.5.0): pairs that group, a pair with a misspelt key, a status code where
+# the line belongs — read alike with the schema and without it.
+mkdir -p "$scratch/pairs"
+cases="$root/tests/conformance/cases"
+sed 's/^id: .*/id: sample.item.listed/' "$cases/valid/outcomes-pair-list.op.md" > "$scratch/pairs/a.op.md"
+sed 's/^id: .*/id: sample.item.misspelt/' "$cases/invalid/outcome-pair-unknown-key.op.md" > "$scratch/pairs/b.op.md"
+sed 's/^id: .*/id: sample.item.number/' "$cases/invalid/outcome-shown-as-a-number.op.md" > "$scratch/pairs/c.op.md"
 grin="$(printf '\360\237\230\200')"; tilde="$(printf '\357\275\236')"
 cp "$card" "$scratch/astral/$grin.op.md"
 as "$grin" > "$scratch/order/a.op.md"; as "$tilde" > "$scratch/order/b.op.md"
@@ -164,6 +171,13 @@ for impl in ts py; do
     expect 1 "${v[@]}" $flag "$scratch/wrongid"; says "2 card(s), 1 form contract(s)"
     [ "$(grep -c "malformed_operation_id: \`id\` is not text" "$out")" -eq 2 ] || fail "both cards must be named malformed${flag:+ under $flag}"
     says "malformed_form_id: \`id\` is not text"
+  done
+  # A pair is read alike with the schema and without it (1.5.0): 1.4 had no pair, and without the
+  # schema it passed a status code over in silence.
+  for flag in "" --no-schema; do
+    expect 1 "${v[@]}" $flag "$scratch/pairs"; says "3 card(s), 0 form contract(s)"
+    says "outcomes \`unauthorized\`, \`not_found\` are shown identically"
+    [ "$(grep -c "malformed_outcome_pair" "$out")" -eq 2 ] || fail "both malformed values must be named${flag:+ under $flag}"
   done
   # `?` is one character, one outside the BMP too (1.4.3); the reference took one UTF-16 code unit.
   expect 0 "${c[@]}" "$scratch/astral.config.yaml"; says "1 card(s), 0 evidence path(s)"

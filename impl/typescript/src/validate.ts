@@ -431,6 +431,62 @@ export function shownKey(value: string): string {
   return kept.size > 0 ? `quoted\u0000${[...kept].sort().join("\u0000")}` : `whole\u0000${folded}`;
 }
 
+// ── The line and its place, written apart (SPEC §5.7, round 30) ───────────────────────────────
+//
+// Round 30 measured a pilot catalogue whose values tell a whole screen story — what flickers,
+// what is reread, which footer comes back — with the one line that differs quoted among the
+// buttons and statuses. Quoting the context joined some refusals and split others; the pair says
+// which line it is. `shows` is compared, `where` is not: the same words in two places tell the
+// user the same thing, and a place has more spellings than a line.
+
+const PAIR_KEYS = new Set(["shows", "where", "note"]);
+
+/**
+ * One line of a pair: rules 1 and 3, with no floor — `shows` is the line by declaration, and
+ * the floor exists only to tell a message from a button quoted beside it. A line with no word
+ * left, such as a lone ✓, is compared as rule 1 leaves it.
+ */
+function lineKey(shows: string): string {
+  const folded = caseFold(shows.trim()).normalize("NFC");
+  const words = shownWords(folded);
+  return words.length > 0 ? words.join(" ") : folded;
+}
+
+/**
+ * What is wrong with a covers_outcomes value that is not text or null, or undefined when it is a
+ * pair {shows, where, note?} or a list of two or more of them.
+ */
+function pairProblem(value: unknown): string | undefined {
+  const pairs = Array.isArray(value) ? value : [value];
+  if (!Array.isArray(value) && !isMap(value)) {
+    return "is written as neither text, null, a pair {shows, where} nor a list of pairs";
+  }
+  if (Array.isArray(value) && value.length < 2) {
+    return "is a list of fewer than two pairs — one line is written as the pair itself";
+  }
+  for (const pair of pairs) {
+    if (!isMap(pair)) return "is a list with an entry that is not a pair {shows, where}";
+    const extra = Object.keys(pair).find((key) => !PAIR_KEYS.has(key));
+    if (extra !== undefined) return `has a pair with \`${extra}\` — a pair holds \`shows\`, \`where\` and \`note\``;
+    for (const key of ["shows", "where"]) {
+      if (!text(pair[key])) return `has a pair whose \`${key}\` is missing, empty or not text`;
+    }
+    if (has(pair, "note") && !text(pair.note)) return "has a pair whose `note` is empty or not text";
+  }
+  return undefined;
+}
+
+/**
+ * The key outcomes_indistinguishable groups a pair, or a list of pairs, by: the set of its lines,
+ * beside the quoted spans of a text value — a pair and a text value that quotes that line alone
+ * compare equal, so a screen half rewritten into pairs still reports its shared lines.
+ */
+function pairsKey(value: Record<string, any> | Record<string, any>[]): string {
+  const pairs = Array.isArray(value) ? value : [value];
+  const lines = new Set(pairs.map((pair) => lineKey(pair.shows as string)));
+  return `quoted\u0000${[...lines].sort().join("\u0000")}`;
+}
+
 /**
  * Validate one card's *meaning*. `knownIds` enables the cross-card reference warnings; pass null
  * when validating a card on its own, so that pointing at a card outside the set is not reported
@@ -739,6 +795,11 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   for (const [name, iface] of Object.entries<any>(interfaces)) {
     const covers = map(iface).covers_outcomes;
     if (!isMap(covers)) continue;
+    for (const [id, shown] of Object.entries<any>(covers)) {
+      if (shown === null || typeof shown === "string") continue;
+      const problem = pairProblem(shown);
+      if (problem !== undefined) err("malformed_outcome_pair", `interface \`${name}\`: outcome \`${id}\` ${problem}`);
+    }
     for (const key of Object.keys(covers)) {
       if (key === "ok") {
         if (!hasDefaultSuccess) {
@@ -785,11 +846,14 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     // раз.», so the one user who must give consent is told to retry, and retrying can never work.
     // A warning: collapsing outcomes is sometimes a deliberate choice, and the card is the place
     // where that choice stops being invisible. Round 28: the words compared are the quoted ones,
-    // not the whole value (shownKey).
+    // not the whole value (shownKey). Round 30: a pair is compared by its lines (pairsKey); a
+    // malformed one is reported above and compared with nothing.
     const byText = new Map<string, string[]>();
     for (const [id, shown] of Object.entries<any>(covers)) {
-      if (typeof shown !== "string") continue;
-      const key = shownKey(shown);
+      let key: string;
+      if (typeof shown === "string") key = shownKey(shown);
+      else if (shown !== null && pairProblem(shown) === undefined) key = pairsKey(shown);
+      else continue;
       byText.set(key, [...(byText.get(key) ?? []), id]);
     }
     for (const [, ids] of byText) {

@@ -524,7 +524,7 @@
             }
           },
           "covers_outcomes": {
-            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or per_item failure codes — never job states, which are the record's later life. `ok` names the default success of an operation that declares no success by name (no outcomes[], no data_transition.to). A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones. In a text value, the words the user reads go inside «…» or “…” and the rest is context; outcomes_indistinguishable compares those words — spans of two words of two letters or more, as a set; with none, the whole value (SPEC 5.7, round 28).",
+            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or per_item failure codes — never job states, which are the record's later life. `ok` names the default success of an operation that declares no success by name (no outcomes[], no data_transition.to). A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones. In a text value, the words the user reads go inside «…» or “…” and the rest is context; outcomes_indistinguishable compares those words — spans of two words of two letters or more, as a set; with none, the whole value (SPEC 5.7, round 28). A value may instead be a pair {shows, where, note?} — the line the user reads, the place it appears, and the rest — or a list of two or more pairs for an outcome that shows several lines; outcomes_indistinguishable compares the set of `shows` lines and never `where` (SPEC 5.7, round 30).",
             "type": "object",
             "minProperties": 1,
             "additionalProperties": {
@@ -535,6 +535,30 @@
                 },
                 {
                   "type": "null"
+                },
+                {
+                  "type": "object",
+                  "required": ["shows", "where"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "shows": { "type": "string", "minLength": 1 },
+                    "where": { "type": "string", "minLength": 1 },
+                    "note": { "type": "string", "minLength": 1 }
+                  }
+                },
+                {
+                  "type": "array",
+                  "minItems": 2,
+                  "items": {
+                    "type": "object",
+                    "required": ["shows", "where"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "shows": { "type": "string", "minLength": 1 },
+                      "where": { "type": "string", "minLength": 1 },
+                      "note": { "type": "string", "minLength": 1 }
+                    }
+                  }
                 }
               ]
             }

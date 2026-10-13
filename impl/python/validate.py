@@ -458,6 +458,56 @@ def shown_key(value: str) -> tuple:
     return ("whole", folded)
 
 
+# ── The line and its place, written apart (SPEC §5.7, round 30) ───────────────────────────────
+#
+# Round 30 measured a pilot catalogue whose values tell a whole screen story — what flickers,
+# what is reread, which footer comes back — with the one line that differs quoted among the
+# buttons and statuses. Quoting the context joined some refusals and split others; the pair says
+# which line it is. `shows` is compared, `where` is not: the same words in two places tell the
+# user the same thing, and a place has more spellings than a line. The TypeScript twin is
+# impl/typescript/src/validate.ts `pairProblem` / `pairsKey`; the two must agree.
+
+PAIR_KEYS = ("shows", "where", "note")
+
+
+def line_key(shows: str) -> str:
+    """One line of a pair: rules 1 and 3, with no floor — `shows` is the line by declaration, and
+    the floor exists only to tell a message from a button quoted beside it. A line with no word
+    left, such as a lone ✓, is compared as rule 1 leaves it."""
+    folded = unicodedata.normalize("NFC", shows.strip().casefold())
+    words = shown_words(folded)
+    return " ".join(words) if words else folded
+
+
+def pair_problem(value) -> str | None:
+    """What is wrong with a covers_outcomes value that is not text or null, or None when it is a
+    pair {shows, where, note?} or a list of two or more of them."""
+    if not isinstance(value, (list, dict)):
+        return "is written as neither text, null, a pair {shows, where} nor a list of pairs"
+    if isinstance(value, list) and len(value) < 2:
+        return "is a list of fewer than two pairs — one line is written as the pair itself"
+    for pair in value if isinstance(value, list) else [value]:
+        if not isinstance(pair, dict):
+            return "is a list with an entry that is not a pair {shows, where}"
+        extra = next((key for key in pair if key not in PAIR_KEYS), None)
+        if extra is not None:
+            return f"has a pair with `{extra}` — a pair holds `shows`, `where` and `note`"
+        for key in ("shows", "where"):
+            if not _text(pair.get(key)):
+                return f"has a pair whose `{key}` is missing, empty or not text"
+        if "note" in pair and not _text(pair["note"]):
+            return "has a pair whose `note` is empty or not text"
+    return None
+
+
+def pairs_key(value) -> tuple:
+    """The key outcomes_indistinguishable groups a pair, or a list of pairs, by: the set of its
+    lines, beside the quoted spans of a text value — a pair and a text value that quotes that line
+    alone compare equal, so a screen half rewritten into pairs still reports its shared lines."""
+    pairs = value if isinstance(value, list) else [value]
+    return ("quoted", frozenset(line_key(pair["shows"]) for pair in pairs))
+
+
 def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) -> list[Finding]:
     """Validate one card. `known_ids` enables cross-card reference warnings."""
     out: list[Finding] = []
@@ -742,6 +792,12 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         covers = _map(iface).get("covers_outcomes")
         if not isinstance(covers, dict):
             continue
+        for oid, shown in covers.items():
+            if shown is None or isinstance(shown, str):
+                continue
+            problem = pair_problem(shown)
+            if problem is not None:
+                err("malformed_outcome_pair", f"interface `{name}`: outcome `{oid}` {problem}")
         for key in covers:
             if key == "ok":
                 if not has_default_success:
@@ -778,11 +834,17 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         # Measured on a real screen — 401 and 403 both surfaced as the same «попробуйте ещё раз»,
         # so the user who must give consent is told to retry, and retrying can never work.
         # Round 28: the words compared are the quoted ones, not the whole value (shown_key).
+        # Round 30: a pair is compared by its lines (pairs_key); a malformed one is reported above
+        # and compared with nothing.
         by_text: dict[tuple, list[str]] = {}
         for oid, shown in covers.items():
-            if not isinstance(shown, str):
+            if isinstance(shown, str):
+                key = shown_key(shown)
+            elif shown is not None and pair_problem(shown) is None:
+                key = pairs_key(shown)
+            else:
                 continue
-            by_text.setdefault(shown_key(shown), []).append(oid)
+            by_text.setdefault(key, []).append(oid)
         for ids in by_text.values():
             if len(ids) > 1:
                 shown_ids = ", ".join(f"`{i}`" for i in ids)

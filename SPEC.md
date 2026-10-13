@@ -1,6 +1,6 @@
-# Operation Card — Specification v1.4
+# Operation Card — Specification v1.5
 
-> **Status:** v1.4 — v1.0 declared 2026-09-13, rounds 26–29 added to it without breaking it; §8 says
+> **Status:** v1.5 — v1.0 declared 2026-09-13, rounds 26–30 added to it without breaking it; §8 says
 > what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
@@ -598,12 +598,13 @@ being reported, in silence. The rule has known limits:
   or more, a heading or a record's name has a different set from a value that quotes the line
   alone, so outcomes sharing a line can go unreported; and the same two-word name quoted as context
   in two values joins them although their lines differ. Quote only the line the user reads; name a
-  button or a record without quotes.
+  button or a record without quotes — or write the outcome as a pair (below), whose `shows` holds
+  the line and nothing else.
 - **An outcome this screen cannot reach** is compared too when its value quotes what it would show.
   A structured spelling for "unreachable from this screen" is a candidate for a later round.
 - **The checker never guesses sameness from prose.** "The same line as above" is not a reference —
   in the round's catalogue, phrases meaning "the same" pointed at the same screen line in 30 of 75
-  values. Quote the line instead.
+  values. Quote the line instead, or write the pair.
 - **Canonical equivalence holds in the common cases, not in all.** Folding runs before NFC
   (rule 1), and folding turns U+0345 COMBINING GREEK YPOGEGRAMMENI into the letter `ι`, which NFC
   then cannot move past another accent: `α`, U+0345, U+0301 reads `αί`, while the composed `ᾴ`, or
@@ -627,6 +628,66 @@ being reported, in silence. The rule has known limits:
   (Unicode 16) and Node 26 (Unicode 17), the two implementations group values the same way on
   every character both tables assign; an older runtime may read a newer character as neither
   letter, mark nor number, miss a newer case pair, or normalise a newer character differently.
+
+**The line and its place, written apart (round 30).** A value can say which line it is instead of
+leaving the checker to find it among the quotes: a pair of the line the user reads and the place
+it appears, with the rest in a note.
+
+```yaml
+covers_outcomes:
+  unauthorized:
+    shows: Could not save — try again
+    where: "[data-field=save-status]"
+    note: the editor stays open, the draft is kept; pressing «Save Draft» again repeats the request
+  not_found:
+    shows: could not save. Try again!
+    where: under the title          # one warning: the same line, wherever it stands
+  conflict:                         # two lines on the screen: a list of pairs
+    - { shows: Someone changed this plan, where: "[data-field=save-status]" }
+    - { shows: Could not reload the plan, where: "[data-section=plan-error]" }
+```
+
+- **`shows`** is the line exactly as the screen renders it — no quotes needed, nothing else in it.
+- **`where`** is the place: best the selector of the element that holds the line, words around it
+  if the reader needs them.
+- **`note`**, optional, is everything else — what stays open, what was reread, which code renders
+  it. Moving a text value into `note` loses nothing.
+- An outcome that puts **two lines or more** on the screen is a list of two or more pairs; one line
+  is the pair itself, as `calls` writes one operation as its id (§7.5).
+
+Text and null mean what they always meant, and one map may hold both spellings. A value that is
+none of these — a pair without `shows` or `where`, either of them empty or not text, a key besides
+the three, a list of one pair or of something else, a number — is `malformed_outcome_pair`, an error
+about the new spelling only.
+
+The checker compares `shows` as it compares a quoted span — rules 1 and 3 — with one difference:
+every line counts, whatever its length. The floor of rule 4 exists to tell a message from a button
+quoted beside it, and `shows` is the line by declaration, so «Failed» and «failed!» are one line
+here; a line with no word left after rule 3, such as a lone `✓`, is compared as rule 1 leaves it. A
+list compares as the set of its lines (rule 5): the same two lines in another order are one
+outcome, and one of them alone is another. The key lives beside the quoted one, so a pair and a
+text value that quotes that line and no other span of two words compare equal: a map half rewritten
+into pairs still reports the line it shares.
+
+`where` is not compared, and neither is `note`. The same words under the title and in the status
+line tell the user the same thing — the text example before rule 1 reports them as one warning,
+and the user who must give consent is told to try again wherever the sentence stands. A place also
+has more spellings than a line: a selector with quotes or without, a strip named by its colour.
+Compared, two spellings of one place would split a group — the silence round 28 measured. Nothing
+checks `where` yet; it is the reader's address on the screen, as `screen` and `control` are, and a
+check against the screen's form contract is a candidate for a later round.
+
+Round 30 rewrote the refusals of a pilot catalogue as pairs, 220 values in 44 cards, the old text
+of each kept as its note. No group was lost: 33 stayed as they were, 10 grew, two merged into one,
+and 3 appeared — 129 outcomes in groups became 161. 25 of the 32 were refusals whose values pointed
+at another outcome's line in prose — "the same banner as unauthorized" — nearly all of them
+unreachable from the screen; the rest were lines quoted beside other words, and the outcomes those
+pointed at. Two limits stayed:
+
+- **An outcome that shows one line or another** — by the screen it was opened from, or by the
+  server's reason — stays in prose: a list says every line is shown. 9 of the 243 refusals.
+- **An outcome with no line** — a panel that closes, a refusal swallowed, a button that is off —
+  has nothing for `shows`; prose or null says it. 14 of the 243.
 
 What the round rejected matters as much as what it added. The measurement showed outcome handling
 is not located in "the screen": the control sat in one component, the error policy in a shared
@@ -1171,6 +1232,7 @@ where the format broke:
 | 27 | **A chain behind one button** — a pilot's frontend role describing a draft's footer: "save as plan" renames the draft, then publishes it; "start" also starts a pass. One operation per control let the form contract name one step and the cards another, and neither could be checked against the other | One spelling of an optional field: `calls:` as a list in call order (§7.5) — the shown_when rule reads the first operation, and every operation of the chain must be described. The one new error, `malformed_calls`, is about the new spelling only |
 | 28 | **Context hid the collapse; a line number was demanded where §5.7 advised against one** — a pilot catalogue re-measured its screens and wrote where and why into every refusal: each value became unique, and refusals sharing one status line stopped being reported. Most of its step sources named files only — steps spread across a file, code that moves — and one line-numbered source it checked had drifted about 110 lines in silence; the schema refused the file-only ones (issue #12). On its 93 cards the new reading turns 33 `outcomes_indistinguishable` warnings into 47, none lost | None new. `outcomes_indistinguishable` compares the words inside «…» or “…” — case-folded and NFC-normalised, a mark part of the word before it, spans of two words of two letters or more, as a set — and falls back to the whole value; computed from the 1.2 key, it still reports every pair 1.2 reported (§5.7). `steps[].source` accepts a path alone and `path#Symbol` besides `path:line` — what §5.7 already recommended; a widening, not a break: every card with zero errors under 1.2 still has none. No new code |
 | 29 | **Protection the caller never sees, and a contract read only after its screen** — a pilot's request queue guards five writes with a conditional write on a revision the server keeps to itself, and the vocabulary offered only `none_by_design`, a label that said the opposite of the code; a contract written ahead of its screen had its `calls` read by nothing until the screen rendered (issue #13); `validate` pointed at a config, an empty directory or plain Markdown printed `0 error(s)` over nothing, and a card with a line above its front matter dropped out of the count in silence (issue #14) | One value of an existing field: `concurrency.mode: server_read_version` (§5.4) — a widening, as in round 28: every card 1.3 read with zero errors still has none. Check 5 reads the `calls` of a `designed` contract before its screen renders, `form_calls_undescribed` and `shown_when_conflicts_transition` there as warnings (§7.5); `validate` reads `calls` against the cards of the same run, a warning (§7.5). A path with nothing to validate is refused with exit 2, and a collected file whose front matter cannot be read is counted as `missing_required_field` — it carries none of the frozen required keys, so 1.3 skipping it unread was a validator accepting what this document already forbade, fixed (§6). No new code |
+| 30 | **The line among the quotes** — a pilot catalogue's refusals told a whole screen story each, what flickers, what is reread, which footer comes back, with the one line that differs quoted among buttons and statuses; and a refusal the screen cannot reach said "the same banner as unauthorized" in prose, which nothing compares | One spelling of an optional field: a `covers_outcomes` value may be a pair `{shows, where, note}`, or a list of two or more pairs (§5.7); `outcomes_indistinguishable` compares the lines of `shows`, with no floor, beside the quoted spans of text values, and never `where`. On its cards, 220 refusals rewritten as pairs turn 129 outcomes in groups into 161, no group lost. The one new error, `malformed_outcome_pair`, is about the new spelling only |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
