@@ -176,6 +176,9 @@ export function validateForm(
     if (!FORM_KEYS.has(key)) err("unknown_field", `\`${key}\` is not part of the form contract format`);
   }
 
+  if (!absent(fm["id"]) && text(fm["id"]) === undefined) {
+    err("malformed_form_id", "`id` is not text, so it is not <area>.<object>.<name>");
+  }
   const formId: string = text(fm["id"]) ?? "";
   if (formId && !OPERATION_ID.test(formId)) {
     err("malformed_form_id", `\`${formId}\` is not <area>.<object>.<name>`);
@@ -442,6 +445,12 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     if (!(field in fm)) err("missing_required_field", `\`${field}\` is absent`);
   }
 
+  // An id written as something other than text is still a malformed id (1.4.4). Read in its type
+  // since 1.4.3, `id: 1` became absent to the rules and, without the schema layer, nothing said a
+  // word about it; up to 1.4.2 it was reported here.
+  if (!absent(fm["id"]) && text(fm["id"]) === undefined) {
+    err("malformed_operation_id", "`id` is not text, so it is not <area>.<object>.<action>");
+  }
   const cardId: string = text(fm["id"]) ?? "";
   if (cardId && !OPERATION_ID.test(cardId)) {
     err("malformed_operation_id", `\`${cardId}\` is not <area>.<object>.<action>`);

@@ -472,6 +472,9 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         if field not in fm:
             err("missing_required_field", f"`{field}` is absent")
 
+    # An id written as something other than text is still a malformed id (1.4.4); see the TypeScript twin.
+    if not _absent(fm.get("id")) and _text(fm.get("id")) is None:
+        err("malformed_operation_id", "`id` is not text, so it is not <area>.<object>.<action>")
     card_id = _text(fm.get("id")) or ""
     if card_id and not OPERATION_ID.match(card_id):
         err("malformed_operation_id", f"`{card_id}` is not <area>.<object>.<action>")
@@ -905,6 +908,8 @@ def validate_form(fm: dict, filename: str = "",
         if key not in FORM_KEYS:
             err("unknown_field", f"`{key}` is not part of the form contract format")
 
+    if not _absent(fm.get("id")) and _text(fm.get("id")) is None:
+        err("malformed_form_id", "`id` is not text, so it is not <area>.<object>.<name>")
     form_id = _text(fm.get("id")) or ""
     if form_id and not OPERATION_ID.match(form_id):
         err("malformed_form_id", f"`{form_id}` is not <area>.<object>.<name>")

@@ -59,6 +59,10 @@ mkdir -p "$scratch/sameid" "$scratch/sameform" "$scratch/noid" "$scratch/astral"
 cp "$card" "$scratch/sameid/a.op.md"; cp "$card" "$scratch/sameid/b.op.md"
 cp forms/session.contract.md "$scratch/sameform/a.contract.md"; cp forms/session.contract.md "$scratch/sameform/b.contract.md"
 sed '/^id: /d' "$card" > "$scratch/noid/a.op.md"; sed '/^id: /d' "$card" > "$scratch/noid/b.op.md"
+# An id that is not text (1.4.4): 1.4.3 read it as absent, and without the schema nothing was said.
+mkdir -p "$scratch/wrongid"
+sed 's/^id: .*/id: 1/' "$card" > "$scratch/wrongid/a.op.md"; sed 's/^id: .*/id: {a: 1}/' "$card" > "$scratch/wrongid/b.op.md"
+sed 's/^id: .*/id: true/' forms/session.contract.md > "$scratch/wrongid/c.contract.md"
 grin="$(printf '\360\237\230\200')"; tilde="$(printf '\357\275\236')"
 cp "$card" "$scratch/astral/$grin.op.md"
 as "$grin" > "$scratch/order/a.op.md"; as "$tilde" > "$scratch/order/b.op.md"
@@ -155,6 +159,12 @@ for impl in ts py; do
   grep -q "card(s)" "$out" && fail "two cards with one id must stop the run before any card is counted"
   expect 2 "${v[@]}" "$scratch/sameform";   says "carry the same id \`sample.session.panel\`"
   expect 1 "${v[@]}" "$scratch/noid";       says "2 card(s), 0 form contract(s)"
+  # An id that is not text is a malformed id, with the schema and without it (1.4.4).
+  for flag in "" --no-schema; do
+    expect 1 "${v[@]}" $flag "$scratch/wrongid"; says "2 card(s), 1 form contract(s)"
+    [ "$(grep -c "malformed_operation_id: \`id\` is not text" "$out")" -eq 2 ] || fail "both cards must be named malformed${flag:+ under $flag}"
+    says "malformed_form_id: \`id\` is not text"
+  done
   # `?` is one character, one outside the BMP too (1.4.3); the reference took one UTF-16 code unit.
   expect 0 "${c[@]}" "$scratch/astral.config.yaml"; says "1 card(s), 0 evidence path(s)"
   if [ "$links" = yes ]; then
