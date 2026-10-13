@@ -156,6 +156,13 @@ counts days in UTC, orders text as JavaScript does and reads a field only in its
 print the same lines on the corpus and on the fixtures of `tests/fixtures/validate-cli/`. The
 corpus holds 84 + 56 cases.
 
+**1.4.4** puts back one thing 1.4.3 lost. An `id` that is not text — `id: 1`, `id: true` — is a
+malformed id again (`malformed_operation_id`, for a contract `malformed_form_id`), as the reference
+said up to 1.4.2 — the Python prototype stopped on such a card with a traceback, and now says the
+same.
+Read only in its type, such an id had become absent to the rules: with the schema layer the
+schema still named it, with `--no-schema` the card passed with no error. The format is unchanged.
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in
