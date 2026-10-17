@@ -173,6 +173,24 @@ about the new spelling only, and without the schema it also names a value that i
 or null — a number — which 1.4 passed over in silence. A card written with pairs needs 1.5: 1.4
 refuses it as a schema violation. The corpus holds 93 + 56 cases.
 
+**1.5.1** changes the tools, not the format: `check` reads as `validate` reads since 1.4.3. A field
+of another type than the schema gives it — `tests: 5`, a `maturity_evidence` that is a text,
+`shown_when: 5` — is absent to the checks, as it is to the rules of `validate`, and `validate`
+names it; on such a card or contract 1.5.0 stopped `check` with a stack trace, or the two
+implementations read it differently. Two cards — or two contracts — with one id stop `check` with
+exit 2, and both files are named; 1.5.0 judged one of them and said nothing of the other. Two cards
+with one id stop `gen openapi` and `scaffold --config` the same way, which read the cards as `check`
+does; 1.5.0 `gen openapi` merged them into one route without a word. The config
+is refused with exit 2 when a key holds a value of another type — `cards: 5`, a check number outside
+1–5, `checks: []`, which the 1.5.0 reference ran as no check at all and passed — and Python reads it
+as YAML 1.2, as the reference does: `030` is thirty days, not twenty-four, and a key written twice
+is refused, not read as its last value. An exclusion `path` and a card's `store` are matched as one
+segment of a `cards:` pattern matches a name: `*` and `?` stop at `/` (and at `\`), `?` is one
+character outside the Basic Multilingual Plane too, brackets are plain characters and letter case
+counts. The Python prototype matched them by the shell's rules, where `*` crossed `/`, `[1]` was a
+set and case did not count on Windows. The Python `check` prints its lines in the reference's order
+whatever `PYTHONHASHSEED` is, and its summary line names the routes designed ahead of the code.
+
 How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
 new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
 was required and had **no honest value for a read-only operation**, so both read-only cards in

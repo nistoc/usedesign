@@ -1,7 +1,7 @@
 {
   "name": "usedesign",
-  "version": "1.5.0",
-  "description": "Validate and check Operation Cards: no wild endpoints, no unproven steps, no maturity beyond its evidence.",
+  "version": "1.5.1",
+  "description": "Validate and check Operation Cards and form contracts: no wild endpoints, no unproven steps, no maturity beyond its evidence, no imagined storage, no screen that strays from its contract.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
