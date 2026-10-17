@@ -1,11 +1,12 @@
 # Fixture — library service
 
-A stand-in codebase for exercising **check 1: no wild endpoints**. Nothing here runs; the files
-exist so the check has something real-shaped to work against.
+A stand-in codebase for exercising **checks 1 to 4**, above all **check 1: no wild endpoints**.
+Nothing here runs; the files exist so the checks have something real-shaped to work against.
 
 | File | What it is |
 |---|---|
 | `src/routes.ts` | Illustrative source. Shows where the inventory entries come from. |
+| `src/` (the rest) | Stubs of the handlers the cards name as their `implemented` evidence — check 3 looks for them. |
 | `route-inventory.json` | What a runtime dump of the framework's route table produces. **This is the checker's input** — see [`design/route-conformance.md`](../../../design/route-conformance.md) §3. |
 | `test-report.xml` | A JUnit XML report from a run of the suite. **The input for check 2.** |
 | `usedesign.config.yaml` | Card locations and the exclusions for routes that are deliberately not operations. |
@@ -13,6 +14,10 @@ exist so the check has something real-shaped to work against.
 The cards it is checked against are the five in [`examples/library/`](../../../examples/library/).
 
 ## This fixture is expected to FAIL
+
+`usedesign check usedesign.config.yaml` exits 1 with seven errors: two from check 1, three from
+check 2, one from check 3 and one from check 4. Check 5 does not run — the config declares no
+`forms:`. The sections below take the errors in that order.
 
 Eleven routes are served. Four are excluded as infrastructure. Five are declared by the example
 cards. **Two are declared by nobody:**
@@ -64,9 +69,20 @@ repository: src/security/ApiKeyHandler.ts
 
 Nobody did anything wrong. The file was moved during a refactor in June, every test still passes,
 and the card has been quietly false ever since. This is the failure mode the whole format exists
-for, and it takes a checker one line to report.
+for, and it takes a checker one line to report (`evidence_path_missing`).
+
+The same check also warns, without failing, about a `deployed` claim nobody has looked at for
+longer than the 180-day horizon (`evidence_stale`). The example cards carry fixed dates, March to
+July 2026, so how many of them are stale depends on the day the check runs; the errors do not.
+
+## Check 4 fails by omission
+
+The config names no `storage_inventory`, so check 4 has nothing to compare the cards' storage
+claims with. It says so — `storage_inventory_missing`: the check cannot run and is **not considered
+passed**. A check that quietly skipped itself would make this fixture look healthier than it is
+(SPEC §7.4).
 
 ## What passing looks like
 
-Add cards for the two routes — or delete the routes. Both are real answers, and the check does not
-prefer either one. It only refuses to let the choice go unmade.
+For check 1: add cards for the two routes — or delete the routes. Both are real answers, and the
+check does not prefer either one. It only refuses to let the choice go unmade.

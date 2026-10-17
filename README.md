@@ -84,155 +84,63 @@ which is exactly why migrations end up orphaned everywhere else.
 
 ## Status
 
-**v1.0, declared 13 September 2026.** The format was hardened by writing cards for real
-operations of production systems and recording where it broke. The criterion for v1.0 was never
-"no more breakage" but *a round that changes only optional fields, never required ones* — and it
-held from round 8 to round 24, seventeen consecutive rounds on three stacks. From here the
-required keys of a card are frozen: a card with zero errors under 1.0 has zero errors under every
-1.x; new rounds add optional fields and codes, and a new check on existing fields arrives as a
-warning. The full promise and the round-by-round record are in [SPEC §8](SPEC.md).
+**The format is SPEC v1.5; the tools are 1.5.1.** Since v1.0, declared 13 September 2026, the
+format has been under one promise: the required keys of a card are frozen, so a card with zero
+errors under 1.0 has zero errors under every 1.x. A round adds optional fields, optional artifact
+kinds and new codes, and a new check on existing fields arrives as a warning; renaming or removing
+a field, changing what a required field accepts or turning a warning into an error is 2.0. The package
+follows the format — `1.x.0` adds, `1.x.y` fixes, `2.0.0` breaks — and 1.5.1 fixed the tools, so
+the tools are 1.5.1 while the format is still v1.5. The package is published to npm with build
+provenance.
 
-**v1.1** is the first round under that promise: two optional fields (`variant_of` for an operation
-that exists twice over one handler, `coverage_gaps[].kind` for why a proof is missing), one optional
-config key, and two new warnings over fields 1.0 already had.
+Thirty rounds of hardening stand behind it, seven of them driven by a pilot on a real product. The
+format was hardened by writing cards for real operations of production systems — each line from a
+measurement of the code, not from memory — and recording where it broke. The criterion for v1.0
+was never "no more breakage", because untouched ground always breaks something, but *a round that
+changes only optional fields, never required ones* — and it held from round 8 to round 24,
+seventeen consecutive rounds on three stacks. Round 25 changed nothing in the format; rounds
+26–30 ran under the promise. The
+round-by-round record is [SPEC §8](SPEC.md); what each release changed is in
+[CHANGELOG.md](CHANGELOG.md).
 
-**v1.2** adds one spelling to an optional field: `calls:` may name a chain of operations in call
-order — a control that renames a draft, then publishes it. The state rule reads the first
-operation; the one new error (`malformed_calls`) is about the new spelling only.
-
-**v1.3** adds no field and no code. `outcomes_indistinguishable` compares the words the user
-reads — the text inside «…» or “…” — so context written around a message no longer hides two
-endings that show it, unless the context quotes other screen text too; every pair of outcomes 1.2
-reported is still reported (a 1.2 warning may grow, or merge with another). And a step's `source`
-may name a file alone or `path#Symbol`, as SPEC §5.7 already advised (issue #12).
-
-**v1.4** adds one value to an existing field and no code. `concurrency.mode: server_read_version`
-names a write the server guards on its own — it reads a revision, then writes only over it — where
-the caller sends none; until now such a card could only say `none_by_design` and contradict itself
-in `rationale`. Check 5 reads the `calls` of a contract written ahead of its screen, as warnings,
-and `validate` reads `calls` against the cards of the same run (issue #13). `validate` refuses a
-path with nothing to validate instead of passing it, and a card whose front matter cannot be
-read — a line above the opening `---`, no closing `---`, YAML that does not parse — is counted and
-reported as an error, not skipped in silence (issue #14).
-
-**1.4.1** changes the tools, not the format. `validate` refuses a path that does not exist by
-name, with exit 2, as the Python implementation does; 1.4.0 read it as a card whose front
-matter is not valid YAML, counted it and exited 1 (issue #14). Check 3 warns
-`maturity_understated` only when a passing test of the card's own covers its last step: tests
-that prove only the door — sign-in, permission — pass in front of an operation that is not built
-yet, and that card is honestly `designed` (`design/maturity-evidence.md` §4).
-
-**1.4.2** changes the tools, not the format: both implementations collect the files a pattern
-names with one algorithm, step for step, and read them alike. Before, the TypeScript walk and
-Python's glob found different files in places. A directory reached through a link is read, and a
-loop of links is walked once (the TypeScript tool skipped such a directory; Python's glob walked
-the loop to the system's depth limit). A card reached two ways — a link, two patterns, two paths
-given to `validate` — is read once. A name that starts with a dot is matched only by a pattern
-segment that starts with a dot: drafts in `.drafts/` and an editor's lock file beside a card are
-not cards (the TypeScript tool read them). `[` and `]` in a pattern are plain characters, and
-letter case counts (Python's glob read `[ab]` as a set, and ignored case on Windows). A directory
-named like a card is not a document, and `**` at the end of a `cards:` pattern matches files, as
-Python's glob does. An entry that cannot be opened — a link that leads nowhere, a file without
-read permission — is a card that cannot be read: `validate` counts it as `missing_required_field`
-and names the cause (SPEC §6), and `check` and `preview` stop with exit 2 and name it. A directory
-whose list of files cannot be read stops `validate`, `check` and `preview` the same way (the
-TypeScript tool stopped with a bare system error; Python's glob passed over it in silence), and so
-does front matter that is not valid YAML in `check` (the Python `check` stopped with a
-traceback). The 1.4.1 tool dropped a link that leads nowhere in silence; its `validate` read a file
-without read permission as front matter that is not valid YAML, and its `check` stopped on one with
-a bare system error; the Python implementation stopped on both with a traceback.
-
-**1.4.3** changes the tools, not the format. Two cards — or two contracts — with one id stop
-`validate` with exit 2, and both files are named: 1.4.2 kept one of them and dropped the other in
-silence. A field of another type than the schema gives it — `steps: 5`, an interface that is a
-text, a step id that is a number — no longer stops `validate` with a stack trace: the rules read it
-as absent, and the schema names what is wrong. In check 3, `since: 2026-02-30` is no date and is
-reported as `evidence_undated`; 1.4.2 carried it over to 2 March and called the claim stale or
-fresh by the clock. `?` in a pattern matches one character outside the Basic Multilingual Plane
-too, not one half of it. Collection lists each directory once (24 000 files: 2.6 s → 0.3 s), and
-`validate` collects once. The Python prototype now validates against the JSON Schema as the
-reference does — the same messages, in the same order — reads the front matter as YAML 1.2,
-counts days in UTC, orders text as JavaScript does and reads a field only in its type; the two
-print the same lines on the corpus and on the fixtures of `tests/fixtures/validate-cli/`. The
-corpus holds 84 + 56 cases.
-
-**1.4.4** puts back one thing 1.4.3 lost. An `id` that is not text — `id: 1`, `id: true` — is a
-malformed id again (`malformed_operation_id`, for a contract `malformed_form_id`), as the reference
-said up to 1.4.2 — the Python prototype stopped on such a card with a traceback, and now says the
-same.
-Read only in its type, such an id had become absent to the rules: with the schema layer the
-schema still named it, with `--no-schema` the card passed with no error. The format is unchanged.
-
-**v1.5** adds one spelling to an optional field. A `covers_outcomes` value may name its line
-instead of quoting it among other words: a pair `{shows, where, note}` — the line the user reads,
-the place it appears, and the rest — or a list of two or more pairs for an outcome that shows
-several lines. `outcomes_indistinguishable` compares the lines of `shows`, a line of one word too,
-beside the quoted spans of text values, and never `where`: the same words in two places tell the
-user the same thing. Text values read as before; the one new error (`malformed_outcome_pair`) is
-about the new spelling only, and without the schema it also names a value that is no text, pair
-or null — a number — which 1.4 passed over in silence. A card written with pairs needs 1.5: 1.4
-refuses it as a schema violation. The corpus holds 93 + 56 cases.
-
-**1.5.1** changes the tools, not the format: `check` reads as `validate` reads since 1.4.3. A field
-of another type than the schema gives it — `tests: 5`, a `maturity_evidence` that is a text,
-`shown_when: 5` — is absent to the checks, as it is to the rules of `validate`, and `validate`
-names it; on such a card or contract 1.5.0 stopped `check` with a stack trace, or the two
-implementations read it differently. Two cards — or two contracts — with one id stop `check` with
-exit 2, and both files are named; 1.5.0 judged one of them and said nothing of the other. Two cards
-with one id stop `gen openapi` and `scaffold --config` the same way, which read the cards as `check`
-does; 1.5.0 `gen openapi` merged them into one route without a word. The config
-is refused with exit 2 when a key holds a value of another type — `cards: 5`, a check number outside
-1–5, `checks: []`, which the 1.5.0 reference ran as no check at all and passed — and Python reads it
-as YAML 1.2, as the reference does: `030` is thirty days, not twenty-four, and a key written twice
-is refused, not read as its last value. An exclusion `path` and a card's `store` are matched as one
-segment of a `cards:` pattern matches a name: `*` and `?` stop at `/` (and at `\`), `?` is one
-character outside the Basic Multilingual Plane too, brackets are plain characters and letter case
-counts. The Python prototype matched them by the shell's rules, where `*` crossed `/`, `[1]` was a
-set and case did not count on Windows. The Python `check` prints its lines in the reference's order
-whatever `PYTHONHASHSEED` is, and its summary line names the routes designed ahead of the code.
-
-How it got there, in the order it happened. Rounds 7–8 broke it in five places and produced a sixth axis (`continuation`), three
-new optional fields, four new checks — and one finding worth more than the rest: `reversibility`
-was required and had **no honest value for a read-only operation**, so both read-only cards in
-this repository claimed `reversible`. A format that demands an answer must supply one that is
-true, or it manufactures the exact falsehood it exists to prevent. See [SPEC §8.1](SPEC.md).
+How it got there, in two findings. Rounds 7–8 broke it in five places and produced five optional
+fields — one of them, `continuation`, a sixth axis — and four new checks, and one finding worth more than the
+rest: `reversibility` was required and had **no honest value for a read-only operation**, so a
+read-only card could only claim `reversible`. A format that demands an answer must supply one that
+is true, or it manufactures the exact falsehood it exists to prevent. See
+[SPEC §8.1](SPEC.md).
 
 **Then it was pointed at a system it had never seen** — a different product, a different domain,
 the same author's habits deliberately left behind. The first defect surfaced *before a single
 card was written*: that API writes actions as `POST /progress/{id}:finish`, path normalisation
 read the suffix as a parameter, and eight of its routes collapsed into two shapes. Declare one
 and the checker calls them all declared, then reports a clean run. **A checker that has quietly
-stopped checking looks exactly like a healthy repository.**
-
-Three more followed: a bulk operation reporting per-item failures inside a success could not be
-written truthfully; one route carrying several operations was treated as a defect rather than an
-ordinary REST idiom; and a rule from the previous round turned out to be fitted to its single
-example. Two things held that had only been argued for. None of it was findable on the original
-system — **a format tested on one codebase is partly a description of that codebase**, and the
-only way to learn which part is to take it somewhere else. See [SPEC §8.0](SPEC.md).
-
-Earlier, the specification was checked against its own schema and examples, and failed in seven
-places of a different kind: a field the schema accepted but the spec never described, a rule
-stated in prose that nothing enforced, one term spelled two ways in two files. All fixed before
-publication — and recorded, because it is the honest argument for check number three below. A
-specification is a description like any other, and descriptions drift from what they describe.
+stopped checking looks exactly like a healthy repository.** Three more findings followed, and
+none of it was findable on the original system — **a format tested on one codebase is partly a
+description of that codebase**, and the only way to learn which part is to take it somewhere
+else. See [SPEC §8.0](SPEC.md).
 
 | | |
 |---|---|
 | [SPEC.md](SPEC.md) | The format: fields, rules, and why each exists |
-| [schema/](schema/operation-card.schema.json) | JSON Schema for the front matter |
+| [schema/](schema/) | Six JSON Schemas: the card's front matter, the form contract, the config file, and the three inventories a producer writes for checks 1, 4 and 5 |
 | [examples/](examples/) | Five cards over a fictional library system |
-| [tests/conformance/](tests/conformance/) | Shared corpus every implementation must pass |
-| [design/](design/) | Design notes — questions worked out before they are specified |
-| [impl/](impl/) | Implementations, one directory each |
+| [tests/conformance/](tests/conformance/) | Shared corpus every implementation must pass — 93 card-and-contract cases and 56 repository cases |
+| [tests/fixtures/](tests/fixtures/) | `library-service`, a deliberately rotten repository that `check` must keep failing on, and `validate-cli`, command-line cases both implementations must answer alike |
+| [design/](design/) | Design notes — questions worked out before they were specified |
+| [impl/](impl/) | Implementations, one directory each: the TypeScript reference and the Python prototype |
 | [docs/](docs/) | An animated walkthrough of all of the above — and [architecture.html](docs/architecture.html), an interactive map of how the pieces fit |
-| [starter-kit/](starter-kit/) | Team quickstart (RU): config, gate, inventory tool — copy and go |
+| [starter-kit/](starter-kit/) | Team quickstart (RU): config, gate, inventory tool, form-inventory recipe — copy and go |
+| [CHANGELOG.md](CHANGELOG.md) | What each release changed, newest first |
 
 ## Repository layout
 
-The format is language-agnostic — YAML front matter, Markdown, and plain JSON Schema — so the
-root of this repository holds the specification and nothing else. Tooling lives under `impl/`,
-one directory per language, and the root has no build file of its own.
+The format is language-agnostic — YAML front matter, Markdown, and plain JSON Schema — so what
+defines it sits at the root, in no language's folder: the specification, the schemas, the examples
+and the design notes. Tooling lives under `impl/`, one directory per language, and the root has no
+build file of its own. Beside them are the conformance corpus and the fixtures in `tests/`, the CI
+workflows in `.github/workflows/`, the walkthrough and the architecture map in `docs/`, and the
+team quickstart in `starter-kit/`.
 
 Everything under `impl/` answers to [`tests/conformance/`](tests/conformance/): a shared set of
 cards with agreed verdicts **and agreed diagnostic codes**. Without it, "a valid card" quietly
@@ -241,25 +149,31 @@ up. The corpus was written before any implementation, so that it describes the f
 enshrining one tool's bugs.
 
 The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
-[impl/](impl/) rather than by default. It validates cards against the schema and the cross-card
-rules, runs all three checks, and passes both corpora — **84 / 84 cards and 56 / 56 repository cases**.
+[impl/](impl/) rather than by default. It validates cards and form contracts against the schemas
+and the cross-card rules, runs the five checks, and passes both corpora — **93 / 93 card and
+contract cases and 56 / 56 repository cases**.
 
 ```bash
 npx usedesign check usedesign.config.yaml
 ```
 
-Nothing to install. The package carries its own copy of the schema, so it does not need this
+The command line has six commands — `validate`, `check` (checks 1–5), `scaffold`, `preview`,
+`gen openapi` and `conformance`; `usedesign --help` lists them.
+
+Nothing to install. The package carries its own copy of the schemas, so it does not need this
 repository to be anywhere nearby — which is what makes it usable inside somebody else's CI.
 
-The Python prototype stays. A corpus that only one implementation agrees with has stopped
-describing the format and started describing that tool, so CI runs both and diffs what they
-report about the same repository.
+The Python prototype stays. It has a JSON Schema layer of its own (`json_schema.py`, no
+third-party schema library) and reads YAML as 1.2, as the reference does. A corpus that only one
+implementation agrees with has stopped describing the format and started describing that tool, so
+CI runs both and diffs what they report about the same repository.
 
 ## Roadmap
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 84 card cases and 56 repository cases, verdicts, codes **and warnings**
+- [x] Conformance corpus — 93 card-and-contract cases and 56 repository cases, verdicts, codes
+      **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
       ([design note](design/route-conformance.md))
@@ -274,12 +188,13 @@ report about the same repository.
       not measured — the owner writes what a screen must show, a test renders the real
       components, and the errors are the product's TODO list (SPEC §7.5); form contracts are
       validated with named codes, grouping by purpose included, group membership verified
-      against the rendered container chains
+      against the rendered container chains; a contract may be written ahead of its screen,
+      describe a family of elements by a pattern, and map screen states onto data states
 - [x] `usedesign check` — the five checks, holding the 56-case repository corpus; a repository
       declares which checks apply to it (`checks: [5]`, SPEC §7.6)
 - [x] `usedesign scaffold` — a draft card per undescribed route, read from the application's own
-      OpenAPI. Every draft fails validation on purpose: a shell that validated would look like a
-      description while claiming maturity nobody measured
+      OpenAPI. Every draft fails validation on purpose, until a person fills it in: a shell that
+      validated would look like a description while claiming maturity nobody measured
 - [x] A reference implementation in TypeScript, both corpora run in CI on three Node versions,
       plus a job that insists the deliberately rotten fixture still fails
 - [x] `usedesign preview` — form contracts as a three-rail wireframe page: the tree, the text,
@@ -288,9 +203,10 @@ report about the same repository.
 - [x] [starter-kit/](starter-kit/) — adopt checks 1–3 in a foreign repository within an hour
       (RU), with an honest list of what is still raw
 - [x] `usedesign gen openapi` — derive an API contract from the cards, the opposite direction to
-      `scaffold`: a `designed` card yields its contract BEFORE the code exists. Response codes are
-      named by the outcomes and violated steps that declare them; the closed loop is checked by
-      feeding the generated document back to `scaffold`, which must report zero undescribed routes
+      `scaffold`: every card yields its contract, a `conceived` or `designed` one BEFORE the code
+      exists.
+      Response codes are named by the outcomes and violated steps that declare them; the loop
+      closes — fed back to `scaffold`, the generated document reports zero undescribed routes
 
 The checker is the point: a catalogue without one becomes aspiration within months. It exists
 now, on two runtimes, and CI compares what they say about the same repository — because two tools

@@ -8,7 +8,7 @@ directory and must earn the name by passing the same corpus:
 
 | Directory | Status |
 |---|---|
-| `typescript/` | Reference implementation — validate and the five checks; **84/84 and 56/56**; published to npm as `usedesign` |
+| `typescript/` | Reference implementation — validate and the five checks; **93/93 and 56/56**; published to npm as `usedesign` |
 | `python/` | Prototype — the same schema layer and rules on a second runtime, kept so the corpus is never agreed with by only one tool |
 
 ## The one rule
@@ -31,20 +31,21 @@ Chosen for reasons, not by default:
   thinner elsewhere.
 - **`npx usedesign validate`** means zero installation. For a tool whose whole job is to slot
   into somebody else's CI, not having to install a runtime first is decisive.
-- **Generating an OpenAPI document** from cards is on the roadmap, and no ecosystem has richer
-  tooling for that.
+- **Generating an OpenAPI document** from cards — `usedesign gen openapi`, which exists in
+  TypeScript only — and no ecosystem has richer tooling for that.
 
 The honest counter-argument: Go or Rust would produce a single binary with no runtime at all,
 which is better *distribution*. That advantage matters once there are users to distribute to.
 
 **What the ajv argument turned out to be worth**, now that it has been built: the schema catches
-7 of the 10 invalid corpus cases, and the 3 it misses are all the same shape — a name pointing at
-a step that does not exist. So the schema does the bulk of the work, and the cross-card rules do
-the part that matters most. Both halves were needed; neither would have been enough.
+22 of the 39 invalid corpus cases, and the 17 it misses all set one part of a document against
+another — a name pointing at a step that does not exist, an id written twice, a response nothing
+declares. So the schema does more than half of the work, and the cross-card rules do the part that
+matters most. Both halves were needed; neither would have been enough.
 
 And a result that could only appear once two implementations existed: **the schema had never been
 run against the corpus** before the TypeScript port. It agreed with it completely — every case
-the corpus calls valid passes the schema, and no case is called invalid by the schema alone. Two
+the corpus calls valid passes the schema, and every case the schema rejects the corpus calls invalid too. Two
 artifacts written separately from the same specification, neither derived from the other,
 agreeing on first contact — that is the strongest evidence the format has produced so far.
 

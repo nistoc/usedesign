@@ -1,6 +1,9 @@
 # Design note — check 2: no unproven steps
 
-**Status:** design, not yet specified.
+**Status:** specified in [SPEC §7.2](../SPEC.md#7-the-checks) and implemented — `checkCoverage` in
+[`impl/typescript/src/checks.ts`](../impl/typescript/src/checks.ts), `check_coverage` in
+[`impl/python/check.py`](../impl/python/check.py). This note is the reasoning; where it differs from
+the specification, the specification is right.
 **Question it answers:** what it takes for a card to *prove* a step, rather than to claim it — and
 how a checker can tell the difference without becoming a test runner for every stack in existence.
 

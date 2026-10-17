@@ -414,7 +414,7 @@ code does. Like every mode but `etag_required`, it needs a `rationale`
 a stale revision is a collision outcome the caller must handle, and stating it is more useful
 than leaving it to be inferred from the status code.
 
-> This field exists because real systems mix all four, and the reasoning usually survives only
+> This field exists because real systems mix these modes, and the reasoning usually survives only
 > in a code comment next to one of them.
 
 ### 5.5 Quota
@@ -821,8 +821,8 @@ coverage_gaps:
     kind: unwritten|harness|unreachable   # ⬜ why it is missing; default unwritten
 ```
 
-`coverage_gaps` starts as a human judgement and later becomes automatic: a step with no entry in
-`tests[]` becomes a gap line.
+`coverage_gaps` is a human judgement. A step with no entry in `tests[]` and none in `coverage_gaps`
+is `step_unproven` (§7, check 2); nothing writes the gap line for the author.
 
 **Why the proof is missing** (round 26). "No test" hid three different situations, and a gate
 counting them could not tell work that is simply undone from work that cannot be done:
@@ -887,9 +887,11 @@ and `validate` names it.
 
 ---
 
-## 7. The three checks
+## 7. The checks
 
-The format only pays for itself with an automated checker. Three invariants:
+The format only pays for itself with an automated checker. There are five checks: check 4 is §7.4,
+check 5 is §7.5, and §7.6 says which of them a repository runs. The first three are invariants
+(§7.1–7.3):
 
 1. **No wild endpoints** — every route in the code is declared by some card.
    The checker does not read the code to learn this. The checked repository states what it
@@ -948,7 +950,7 @@ cannot validate *meaning* — nothing stops `tested: "planned for Q3"` from sati
 that a tested note exists. That gap is not a defect to be patched in the schema; it is the
 boundary. Confirming that a card's claims match reality — that its listed tests exist and pass,
 that its routes are the routes the code registers — is the checker's job, and it is the reason
-the checker is on the roadmap rather than the schema being made ever cleverer.
+the work sits in the checker rather than in a schema made ever cleverer.
 
 ---
 
@@ -1188,7 +1190,9 @@ comparison lives.
 
 ### 7.6 Scoping the checks per repository
 
-`checks: [5]` in the config limits which checks run. A frontend repository serves no routes and
+`checks: [5]` in the config limits which checks run: a config with `checks:` runs exactly the
+checks it names. Without the key, checks 1–4 run, and check 5 runs when the config declares
+`forms:` (§7.5). A frontend repository serves no routes and
 owns no tables; running checks 1–4 there would fail on inputs that cannot exist, and a check that
 always fails gets ignored — the report-mode lesson one level up. Scoping is declared in the
 config, visible in review; **within the declared scope, "cannot run" still means "not passed"**.

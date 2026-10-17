@@ -1,9 +1,9 @@
 # Python prototype
 
 **Status: prototype.** Not a package, not on PyPI, no stability promise. It exists for two
-reasons: to keep the [conformance corpus](../../tests/conformance/) honest before the reference
-implementation is written, and to demonstrate that the format is implementable on a second
-runtime — a claim that is cheap to make and easy to get wrong.
+reasons: to keep the [conformance corpus](../../tests/conformance/) honest, as a second reader of
+it beside the reference implementation, and to demonstrate that the format is implementable on a
+second runtime — a claim that is cheap to make and easy to get wrong.
 
 ## What it does
 
@@ -18,20 +18,28 @@ python validate.py --conformance      # run the conformance corpus
 python validate.py ../../examples     # validate real cards
 ```
 
-`check.py` implements the three checks that compare cards against a repository:
+`check.py` implements the five checks that compare cards and form contracts against a repository:
 
 - **check 1 — no wild endpoints**, against a
   [route inventory](../../schema/route-inventory.schema.json) the repository produces;
 - **check 2 — no unproven steps**, against a JUnit XML report from the run being checked;
 - **check 3 — no inflated maturity**: the implementation path must exist, a claim of `tested` must
-  have a passing test, and a deployment claim expires.
+  have a passing test, and a deployment claim expires;
+- **check 4 — no imagined storage**, against a
+  [storage inventory](../../schema/storage-inventory.schema.json) the repository produces;
+- **check 5 — the form matches its contract**, against a
+  [form inventory](../../schema/form-inventory.schema.json) recorded from the rendered screens.
+
+A config with `checks:` runs exactly the checks it names (SPEC §7.6). Without it, checks 1–4 run,
+and check 5 runs when the config declares `forms:` (SPEC §7.5).
 
 ```bash
 python check.py ../../tests/fixtures/library-service/usedesign.config.yaml
 python check.py --conformance
 ```
 
-The fixture is expected to fail — two wild endpoints and three broken proofs; [why that is the
+The fixture is expected to fail — two wild endpoints, three broken proofs, a missing evidence file
+and no storage inventory: seven errors; [why that is the
 deliverable](../../tests/fixtures/library-service/README.md).
 
 Requires only PyYAML.
@@ -65,14 +73,20 @@ Requires only PyYAML.
 
 ## Errors and warnings
 
-Errors are corpus-defined codes; the corpus README lists them. Warnings are advisory and never
-fail a run:
+Errors are corpus-defined codes: the manifests of the corpus name them case by case, and its
+README explains the first of them. Warnings are advisory and never fail a run:
 
 | Warning | Meaning |
 |---|---|
-| `step_unproven` | A step has no test and no declared gap — invariant two of the three checks, reported rather than enforced |
+| `step_unproven` | A step has no test and no declared gap — reported by `validate.py`; check 2 makes it an error when a test report is available |
 | `undescribed_counterpart` | `reversible_via` or `serves_step` points at an operation nobody has described yet. Normal in a partial catalogue |
 | `filename_mismatch` | File name does not match the card's `id` |
+
+`validate.py` reports more warnings than these three — on cards `tested_count_mismatch`,
+`concurrency_unexplained`, `violation_with_success_status`, `outcome_unshown`,
+`default_success_uncovered`, `outcomes_indistinguishable` and `reversibility_overstated`, on form
+contracts `undescribed_form` and `form_calls_undescribed`; [SPEC](../../SPEC.md) says what each
+one means.
 
 Running it over the example cards yields three `undescribed_counterpart` warnings and no errors —
 the counterpart operations are deliberately outside the example set.
@@ -80,9 +94,12 @@ the counterpart operations are deliberately outside the example set.
 `check.py` adds `wild_endpoint`, `phantom_route`, `inventory_missing`, `inventory_empty`,
 `inventory_malformed`, `incomplete_rest_interface`, `no_cards_found`, `test_not_found`,
 `test_failing`, `test_skipped`, `report_missing`, `report_empty` and `report_malformed` as errors,
-`evidence_path_missing` and `maturity_without_passing_test` as errors, and `dead_exclusion`,
-`ambiguous_shape`, `evidence_undated`, `evidence_stale` and `maturity_understated` as warnings.
-`step_unproven` is an error when a test report is available and a warning when it is not.
+`evidence_path_missing` and `code_root_missing` as errors, and
+`dead_exclusion`, `ambiguous_shape`, `route_not_yet_served`, `evidence_undated`, `evidence_stale`
+and `maturity_understated` as warnings. `step_unproven` and `maturity_without_passing_test` are
+errors when a test report is available and warnings when it is not; check 5 reports
+`no_cards_found` as a warning. Check 2 also reports the four `variant_*` codes (SPEC
+§5.2e), and checks 4 and 5 add the codes of SPEC §7.4 and §7.5.
 
 > **Removed:** `source_without_line`, which warned when a `source` reference carried no line
 > number. It pushed authors toward exactly the kind of reference that rots silently — see

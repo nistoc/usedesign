@@ -16,7 +16,7 @@ disagree on why cannot be used interchangeably in a pipeline, and their messages
 different mental models of the format.
 
 **What the agreement covers, and what it deliberately does not.** It covers every *verdict*:
-`validate` and the three checks. It does not cover `scaffold`, which lives in the TypeScript
+`validate` and the five checks. It does not cover `scaffold`, which lives in the TypeScript
 implementation alone. Scaffolding decides nothing — it writes drafts that are guaranteed to fail
 validation, and any disagreement between two generators is settled a moment later by the
 validator both must obey. Requiring a second generator would buy no safety and would make the
@@ -30,13 +30,17 @@ who no longer knows why it was there.
 manifest.yaml          the list of cases with expected verdicts and codes
 cases/valid/*.op.md    cards that must be accepted
 cases/invalid/*.op.md  cards that must be rejected, each with its codes
+cases/*/forms/*.contract.md
+                       form contracts, accepted or rejected the same way
 
 checks/manifest.yaml   the same idea for the checks against a repository
 checks/cases/<name>/   a config plus what the check consumes: a route
-                       inventory for check 1, a JUnit XML report for check 2
+                       inventory for check 1, a JUnit XML report for check 2,
+                       a storage inventory for check 4, form contracts and a
+                       form inventory for check 5
 ```
 
-Each case says which invariant it exercises (`check: 1` or `check: 2`) and is run through that one
+Each case says which check it exercises (`check: 1` to `check: 5`) and is run through that one
 only, so a missing inventory is not held against a coverage case.
 
 A card case in `manifest.yaml` carries:
@@ -68,8 +72,9 @@ layers print the same lines is held by [`validate-cli/run.sh`](../fixtures/valid
 Every card case is a real card, and its Markdown body explains what it is probing — read the case
 before arguing with it.
 
-The `checks/` cases all point at the same five example cards, so what varies between them is only
-what the code is said to serve — which is the axis check 1 is about.
+Nineteen of the `checks/` cases point at the same five example cards, so what varies between them
+is only what the code is said to serve — which is the axis check 1 is about. The other cases carry
+cards of their own.
 
 ## Diagnostic codes
 
@@ -127,12 +132,17 @@ how a fork begins.
 | `evidence_stale` | warning | A dated claim past the horizon. Reports silence, not absence |
 | `maturity_understated` | warning | A card below `implemented` with a passing test on its last step. Advisory, and narrowed twice already |
 
+### Checks 4 and 5
+
+Their codes, and what each means, are in [SPEC §7.4 and §7.5](../../SPEC.md). The cases that pin
+them are in `checks/manifest.yaml`, under `check: 4` and `check: 5`.
+
 ## What the corpus deliberately does not test
 
 **Meaning.** `tested: "soon"` satisfies the rule that a tested note exists, and the card corpus
 accepts that, because a schema validates form. Confirming that the listed tests exist and pass is
 the checker's job against a real repository — see
-[SPEC §7](../../SPEC.md#7-the-three-checks). The corpus draws that boundary on purpose rather than
+[SPEC §7](../../SPEC.md#7-the-checks). The corpus draws that boundary on purpose rather than
 pretending it is not there.
 
 The `checks/` cases are the first crossing of that boundary: they compare cards against a stated
@@ -142,12 +152,13 @@ application — but the disagreement they detect is with the code, not within th
 ## Running it
 
 ```
+node impl/typescript/dist/cli.js conformance   # build first; --cards or --checks for one half
 python impl/python/validate.py --conformance
 python impl/python/check.py    --conformance
 ```
 
-The prototype implementation runs the corpus and compares its verdicts and codes against
-`manifest.yaml`. Any future implementation is expected to offer an equivalent entry point.
+Both implementations run the corpus and compare their verdicts and codes against the manifests.
+Any future implementation is expected to offer an equivalent entry point.
 
 ## Adding a case
 

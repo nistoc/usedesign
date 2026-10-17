@@ -1,6 +1,9 @@
 # Design note — check 3: no inflated maturity
 
-**Status:** design, not yet specified.
+**Status:** specified in [SPEC §7.3](../SPEC.md#7-the-checks) and implemented — `checkMaturity` in
+[`impl/typescript/src/checks.ts`](../impl/typescript/src/checks.ts), `check_maturity` in
+[`impl/python/check.py`](../impl/python/check.py). This note is the reasoning; where it differs from
+the specification, the specification is right.
 **Question it answers:** which parts of a maturity claim a checker can actually confirm, which it
 cannot, and what to do about the second group instead of pretending it belongs to the first.
 

@@ -1,13 +1,15 @@
 # The corpus is what stops "a valid card" from becoming "a card my validator happens to accept".
 # This workflow is what stops the corpus from becoming a file nobody runs.
 #
-# Three things are checked, and the third is the one that usually goes missing:
+# Four things are checked, and the third is the one that usually goes missing:
 #   1. the reference implementation passes both corpora;
 #   2. the prototype passes them too, on a different runtime — a corpus one implementation agrees
 #      with is a corpus that has stopped describing the format;
 #   3. the deliberately rotten fixture still FAILS. A checker that has quietly stopped checking
 #      reports success, which is indistinguishable from a healthy repository unless something
-#      insists on seeing the failure.
+#      insists on seeing the failure;
+#   4. the two implementations say the same thing about the same input: the same codes on the
+#      fixture, the same lines on the paths `validate` takes (the `agreement` job).
 
 name: conformance
 
@@ -47,7 +49,7 @@ jobs:
           status=$?
           set -e
           if [ "$status" -ne 1 ]; then
-            echo "::error::the fixture exited $status; it is planted with six defects and must exit 1"
+            echo "::error::the fixture exited $status; it carries seven planted errors and must exit 1"
             exit 1
           fi
           echo "fixture failed as designed"

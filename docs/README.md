@@ -1,14 +1,16 @@
 # docs/
 
-A single self-contained HTML presentation of the Operation Card format:
-[`index.html`](index.html) — and, beside it, [`architecture.html`](architecture.html): an interactive map of
-how the pieces fit (three repositories, two gates, two checkers, one corpus), generated from
-[`architecture.archify.json`](architecture.archify.json) with Archify. Regenerate the map from the JSON;
-never edit the HTML by hand.
+Two self-contained HTML pages. [`index.html`](index.html) is a presentation of the Operation Card
+format. [`architecture.html`](architecture.html) is an interactive map of how the pieces fit — the
+format and its schemas, two checkers held to one corpus, the npm package, the starter kit, and the
+two gates of a product that read its cards, its form contracts and what the product says about
+itself. The map is generated from [`architecture.archify.json`](architecture.archify.json) with
+Archify; regenerate it from the JSON, never edit the HTML by hand.
 
-- No CDN, no external stylesheets, no web fonts, no remote images, no network calls.
-  All CSS and JS are inline; every graphic is inline SVG or CSS.
-- It opens correctly by double-clicking the file from disk, offline.
+- No CDN, no external stylesheets, no font downloads, no remote images, no network calls.
+  All CSS and JS are inline; every graphic is inline SVG or CSS. The deck uses system fonts;
+  the map carries its one typeface inline, as data.
+- Each opens correctly by double-clicking the file from disk, offline.
 - Content is drawn from [`SPEC.md`](../SPEC.md), the [schema](../schema/operation-card.schema.json)
   and the [example cards](../examples/) — every YAML excerpt in the deck is real.
 

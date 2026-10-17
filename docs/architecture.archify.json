@@ -5,57 +5,45 @@
     "title": "usedesign — how the pieces fit",
     "locale": "en",
     "output": "architecture.html",
-    "quality_profile": "showcase",
-    "viewBox": [
-      1300,
-      700
-    ],
-    "views": [
-      {
-        "id": "authoring",
-        "label": "Authoring",
-        "focus": [
-          "author",
-          "cards",
-          "contracts"
-        ],
-        "note": "One card per operation, one contract per screen — written by measuring the code, never from memory."
-      },
-      {
-        "id": "checking",
-        "label": "Checking in CI",
-        "focus": [
-          "cards",
-          "inventories",
-          "gate-server",
-          "contracts",
-          "forms-inventory",
-          "gate-front"
-        ],
-        "note": "Each gate compares the descriptions with what the product states about itself at run time; sources are never parsed."
-      },
-      {
-        "id": "lockstep",
-        "label": "Two readings, one corpus",
-        "focus": [
-          "ts",
-          "py",
-          "corpus",
-          "npm"
-        ],
-        "note": "Two checkers must report the same codes on every corpus case; publish is green only once the registry serves the box."
-      }
-    ]
+    "quality_profile": "showcase"
   },
   "components": [
+    {
+      "id": "format",
+      "type": "database",
+      "label": "The format",
+      "sublabel": "SPEC v1.5 · six JSON Schemas",
+      "pos": [
+        385,
+        56
+      ],
+      "size": [
+        230,
+        64
+      ]
+    },
+    {
+      "id": "kit",
+      "type": "external",
+      "label": "Starter kit (Russian)",
+      "sublabel": "sample config, gate, two producers",
+      "pos": [
+        940,
+        56
+      ],
+      "size": [
+        205,
+        64
+      ]
+    },
     {
       "id": "ts",
       "type": "backend",
       "label": "Reference checker",
-      "sublabel": "TypeScript · schemas ship in the box",
+      "sublabel": "TypeScript · six commands, schemas in the box",
       "pos": [
-        300,
-        56
+        40,
+        176
       ],
       "size": [
         260,
@@ -67,13 +55,13 @@
       "id": "corpus",
       "type": "database",
       "label": "Conformance corpus",
-      "sublabel": "93 + 56 cases, both readings",
+      "sublabel": "93 + 56 cases · a rotten fixture",
       "pos": [
-        640,
-        56
+        395,
+        176
       ],
       "size": [
-        240,
+        230,
         64
       ]
     },
@@ -81,13 +69,13 @@
       "id": "py",
       "type": "backend",
       "label": "Prototype checker",
-      "sublabel": "Python, no schema library",
+      "sublabel": "Python · its own JSON Schema reader",
       "pos": [
-        960,
-        56
+        720,
+        176
       ],
       "size": [
-        220,
+        215,
         64
       ]
     },
@@ -97,11 +85,11 @@
       "label": "npm registry",
       "sublabel": "1.5.1 · build provenance",
       "pos": [
-        520,
-        210
+        640,
+        330
       ],
       "size": [
-        240,
+        220,
         64
       ]
     },
@@ -112,10 +100,10 @@
       "sublabel": "components rendered per state",
       "pos": [
         40,
-        350
+        480
       ],
       "size": [
-        220,
+        200,
         64
       ]
     },
@@ -126,10 +114,10 @@
       "sublabel": "forms/*.contract.md",
       "pos": [
         40,
-        470
+        600
       ],
       "size": [
-        220,
+        200,
         64
       ]
     },
@@ -139,39 +127,11 @@
       "label": "Frontend gate",
       "sublabel": "strict · check 5",
       "pos": [
-        380,
-        410
+        350,
+        540
       ],
       "size": [
-        200,
-        64
-      ]
-    },
-    {
-      "id": "gate-server",
-      "type": "security",
-      "label": "Server gate",
-      "sublabel": "report mode · checks 1–4",
-      "pos": [
-        740,
-        410
-      ],
-      "size": [
-        220,
-        64
-      ]
-    },
-    {
-      "id": "inventories",
-      "type": "database",
-      "label": "Product self-descriptions",
-      "sublabel": "routes · tests · live storage",
-      "pos": [
-        1040,
-        350
-      ],
-      "size": [
-        200,
+        190,
         64
       ]
     },
@@ -181,11 +141,39 @@
       "label": "Operation cards",
       "sublabel": "cards/*.op.md",
       "pos": [
-        1040,
-        470
+        665,
+        540
       ],
       "size": [
-        200,
+        180,
+        64
+      ]
+    },
+    {
+      "id": "gate-server",
+      "type": "security",
+      "label": "Server gate",
+      "sublabel": "report mode · checks 1–4",
+      "pos": [
+        940,
+        540
+      ],
+      "size": [
+        205,
+        64
+      ]
+    },
+    {
+      "id": "inventories",
+      "type": "database",
+      "label": "Product self-descriptions",
+      "sublabel": "routes · tests · live storage",
+      "pos": [
+        940,
+        660
+      ],
+      "size": [
+        205,
         64
       ]
     },
@@ -195,11 +183,11 @@
       "label": "Author",
       "sublabel": "human + LLM, by measurement",
       "pos": [
-        550,
-        600
+        650,
+        780
       ],
       "size": [
-        220,
+        210,
         64
       ]
     }
@@ -207,8 +195,10 @@
   "boundaries": [
     {
       "kind": "region",
-      "label": "usedesign repository — format, two checkers, corpus",
+      "label": "usedesign repository — format, two checkers, corpus, starter kit",
       "wraps": [
+        "format",
+        "kit",
         "ts",
         "corpus",
         "py"
@@ -227,25 +217,28 @@
       "kind": "region",
       "label": "product: server repository",
       "wraps": [
+        "cards",
         "gate-server",
-        "inventories",
-        "cards"
+        "inventories"
       ]
     }
   ],
   "connections": [
     {
-      "id": "author-writes-contracts",
-      "from": "author",
-      "to": "contracts",
-      "label": "one contract per screen"
+      "id": "format-binds-ts",
+      "from": "format",
+      "to": "ts",
+      "label": "schemas + rules",
+      "fromSide": "left",
+      "toSide": "top"
     },
     {
-      "id": "author-writes-cards",
-      "from": "author",
-      "to": "cards",
-      "label": "one card per operation",
-      "variant": "emphasis"
+      "id": "format-binds-py",
+      "from": "format",
+      "to": "py",
+      "label": "schemas + rules",
+      "fromSide": "right",
+      "toSide": "top"
     },
     {
       "id": "corpus-binds-ts",
@@ -287,6 +280,12 @@
       "labelDy": -40
     },
     {
+      "id": "kit-copied",
+      "from": "kit",
+      "to": "gate-server",
+      "label": "copy: sample gate and config"
+    },
+    {
       "id": "forms-checked",
       "from": "forms-inventory",
       "to": "gate-front",
@@ -300,6 +299,12 @@
       "variant": "emphasis"
     },
     {
+      "id": "cards-read-by-front",
+      "from": "cards",
+      "to": "gate-front",
+      "label": "read by check 5"
+    },
+    {
       "id": "inventories-checked",
       "from": "inventories",
       "to": "gate-server",
@@ -311,6 +316,19 @@
       "to": "gate-server",
       "label": "checks 1–4",
       "variant": "emphasis"
+    },
+    {
+      "id": "author-writes-contracts",
+      "from": "author",
+      "to": "contracts",
+      "label": "one contract per screen"
+    },
+    {
+      "id": "author-writes-cards",
+      "from": "author",
+      "to": "cards",
+      "label": "one card per operation",
+      "variant": "emphasis"
     }
   ],
   "cards": [
@@ -318,8 +336,16 @@
       "dot": "cyan",
       "title": "What is compared with what",
       "items": [
-        "Cards vs the route inventory, the JUnit report and the live store; contracts vs real components rendered per state",
-        "Sources are never parsed — only what the system states about itself"
+        "Cards vs the route inventory, the JUnit report, the live store and the files their evidence names; contracts vs real components rendered per state",
+        "Sources are never parsed — only what the system states about itself; in the package only scaffold reads an OpenAPI document, for drafts and never for verdicts; a route inventory may be made from one outside it"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "What the box holds",
+      "items": [
+        "Six commands: validate and check run in the gates, conformance runs the corpus; scaffold drafts cards from an OpenAPI document, gen openapi writes one from the cards, preview draws contracts as a wireframe page",
+        "Six schemas: card and contract are read at run time by both checkers; the other four describe the config and the three inventories"
       ]
     },
     {
@@ -327,15 +353,16 @@
       "title": "Two readings, one corpus",
       "items": [
         "TypeScript reference and Python prototype must report the same codes on 149 cases",
-        "A new case must fail on the previous published box"
+        "A deliberately rotten repository must still fail, and CI compares what both checkers report on it"
       ]
     },
     {
       "dot": "rose",
       "title": "Where it runs",
       "items": [
-        "npx usedesign@<pin> in each product's CI — nothing installed, version frozen per repository; the frontend gate reads the server's cards via a sibling checkout",
-        "Publish is green only when the registry actually serves the box"
+        "npx usedesign@<pin> in each product's CI — nothing installed, version frozen per repository; each gate runs validate, then check; the frontend gate reads the server's cards via a sibling checkout",
+        "Publish is green only when the registry actually serves the box",
+        "The starter kit (Russian) is the copy-and-go path: a sample config and gate, a script for the route inventory, a recipe test for the form inventory"
       ]
     }
   ]

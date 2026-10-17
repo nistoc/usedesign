@@ -1,6 +1,9 @@
 # Design note — check 1: no wild endpoints
 
-**Status:** design, not yet specified. Written before the implementation on purpose.
+**Status:** specified in [SPEC §7.1](../SPEC.md#7-the-checks) and implemented — `checkRoutes` in
+[`impl/typescript/src/checks.ts`](../impl/typescript/src/checks.ts), `check` in
+[`impl/python/check.py`](../impl/python/check.py). This note is the reasoning, written before the
+implementation on purpose; where it differs from the specification, the specification is right.
 **Question it answers:** how can a checker know, mechanically, that every route the code registers
 is declared by some card — without becoming a per-framework parser and without producing false
 alarms that train people to ignore it.
