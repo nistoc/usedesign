@@ -170,7 +170,8 @@ cases:
     note: >-
       `since: 2026-02-30`, a day the calendar lacks — not a date, an error, where no date at all is
       a warning. Up to 1.4.2 the TypeScript reference carried it over to 2 March and called it
-      stale or fresh by the clock, while the Python prototype refused it; both refuse it now (1.4.3).
+      stale or fresh by the clock, while the Python prototype stopped with a traceback from its YAML
+      reader; both refuse it now (1.4.3).
 
   - dir: evidence-stale
     check: 3

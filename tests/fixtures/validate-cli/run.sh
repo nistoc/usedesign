@@ -252,14 +252,16 @@ echo "  ok"
 # Both implementations validate against schema/ (1.4.3); the Python prototype had no schema layer,
 # and a card only the schema refuses passed there. `schema/` breaks thirteen of the keywords the
 # schemas use; both must print the same lines — messages, their order, their count — with the schema
-# and without.
+# and without, whatever the hash seed: step ids kept in a set came out in an order the seed chose.
 echo "— the schema, line for line"
 for flag in "" --no-schema; do
   node "$root/impl/typescript/dist/cli.js" validate $flag schema > "$scratch/schema.ts.txt" 2>&1
-  python "$root/impl/python/validate.py" $flag schema > "$scratch/schema.py.txt" 2>&1
-  if ! diff --strip-trailing-cr "$scratch/schema.ts.txt" "$scratch/schema.py.txt"; then
-    echo "::error::validate ${flag:-with the schema} prints different lines in the two implementations"; exit 1
-  fi
+  for seed in 0 1 2 3 4 5 6 7; do
+    PYTHONHASHSEED=$seed python "$root/impl/python/validate.py" $flag schema > "$scratch/schema.py.txt" 2>&1
+    if ! diff --strip-trailing-cr "$scratch/schema.ts.txt" "$scratch/schema.py.txt"; then
+      echo "::error::validate ${flag:-with the schema} with PYTHONHASHSEED=$seed prints different lines in the two implementations"; exit 1
+    fi
+  done
 done
 grep -q "schema_violation" "$scratch/schema.ts.txt" && { echo "::error::--no-schema still reports schema_violation"; exit 1; }
 node "$root/impl/typescript/dist/cli.js" validate schema > "$out" 2>&1
@@ -408,6 +410,43 @@ for seed in 0 1 2 3; do
 done
 unset PYTHONHASHSEED
 says "SeedPanel: \`zeta\` is rendered but no contract line accounts for it"
+# Cards are read in the order of their paths by UTF-16 code unit, as the reference sorts them: the
+# card at `😀` before the card at `～`, whose ids sort the other way. Sorted by code point, Python
+# would print the two the other way round.
+mkdir -p "$scratch/pathorder"
+for name in "$grin" "$tilde"; do
+  id=a; [ "$name" = "$grin" ] && id=z
+  printf '%s\n' '---' "id: sample.path.$id" 'maturity: tested' 'steps:' '  - { id: s1, text: Read }' \
+    'tests:' '  - { id: T.t1, covers: s1, level: unit }' '---' > "$scratch/pathorder/$name.op.md"
+done
+config pathorder 'checks: [3]' 'cards:' '  - pathorder/*.op.md'
+agree 0 pathorder "$scratch/pathorder.config.yaml"
+[ "$(grep -m1 -o "sample\.path\.[az]" "$out")" = sample.path.z ] \
+  || fail "pathorder: the card at U+1F600 must be read before the card at U+FF5E"
+# A deployment date is a calendar day written `YYYY-MM-DD`, year 1 or later: the basic form
+# `20260101` and the week form `2026-W01-1`, which Python's `fromisoformat` reads, and year 0, which
+# JavaScript's Date reads, are no date in either implementation.
+mkdir -p "$scratch/since"
+cp -r "$root/tests/conformance/checks/cases/evidence-impossible-day/code" "$root/tests/conformance/checks/cases/evidence-impossible-day/test-report.xml" "$scratch/since/"
+impossible="$root/tests/conformance/checks/cases/evidence-impossible-day/cards/sample.evidence.impossible-day.op.md"
+for pair in basic:20260101 week:2026-W01-1 zero:0000-01-01; do
+  sed -e "s/^id: .*/id: sample.since.${pair%%:*}/" -e "s/since: 2026-02-30/since: \"${pair#*:}\"/" "$impossible" > "$scratch/since/${pair%%:*}.op.md"
+done
+config since 'checks: [3]' 'cards:' '  - since/*.op.md' 'code_root: since/code' 'test_report: since/test-report.xml'
+agree 1 since "$scratch/since.config.yaml"
+[ "$(grep -c "evidence_undated" "$out")" -eq 3 ] || fail "since: each of the three dates must be no date"
+# `usedesign_form: true` is not `usedesign_form: 1`: the reference reads such a file as a card, and
+# so must Python, where `True == 1`.
+mkdir -p "$scratch/formtrue"
+sed '1a usedesign_form: true' "$card" > "$scratch/formtrue/t.op.md"
+for flag in "" --no-schema; do
+  node "$root/impl/typescript/dist/cli.js" validate $flag "$scratch/formtrue" > "$scratch/formtrue.ts.txt" 2>&1
+  python "$root/impl/python/validate.py" $flag "$scratch/formtrue" > "$scratch/formtrue.py.txt" 2>&1
+  diff --strip-trailing-cr "$scratch/formtrue.ts.txt" "$scratch/formtrue.py.txt" > "$scratch/formtrue.diff" \
+    || { echo "::error::formtrue: validate ${flag:-with the schema} prints different lines in the two implementations"; cat "$scratch/formtrue.diff"; exit 1; }
+  grep -q "1 card(s), 0 form contract(s)" "$scratch/formtrue.ts.txt" \
+    || { echo "::error::formtrue: a file with \`usedesign_form: true\` is a card"; cat "$scratch/formtrue.ts.txt"; exit 1; }
+done
 echo "  ok"
 
 # Every case of the checks corpus prints the same lines in both implementations, whatever the hash
