@@ -6,10 +6,30 @@ errors under 1.0 has zero errors under every 1.x ([SPEC §8](SPEC.md)). `1.x.0` 
 `1.x.y` fixes the tools, `2.0.0` would break. A release that changes the format names its round
 in SPEC §8, where the round-by-round record is kept.
 
-`usedesign --version` prints both numbers: `usedesign 1.5.1 (SPEC v1.5)`. Releases before 1.0
+`usedesign --version` prints both numbers: `usedesign 1.5.2 (SPEC v1.5)`. Releases before 1.0
 (`0.2.0` … `0.16.0`) are tagged in this repository; the rounds that led to 1.0 are in SPEC §8.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
+
+## 1.5.2
+
+*2026-10-17 · the tools change, the format does not (SPEC v1.5)*
+
+`check` reads the test report as XML reads it.
+
+- A report cut off while it was written is `report_malformed`. 1.5.1 read it as far as it went:
+  a test cut right after its open tag, before its `<failure>`, passed check 2 with exit 0. A
+  report that is not well-formed XML is named in one line by both implementations, without the
+  parser's reason and position.
+- Past 1 000 escaped characters (`&quot;` and the like) in the whole report, the 1.5.1 reference
+  refused it as malformed — a suite of parametrised tests reaches that in its test names alone.
+  There is no limit now, and `&#233;` is `é`, not six characters.
+- A report with a DOCTYPE is refused in both: JUnit reports carry none, and its entities are what
+  expansion attacks are made of. The Python prototype expanded them.
+- A `test_report` that is a directory is `report_missing`, "cannot be read"; the 1.5.1 reference
+  called it malformed XML, and the Python prototype stopped with a traceback.
+- The reference reads the report with `saxes` in place of `fast-xml-parser`. The corpus holds
+  93 + 59 cases.
 
 ## 1.5.1
 

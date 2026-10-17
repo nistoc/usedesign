@@ -84,13 +84,13 @@ which is exactly why migrations end up orphaned everywhere else.
 
 ## Status
 
-**The format is SPEC v1.5; the tools are 1.5.1.** Since v1.0, declared 13 September 2026, the
+**The format is SPEC v1.5; the tools are 1.5.2.** Since v1.0, declared 13 September 2026, the
 format has been under one promise: the required keys of a card are frozen, so a card with zero
 errors under 1.0 has zero errors under every 1.x. A round adds optional fields, optional artifact
 kinds and new codes, and a new check on existing fields arrives as a warning; renaming or removing
 a field, changing what a required field accepts or turning a warning into an error is 2.0. The package
-follows the format — `1.x.0` adds, `1.x.y` fixes, `2.0.0` breaks — and 1.5.1 fixed the tools, so
-the tools are 1.5.1 while the format is still v1.5. The package is published to npm with build
+follows the format — `1.x.0` adds, `1.x.y` fixes, `2.0.0` breaks — and 1.5.2 fixed the tools, so
+the tools are 1.5.2 while the format is still v1.5. The package is published to npm with build
 provenance.
 
 Thirty rounds of hardening stand behind it, seven of them driven by a pilot on a real product. The
