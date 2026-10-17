@@ -30,7 +30,7 @@ function report(name: string, problems: string[], reported: string[]): void {
   }
 }
 
-/** The 14 card cases: does this card mean anything, and if not, why not. */
+/** The card cases (`tests/conformance/cards/manifest.yaml`): does this card mean anything, and if not, why not. */
 export function runCardCorpus(withSchema = true): CorpusResult {
   const manifest = parseYaml(readFileSync(join(CARDS, "manifest.yaml"), "utf8"));
   let passed = 0;
@@ -82,7 +82,7 @@ export function runCardCorpus(withSchema = true): CorpusResult {
   return { passed, failed };
 }
 
-/** The 20 repository cases: do the cards still match what the repository does. */
+/** The repository cases (`tests/conformance/checks/manifest.yaml`): do the cards still match what the repository does. */
 export function runChecksCorpus(): CorpusResult {
   const manifest = parseYaml(readFileSync(join(CHECKS_CORPUS, "manifest.yaml"), "utf8"));
   let passed = 0;

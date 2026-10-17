@@ -68,7 +68,7 @@
         "properties": {
           "path": {
             "type": "string",
-            "description": "Glob over the normalised path, e.g. '/health' or '/docs/**'."
+            "description": "Glob over the normalised path, e.g. '/health' or '/docs/*'. Matched as one segment of a `cards:` pattern matches a name: `*` and `?` do not cross '/', so '/docs/*' hides '/docs/a', not '/docs/a/b' (SPEC §7)."
           },
           "method": {
             "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"],

@@ -13,7 +13,7 @@ exclude:
     reason: Liveness probe. Has no user-visible behaviour to describe.
   - path: /metrics
     reason: Scrape target for the monitoring system.
-  - path: /docs/**
+  - path: /docs/*
     method: GET
     reason: Generated API documentation UI and its document.
   - path: /docs

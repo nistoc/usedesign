@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join, basename } from "node:path";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import { Card, Finding } from "./core.js";
+import { Card, Finding, isMap, list, map, text } from "./core.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = join(HERE, "..", "..", "..");
@@ -112,11 +112,7 @@ const REMOVED_KEYS = new Set(["control", "was", "verdict"]);
 // value here and as nothing in the Python prototype, which stopped with a traceback on most of
 // these. An enumeration keeps its own rule: a value outside the list, of whatever type, is reported
 // as written. A key is looked up among the map's own keys — `toString` is not an outcome.
-const isMap = (value: unknown): value is Record<string, any> =>
-  value !== null && typeof value === "object" && !Array.isArray(value);
-const list = (value: unknown): any[] => (Array.isArray(value) ? value : []);
-const map = (value: unknown): Record<string, any> => (isMap(value) ? value : {});
-const text = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
+// `isMap`, `list`, `map` and `text` live in core.ts since 1.5.1, where `check` reads with them too.
 const status = (value: unknown): number | undefined => (Number.isInteger(value) ? (value as number) : undefined);
 /** Absent for a required key: not written, null, or an empty string. */
 const absent = (value: unknown): boolean => value === undefined || value === null || value === "";

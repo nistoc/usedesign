@@ -29,6 +29,22 @@ export const codesOf = (findings: Finding[]): string[] => [...new Set(findings.m
 /** A card's front matter, as parsed. Deliberately loose: the schema is what judges its shape. */
 export type Card = Record<string, any>;
 
+// ── reading a field in its type (1.4.3; `check` since 1.5.1) ────────────────────────────────
+//
+// A rule reads a field only in the type the format gives it: a list as a list, a map as a map, a
+// name as a string. Any other value is absent to the rules, and `validate` names its type. `check`
+// read the fields as written until 1.5.1: a number where a list belongs stopped it, a string was
+// walked letter by letter, and `true` was printed `true` here and `True` in the Python prototype.
+export const isMap = (value: unknown): value is Record<string, any> =>
+  value !== null && typeof value === "object" && !Array.isArray(value);
+export const list = (value: unknown): any[] => (Array.isArray(value) ? value : []);
+export const map = (value: unknown): Record<string, any> => (isMap(value) ? value : {});
+export const text = (value: unknown): string | undefined => (typeof value === "string" ? value : undefined);
+/** The maps of a list of maps; an item of another type is absent. */
+export const maps = (value: unknown): Record<string, any>[] => list(value).filter(isMap);
+/** The strings of a list of strings; an item of another type is absent. */
+export const texts = (value: unknown): string[] => list(value).filter((item): item is string => typeof item === "string");
+
 export interface Config {
   usedesign_config?: number;
   cards?: string[];
@@ -115,8 +131,45 @@ const CONFIG_KEYS = new Set([
   "uncontracted_screens",
 ]);
 
+/**
+ * The type each config key is read in (1.5.1). A value of another type stops the run, as a key
+ * that is not a config key does: before, `cards: 5` and `exclude: [1]` stopped it with the
+ * runtime's words, here and in the Python prototype alike, `evidence_horizon_days: "30"` was
+ * compared as text, and `checks: []` ran no check and passed. `null` is an absent key.
+ */
+const isInteger = (value: unknown): boolean => Number.isInteger(value);
+const CONFIG_TYPES: [string, string, (value: unknown) => boolean][] = [
+  ["checks", "a list of check numbers, 1 to 5", (v) => Array.isArray(v) && v.length > 0 && v.every((n) => isInteger(n) && n >= 1 && n <= 5)],
+  ["cards", "a list of strings", (v) => Array.isArray(v) && v.every((s) => typeof s === "string")],
+  ["forms", "a list of strings", (v) => Array.isArray(v) && v.every((s) => typeof s === "string")],
+  ["inventory", "a string", (v) => typeof v === "string"],
+  ["test_report", "a string", (v) => typeof v === "string"],
+  ["code_root", "a string", (v) => typeof v === "string"],
+  ["form_inventory", "a string", (v) => typeof v === "string"],
+  ["storage_inventory", "a string", (v) => typeof v === "string"],
+  ["uncontracted_screens", "a string", (v) => typeof v === "string"],
+  ["evidence_horizon_days", "an integer", isInteger],
+  [
+    "exclude",
+    "a list of rules, each a map with `path` a string and `method`, if written, a string",
+    (v) =>
+      Array.isArray(v) &&
+      v.every((rule) => isMap(rule) && typeof rule["path"] === "string" && (rule["method"] == null || typeof rule["method"] === "string")),
+  ],
+];
+
 export function loadConfig(path: string): { config: Config; base: string } {
-  const config = parseYaml(readFileSync(path, "utf8")) as Config;
+  // A config nobody can open, or one that is not YAML, is named as such (1.5.1), in the words of
+  // the Python prototype, which stopped on both with a traceback.
+  const why = whyUnreadable(path);
+  if (why) throw new Error(`\`${path}\` cannot be read — ${why}`);
+  let config: Config;
+  try {
+    config = parseYaml(readFileSync(path, "utf8").replace(/^﻿/, "")) as Config;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).syscall) throw new Error(`\`${path}\` cannot be read — ${causeOf(e)}`);
+    throw new Error(`${path}: config is not valid YAML — ${String((e as Error).message).split("\n")[0]}`);
+  }
   if (!config || typeof config !== "object" || config.usedesign_config !== 1) {
     throw new Error(`${path}: not a usedesign config (expected \`usedesign_config: 1\`)`);
   }
@@ -127,7 +180,24 @@ export function loadConfig(path: string): { config: Config; base: string } {
       );
     }
   }
+  for (const [key, need, holds] of CONFIG_TYPES) {
+    if (config[key] != null && !holds(config[key])) {
+      throw new Error(`${path}: \`${key}\` in the config must be ${need} — a value of another type silently changes what is checked`);
+    }
+  }
   return { config, base: dirname(resolve(path)) };
+}
+
+/**
+ * Whether `name` matches `pattern` as one segment of a `cards:` glob matches a file name (1.5.1):
+ * `*` and `?` do not cross a separator, `?` is one character, `[` and `]` are plain, and letter
+ * case counts. An exclusion and a store name are matched so: the exclusion had a glob of its own
+ * here, and Python's fnmatch in the prototype, where `*` crossed `/`, `[a]` was a set and on
+ * Windows case did not count. A `/` in the pattern is a plain character, so `*` stays inside one
+ * part of a route.
+ */
+export function globMatches(name: string, pattern: string): boolean {
+  return segmentToRegExp(pattern).test(name);
 }
 
 /**
@@ -357,11 +427,37 @@ export function loadCardFiles(config: Config, base: string): { cards: [string, C
   if (files.length === 0) findings.push(new Finding("no_cards_found", "the `cards` patterns matched nothing"));
 
   const cards: [string, Card][] = [];
+  const read: [string, Card][] = [];
   for (const path of files) {
-    const fm = readDocument(path);
-    if (fm) cards.push([String(fm["id"] ?? path.split(sep).pop()), fm]);
+    const parsed = readDocument(path);
+    if (!parsed) continue;
+    // Front matter that is a list is a card with no fields (1.5.1): the Python prototype stopped on it.
+    const fm = map(parsed);
+    cards.push([text(fm["id"]) ?? path.split(sep).pop()!, fm]);
+    read.push([path, fm]);
   }
+  refuseTwins(read);
   return { cards, findings };
+}
+
+/**
+ * One id, one document (1.5.1), as `validate` has it since 1.4.3. Kept by id, the second card of
+ * an id replaced the first, and `check` judged one of the two without a word. Which of them the
+ * others point at cannot be told, so the run stops and names both. Cards and contracts keep two
+ * spaces of ids, as in `validate`: a card and a contract may share one.
+ */
+export function refuseTwins(documents: [string, Card][]): void {
+  const first = new Map<string, string>();
+  for (const [path, fm] of documents) {
+    const id = fm["id"];
+    if (typeof id !== "string" || !id) continue;
+    const key = `${fm["usedesign_form"] === 1 ? "contract" : "card"} ${id}`;
+    const before = first.get(key);
+    if (before !== undefined) {
+      throw new Error(`\`${before}\` and \`${path}\` carry the same id \`${id}\` — an id names one document, and the others point at it by that id`);
+    }
+    first.set(key, path);
+  }
 }
 
 /** Collect `*.op.md` and `*.contract.md` under the given files or directories. */

@@ -879,7 +879,11 @@ byte-order mark before the opening `---` decides nothing, in either implementati
 entry that cannot be opened at all — a link that leads nowhere, a file without read permission —
 is the same case (tools 1.4.2): `validate` counts it as `missing_required_field` with the cause
 "cannot be read — …", and `check` stops with exit 2 and its name, since no check can pass over a
-card it did not read.
+card it did not read. Two cards — or two contracts — with one id stop `check` the same way (tools
+1.5.1), naming both files, as they stop `validate` since 1.4.3: kept by id, the second replaced
+the first, and `check` judged one of them without a word. And `check` reads a field only in the
+type the format gives it, as `validate` does: a value of another type is absent to the checks,
+and `validate` names it.
 
 ---
 
@@ -898,6 +902,9 @@ The format only pays for itself with an automated checker. Three invariants:
    Routes that are deliberately not operations — health probes, metrics, generated documentation —
    are excluded in [`usedesign.config.yaml`](schema/config.schema.json), and every exclusion states
    a reason and reports what it hid. An exclusion nobody had to justify is one nobody revisits.
+   An exclusion's `path` is matched as one segment of a `cards:` pattern matches a name (tools
+   1.5.1): `*` and `?` do not cross `/`, `?` is one character, `[` and `]` are plain, letter case
+   counts — `/docs/*` hides `/docs/a`, not `/docs/a/b`.
    A declared route ABSENT from the inventory splits by the owners' maturity (issue #3, filed
    from the first outside pilot): every declaring card below `implemented` →
    `route_not_yet_served`, a **warning** — designed ahead of the code, the format's own
@@ -962,7 +969,8 @@ data:
 
 **`store` is a pattern because store names carry their environment.** A card naming
 `…-dev` is true in one place and false in every other, and the checker would either bless the lie
-or fail the honest card, depending on which dump it was handed.
+or fail the honest card, depending on which dump it was handed. The pattern is matched as an
+exclusion's path is (§7, tools 1.5.1): `*` and `?` inside the name, `[` and `]` plain, case counts.
 
 | Finding | Means |
 |---|---|
@@ -1188,7 +1196,11 @@ config, visible in review; **within the declared scope, "cannot run" still means
 The config's keys are enforced at load, not merely published in `config.schema.json`: a
 misspelled `cheks:` used to be accepted silently — the scoping vanished and the check it was
 meant to skip failed pointing at a different cause (issue #4). Both implementations refuse an
-unknown key, naming it and the known set.
+unknown key, naming it and the known set. A value of another type than the schema gives its key —
+`cards: 5`, an `exclude` rule that is not a map, `evidence_horizon_days: "30"` — is refused the same
+way (tools 1.5.1), naming the key and the type it needs; `null` is an absent key. So is `checks: []`
+and a number outside 1–5 there: it ran no check and passed. The config is read as YAML 1.2, a key
+written twice refused.
 
 A frontend repository may still list `cards:` — pointing at a sibling checkout of the server
 repository, which a gate performs only when it holds a read token (the starter kit shows the

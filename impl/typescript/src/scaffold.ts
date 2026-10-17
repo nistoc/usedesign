@@ -6,7 +6,7 @@
  * writes down what the machine can read and refuses to write down anything else.
  *
  * WHY OPENAPI HERE, WHEN THE CHECKS DELIBERATELY DO NOT READ IT
- * The three checks compare cards against a route *inventory* — a flat statement the repository
+ * The checks compare cards against an *inventory* — a flat statement the repository
  * produces about itself — precisely so that no framework is ever parsed. Scaffolding is not
  * checking: nothing here decides whether anything is true, and a draft that reads a route wrong
  * is caught the moment a human looks at it or a checker runs. Reading the richer document is
@@ -20,7 +20,7 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Config, Finding, loadCardFiles } from "./core.js";
+import { Config, Finding, globMatches, loadCardFiles } from "./core.js";
 import { normalise } from "./checks.js";
 
 const VERBS = ["get", "post", "put", "patch", "delete", "head", "options"];
@@ -228,10 +228,10 @@ export function planScaffold(
     const key = normalise(method, path);
     const shape = key.slice(key.indexOf(" ") + 1);
 
+    // The glob `check` matches an exclusion with (1.5.1), so the two never disagree on a route.
     const rule = (config?.exclude ?? []).find((r) => {
       if (r.method && r.method.toUpperCase() !== method) return false;
-      const escaped = (r.path ?? "").replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]");
-      return new RegExp(`^${escaped}$`).test(shape);
+      return globMatches(shape, r.path ?? "");
     });
     if (rule) {
       plan.skippedExcluded.push({ route: key, reason: rule.reason ?? "(без причины в конфиге)" });

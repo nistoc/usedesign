@@ -2,8 +2,9 @@
 /**
  * usedesign — the command line.
  *
- *   usedesign validate <path…>     cards against the schema and the cross-card rules
- *   usedesign check <config>       the three invariants against the repository
+ *   usedesign validate <path…>     cards and contracts against the schema and the cross-card rules
+ *   usedesign check <config>       checks 1–5 against the repository
+ *   usedesign scaffold | preview | gen openapi — see USAGE below
  *   usedesign conformance          the corpora this implementation must pass
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
@@ -33,7 +34,7 @@ const USAGE = `usedesign — one description per operation, checked against the 
 
 Usage:
   usedesign validate <path…>          validate cards and form contracts (files or directories)
-  usedesign check <config>            run the three checks against a usedesign.config.yaml
+  usedesign check <config>            run checks 1–5 against a usedesign.config.yaml
   usedesign scaffold <openapi.json> --out <dir>
                                       draft a card shell per undescribed route
   usedesign preview <config> --out <file.html>

@@ -80,7 +80,12 @@ def _tagged(kind: str, construct):
 
 def _int(loader, node):
     text = loader.construct_scalar(node)
-    value = int(text[2:], 8) if text.startswith("0o") else int(text[2:], 16) if text.startswith("0x") else int(text)
+    try:
+        value = int(text[2:], 8) if text.startswith("0o") else int(text[2:], 16) if text.startswith("0x") else int(text)
+    except ValueError:
+        # Past Python's 4 300 digits for int(): far past a double, so Infinity, as the twin holds
+        # it. The run ended in a traceback (1.5.1).
+        return float(text)
     if abs(value) <= 2 ** 53:
         return value
     # A JavaScript number is a double: past 2^53 an integer is rounded, past ~1.8e308 it is Infinity.

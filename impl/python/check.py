@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Prototype for check 1 — no wild endpoints.
+"""Checks 1–5 (SPEC §7) — the Python implementation of `usedesign check`.
 
-Compares what the code registers (a route inventory, produced by the checked repository) against
-what the cards declare. See design/route-conformance.md for why the comparison works this way and
+Each check compares what the checked repository states about itself — a route inventory, a test
+report, the paths of its code, a storage inventory, a form inventory — against what the cards and
+form contracts declare. See design/route-conformance.md for why the comparison works this way and
 why usedesign does not extract routes itself.
 
-This is a prototype, not a package.
+This is a prototype, not a package: it prints what the TypeScript reference prints, line for line.
 
 Usage:
     python check.py <path to usedesign.config.yaml>
-    python check.py --conformance          run the check-1 conformance corpus
+    python check.py --conformance          run the checks conformance corpus
 """
 from __future__ import annotations
 
 import argparse
-import fnmatch
 import json
 import os
 import re
@@ -28,7 +28,9 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("PyYAML is required: pip install pyyaml")
 
-from validate import CannotRead, cause_of, expand_globs, front_matter, is_contract, why_unreadable
+import json_schema
+from validate import (CannotRead, _list, _map, _segment, _text, cause_of, expand_globs, front_matter,
+                      is_contract, utf16_order, why_unreadable)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -70,10 +72,77 @@ def normalise(method: str, path: str) -> tuple[str, str]:
 
 # Every key the config may carry. Enforced at load, not merely published in the schema:
 # measured on issue #4 — `cheks:` was accepted silently, the scoping vanished, and the check it
-# was meant to skip failed pointing at a completely different cause.
-CONFIG_KEYS = {"usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
+# was meant to skip failed pointing at a completely different cause. Named in the TypeScript
+# twin's order (1.5.1): sorted here, the refusal listed them otherwise.
+CONFIG_KEYS = ["usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
                "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory",
-               "uncontracted_screens"}
+               "uncontracted_screens"]
+
+
+# ── reading a field in its type (1.5.1) ──────────────────────────────────────
+#
+# As `validate` reads since 1.4.3: a list as a list, a map as a map, a name as a string; any other
+# value is absent to the rules. Before, a number where a list belongs stopped this prototype with a
+# traceback in some fifty places, and `true` was printed `True` where the twin printed `true`.
+
+def _maps(value) -> list:
+    """The maps of a list of maps; an item of another type is absent."""
+    return [item for item in _list(value) if isinstance(item, dict)]
+
+
+def _texts(value) -> list:
+    """The strings of a list of strings; an item of another type is absent."""
+    return [item for item in _list(value) if isinstance(item, str)]
+
+
+def _is_integer(value) -> bool:
+    """An integer as Number.isInteger has it: `2.0` is one, `true` is not."""
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and float(value).is_integer())
+
+
+def _integer(value):
+    """An integer value as JavaScript holds it: `2.0` is 2."""
+    return int(value) if isinstance(value, float) and abs(value) <= 2 ** 53 else value
+
+
+def js_entries(data: dict) -> list:
+    """A map's entries in the order Object.entries gives them, each name as String() writes it:
+    names that are array indices first, ascending, then the rest as written (1.5.1). Interfaces
+    named `b`, `2`, `a`, `10` were reported here in that order, and as 2, 10, b, a by the twin."""
+    named = [(json_schema.js_string(key), value) for key, value in data.items()]
+    index = [pair for pair in named if json_schema._INDEX.fullmatch(pair[0]) and int(pair[0]) < 2 ** 32 - 1]
+    taken = {id(pair) for pair in index}
+    return sorted(index, key=lambda pair: int(pair[0])) + [pair for pair in named if id(pair) not in taken]
+
+
+def glob_matches(name: str, pattern: str) -> bool:
+    """`name` against `pattern` as one segment of a `cards:` glob matches a file name (1.5.1).
+
+    `*` and `?` do not cross a separator, `?` is one character, `[` and `]` are plain, letter case
+    counts. An exclusion and a store name are matched so; fnmatch made `*` cross `/`, `[a]` a set,
+    and on Windows let case go. See the TypeScript twin."""
+    return _segment(pattern).fullmatch(name) is not None
+
+
+# The type each config key is read in (1.5.1); `null` is an absent key. See the TypeScript twin.
+CONFIG_TYPES = [
+    ("checks", "a list of check numbers, 1 to 5",
+     lambda v: isinstance(v, list) and len(v) > 0 and all(_is_integer(n) and 1 <= n <= 5 for n in v)),
+    ("cards", "a list of strings", lambda v: isinstance(v, list) and all(isinstance(s, str) for s in v)),
+    ("forms", "a list of strings", lambda v: isinstance(v, list) and all(isinstance(s, str) for s in v)),
+    ("inventory", "a string", lambda v: isinstance(v, str)),
+    ("test_report", "a string", lambda v: isinstance(v, str)),
+    ("code_root", "a string", lambda v: isinstance(v, str)),
+    ("form_inventory", "a string", lambda v: isinstance(v, str)),
+    ("storage_inventory", "a string", lambda v: isinstance(v, str)),
+    ("uncontracted_screens", "a string", lambda v: isinstance(v, str)),
+    ("evidence_horizon_days", "an integer", _is_integer),
+    ("exclude", "a list of rules, each a map with `path` a string and `method`, if written, a string",
+     lambda v: isinstance(v, list) and all(
+         isinstance(rule, dict) and isinstance(rule.get("path"), str)
+         and (rule.get("method") is None or isinstance(rule.get("method"), str)) for rule in v)),
+]
 
 
 def family_regex(pattern: str) -> re.Pattern:
@@ -98,14 +167,34 @@ def _field_out_of_state(contract_id: str, name: str, when, states: dict, present
 
 
 def load_config(path: str) -> tuple[dict, str]:
-    with open(path, encoding="utf-8") as handle:
-        config = yaml.safe_load(handle)
-    if not isinstance(config, dict) or config.get("usedesign_config") != 1:
-        sys.exit(f"{path}: not a usedesign config (expected `usedesign_config: 1`)")
-    for key in config:
+    """The config, read as the TypeScript twin reads it (1.5.1): YAML 1.2, a key written twice
+    refused, and a refusal stops the run with exit 2. PyYAML read `030` as 24 and `1e2` as text,
+    took the last of two keys, and the refusals ended with exit 1."""
+    why = why_unreadable(path)
+    if why:
+        raise CannotRead(f"`{path}` cannot be read — {why}")
+    try:
+        with open(path, encoding="utf-8-sig", errors="replace") as handle:
+            config = json_schema.load(handle.read())
+    except yaml.YAMLError as e:
+        raise CannotRead(f"{path}: config is not valid YAML — {str(e).splitlines()[0]}") from None
+    except RecursionError:
+        # Nesting deeper than the reader's stack: the twin stops on the same file with exit 2 in
+        # these words. Here it was a traceback and exit 1 (1.5.1).
+        raise CannotRead(f"{path}: config is not valid YAML — Maximum call stack size exceeded") from None
+    except OSError as e:
+        raise CannotRead(f"`{path}` cannot be read — {cause_of(e)}") from None
+    if not isinstance(config, dict) or not (_is_integer(config.get("usedesign_config"))
+                                            and config.get("usedesign_config") == 1):
+        raise CannotRead(f"{path}: not a usedesign config (expected `usedesign_config: 1`)")
+    for key in json_schema._keys(config):
         if key not in CONFIG_KEYS:
-            sys.exit(f"{path}: `{key}` is not a config key — a typo here silently changes what "
-                     f"is checked. Known keys: {', '.join(sorted(CONFIG_KEYS))}")
+            raise CannotRead(f"{path}: `{key}` is not a config key — a typo here silently changes "
+                             f"what is checked. Known keys: {', '.join(CONFIG_KEYS)}")
+    for key, need, holds in CONFIG_TYPES:
+        if config.get(key) is not None and not holds(config[key]):
+            raise CannotRead(f"{path}: `{key}` in the config must be {need} — a value of another "
+                             "type silently changes what is checked")
     return config, os.path.dirname(os.path.abspath(path))
 
 
@@ -118,11 +207,35 @@ def load_card_files(config: dict, base: str) -> tuple[list[tuple[str, dict]], li
         findings.append(Finding("no_cards_found", "the `cards` patterns matched nothing"))
 
     cards: list[tuple[str, dict]] = []
+    read: list[tuple[str, dict]] = []
     for path in files:
         fm = read_document(path)
-        if fm:
-            cards.append((fm.get("id", os.path.basename(path)), fm))
+        if fm is None or not isinstance(fm, (dict, list)):
+            continue
+        # Front matter that is a list is a card with no fields (1.5.1), as the twin reads it.
+        fm = _map(fm)
+        card_id = _text(fm.get("id"))
+        cards.append((card_id if card_id is not None else os.path.basename(path), fm))
+        read.append((path, fm))
+    refuse_twins(read)
     return cards, findings
+
+
+def refuse_twins(documents: list) -> None:
+    """One id, one document (1.5.1), as `validate` has it since 1.4.3: kept by id, the second card
+    of an id replaced the first, and `check` judged one of the two without a word. The run stops
+    and names both. Cards and contracts keep two spaces of ids, as in `validate`: a card and a
+    contract may share one. See the TypeScript twin."""
+    first: dict[tuple, str] = {}
+    for path, fm in documents:
+        doc_id = fm.get("id")
+        if not isinstance(doc_id, str) or not doc_id:
+            continue
+        key = (is_contract(fm), doc_id)
+        if key in first:
+            raise CannotRead(f"`{first[key]}` and `{path}` carry the same id `{doc_id}` — an id "
+                             "names one document, and the others point at it by that id")
+        first[key] = path
 
 
 def read_document(path: str):
@@ -151,11 +264,11 @@ def load_cards(config: dict, base: str) -> tuple[dict, dict, list[Finding]]:
     cards, findings = load_card_files(config, base)
 
     for card_id, fm in cards:
-        maturity_by_id[card_id] = str(fm.get("maturity") or "")
-        for name, iface in (fm.get("interfaces") or {}).items():
+        maturity_by_id[card_id] = _text(fm.get("maturity")) or ""
+        for name, iface in js_entries(_map(fm.get("interfaces"))):
             if not isinstance(iface, dict) or iface.get("transport") != "http_rest":
                 continue
-            method, route = iface.get("method"), iface.get("path")
+            method, route = _text(iface.get("method")), _text(iface.get("path"))
             if not method or not route:
                 findings.append(Finding(
                     "incomplete_rest_interface",
@@ -163,13 +276,13 @@ def load_cards(config: dict, base: str) -> tuple[dict, dict, list[Finding]]:
                 continue
             # The key stays the route shape — that is what the inventory can be compared against.
             # Dispatch tells cards apart from each other, not routes from each other.
-            d = iface.get("dispatch") or {}
+            d = _map(iface.get("dispatch"))
+            by, value = _text(d.get("by")), _text(d.get("value"))
             key = normalise(method, route)
             declared.setdefault(key, []).append(card_id)
-            stamp = f"{d['by']}={d['value']}" if d.get("by") and d.get("value") else ""
-            dispatch_of[(key, card_id)] = stamp
+            dispatch_of[(key, card_id)] = f"{by}={value}" if by and value else ""
 
-    for key, owners in sorted(declared.items()):
+    for key, owners in by_key(declared):
         if len(owners) < 2:
             continue
         # Several operations may legitimately share a route, told apart by a request field — a
@@ -183,6 +296,11 @@ def load_cards(config: dict, base: str) -> tuple[dict, dict, list[Finding]]:
             "the checker cannot tell them apart",
             "warning"))
     return declared, maturity_by_id, findings
+
+
+def by_key(declared: dict) -> list:
+    """Declared routes in the order of their `METHOD shape`, as JavaScript orders text (1.5.1)."""
+    return sorted(declared.items(), key=lambda item: utf16_order(f"{item[0][0]} {item[0][1]}"))
 
 
 def load_inventory(config: dict, base: str) -> tuple[list[dict], list[Finding], str]:
@@ -219,11 +337,12 @@ def load_inventory(config: dict, base: str) -> tuple[list[dict], list[Finding], 
 
 
 def excluded_by(config: dict, method: str, shape: str):
-    """Return the exclusion rule that covers this route, or None."""
+    """Return the exclusion rule that covers this route, or None — by the glob of a `cards:`
+    segment (1.5.1)."""
     for rule in config.get("exclude") or []:
         if rule.get("method") and rule["method"].upper() != method:
             continue
-        if fnmatch.fnmatch(shape, rule.get("path", "")):
+        if glob_matches(shape, rule.get("path") or ""):
             return rule
     return None
 
@@ -254,7 +373,7 @@ def check(config: dict, base: str) -> tuple[list[Finding], dict]:
                 + (f" (source: {entry['source']})" if entry.get("source") else "")))
 
     designed_ahead = 0
-    for (method, shape), owners in sorted(declared.items()):
+    for (method, shape), owners in by_key(declared):
         if routes and (method, shape) not in served and not excluded_by(config, method, shape):
             # Two opposite situations used to share one diagnostic (issue #3): a route that is
             # GONE is an error; a route DESIGNED AND NOT BUILT YET is what `conceived` and
@@ -289,6 +408,7 @@ def check(config: dict, base: str) -> tuple[list[Finding], dict]:
         "served": len(routes),
         "excluded": sum(hidden.values()),
         "declared": len(declared),
+        "designed_ahead": designed_ahead,
         "hidden_per_rule": {(config.get("exclude") or [])[i].get("path"): n
                             for i, n in sorted(hidden.items())},
     }
@@ -453,10 +573,9 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
         by_step: dict[str, list[str]] = {}
         own_proof[card_id] = by_step
 
-        for test in fm.get("tests") or []:
-            refs = test.get("covers")
-            refs = refs if isinstance(refs, list) else [refs]
-            test_id = test.get("id", "")
+        for test in _maps(fm.get("tests")):
+            refs = covers_of(test)
+            test_id = _text(test.get("id")) or ""
             matched = find_cases(test_id, by_full, by_name) if have_report else []
 
             if have_report:
@@ -487,15 +606,15 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
     # Pass 2 — verdicts, with a variant's inherited steps credited from the original.
     by_id = dict(cards)
     for card_id, fm in cards:
-        steps = [s.get("id") for s in (fm.get("steps") or [])]
-        gaps = {g.get("step") for g in (fm.get("coverage_gaps") or [])}
+        steps = step_ids_of(fm)
+        gaps = gap_steps_of(fm)
         by_step = own_proof[card_id]
         credited, explained = _inheritance(card_id, fm, steps, by_step, by_id, own_proof,
                                            have_report, findings)
         # Round 26 ⑬: a gap says why the proof is missing — counted apart, so "not written yet"
         # is never read as "cannot be written".
-        for entry in fm.get("coverage_gaps") or []:
-            kind = str(entry.get("kind") or "unwritten")
+        for entry in _maps(fm.get("coverage_gaps")):
+            kind = _text(entry.get("kind")) or "unwritten"
             if kind in gap_kinds:
                 gap_kinds[kind] += 1
 
@@ -524,6 +643,22 @@ def check_coverage(config: dict, base: str) -> tuple[list[Finding], dict]:
                       "gaps_harness": gap_kinds["harness"], "gaps_unreachable": gap_kinds["unreachable"]}
 
 
+def covers_of(test: dict) -> list:
+    """The steps a test covers: one id or a list of them (1.5.1: an id of another type is absent)."""
+    covers = test.get("covers")
+    return [covers] if isinstance(covers, str) else _texts(covers)
+
+
+def step_ids_of(fm: dict) -> list:
+    """A card's step ids, in order; a step that is not a map, or an id that is not a string, is absent."""
+    return _texts([step.get("id") for step in _maps(fm.get("steps"))])
+
+
+def gap_steps_of(fm: dict) -> set:
+    """The steps a card declares a gap for."""
+    return set(_texts([gap.get("step") for gap in _maps(fm.get("coverage_gaps"))]))
+
+
 def _inheritance(card_id: str, fm: dict, steps: list, by_step: dict, by_id: dict,
                  own_proof: dict, have_report: bool, findings: list) -> tuple[set, set]:
     """Which inherited steps of a variant (SPEC 5.2e) the original's own tests prove.
@@ -536,8 +671,8 @@ def _inheritance(card_id: str, fm: dict, steps: list, by_step: dict, by_id: dict
     if not isinstance(variant, dict):
         return credited, explained
 
-    inherits = [s for s in (variant.get("inherits") or []) if isinstance(s, str)]
-    original_id = str(variant.get("card") or "")
+    inherits = _texts(variant.get("inherits"))
+    original_id = _text(variant.get("card")) or ""
     original = by_id.get(original_id)
     if original is None:
         findings.append(Finding(
@@ -546,9 +681,8 @@ def _inheritance(card_id: str, fm: dict, steps: list, by_step: dict, by_id: dict
         explained.update(inherits)
         return credited, explained
 
-    shared = LINE_SUFFIX.sub("", str(variant.get("shared") or "").strip())
-    code_shared = shared in evidence_paths(
-        (original.get("maturity_evidence") or {}).get("implemented"))
+    shared = LINE_SUFFIX.sub("", (_text(variant.get("shared")) or "").strip())
+    code_shared = shared in evidence_paths(_map(original.get("maturity_evidence")).get("implemented"))
     if not code_shared:
         findings.append(Finding(
             "variant_code_not_shared",
@@ -561,12 +695,13 @@ def _inheritance(card_id: str, fm: dict, steps: list, by_step: dict, by_id: dict
     if not wired:
         findings.append(Finding(
             "variant_unwired",
-            f"{card_id}: no passing test of its own covers its last step `{last or '(none)'}` — "
+            f"{card_id}: no passing test of its own covers its last step "
+            f"`{last if last is not None else '(none)'}` — "
             f"{len(inherits)} inherited step(s) get no credit",
             "error" if have_report else "warning"))
 
-    original_steps = {s.get("id") for s in (original.get("steps") or [])}
-    original_gaps = {g.get("step") for g in (original.get("coverage_gaps") or [])}
+    original_steps = set(step_ids_of(original))
+    original_gaps = gap_steps_of(original)
     original_proof = own_proof.get(original_id) or {}
     for step in inherits:
         if step not in original_steps:
@@ -596,11 +731,12 @@ DEFAULT_HORIZON_DAYS = 180
 
 
 def evidence_paths(value) -> list[str]:
-    """`implemented` is one path or several — one example joins two with ' + '."""
-    values = value if isinstance(value, list) else [value]
+    """`implemented` is one path or several — one example joins two with ' + '. A value that is
+    not a string is absent (1.5.1)."""
+    values = [value] if isinstance(value, str) else _texts(value)
     paths: list[str] = []
     for item in values:
-        for part in str(item).split("+"):
+        for part in item.split("+"):
             part = LINE_SUFFIX.sub("", part.strip())
             if part:
                 paths.append(part)
@@ -615,15 +751,16 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
 
     code_root = config.get("code_root")
     root = os.path.join(base, code_root) if code_root else None
+    # `null` is an absent key, and `180.0` is 180, as the twin holds it (1.5.1).
+    horizon = config.get("evidence_horizon_days")
+    horizon = DEFAULT_HORIZON_DAYS if horizon is None else _integer(horizon)
     # A misspelt `code_root` otherwise reports every evidence path as missing from the repository —
     # false, and one error per card. Say the true thing once instead.
     if root and not os.path.isdir(root):
         return ([Finding("code_root_missing",
                          f"`code_root` points at `{code_root}`, which does not exist — "
                          "check 3 cannot verify any path")],
-                {"cards": 0, "paths_checked": 0, "code_root": code_root or "",
-                 "horizon": config.get("evidence_horizon_days", DEFAULT_HORIZON_DAYS)})
-    horizon = config.get("evidence_horizon_days", DEFAULT_HORIZON_DAYS)
+                {"cards": 0, "paths_checked": 0, "code_root": code_root or "", "horizon": horizon})
     # Today in UTC, as the TypeScript twin counts it (1.4.3). The local date put «N days ago» one
     # day apart near midnight east or west of UTC; CI runs in UTC and compares codes, so it never saw.
     today = datetime.now(timezone.utc).date()
@@ -633,11 +770,11 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
     checked_paths = 0
 
     for card_id, fm in cards:
-        maturity = fm.get("maturity")
+        maturity = _text(fm.get("maturity")) or ""
         if maturity not in LEVELS:
             continue
         level = LEVELS.index(maturity)
-        evidence = fm.get("maturity_evidence") or {}
+        evidence = _map(fm.get("maturity_evidence"))
 
         # Tier 1 — the code the card points at exists.
         if level >= LEVELS.index("implemented") and evidence.get("implemented") and root:
@@ -651,12 +788,12 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
         # Tier 2 — the claim is derived from the report, not from prose.
         passing = []
         covered = set()
-        for test in fm.get("tests") or []:
-            matched = find_cases(test.get("id", ""), by_full, by_name) if have_report else []
+        for test in _maps(fm.get("tests")):
+            test_id = _text(test.get("id")) or ""
+            matched = find_cases(test_id, by_full, by_name) if have_report else []
             if matched and all(c.status == "passed" for c in matched):
-                passing.append(test.get("id"))
-                refs = test.get("covers")
-                covered.update(r for r in (refs if isinstance(refs, list) else [refs]) if isinstance(r, str))
+                passing.append(test_id)
+                covered.update(covers_of(test))
 
         if level >= LEVELS.index("tested") and not passing:
             findings.append(Finding(
@@ -671,9 +808,9 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
         # And only when a passing test covers the LAST step — the proof §5.2e rule 4 accepts that
         # an operation goes all the way through. Tests of the door alone (sign-in, permission) pass
         # in front of an operation that answers 501; that card is honestly `designed`.
-        steps = [s.get("id") for s in fm.get("steps") or [] if isinstance(s, dict)]
+        steps = step_ids_of(fm)
         last = steps[-1] if steps else None
-        if have_report and level < LEVELS.index("implemented") and isinstance(last, str) and last in covered:
+        if have_report and level < LEVELS.index("implemented") and last is not None and last in covered:
             findings.append(Finding(
                 "maturity_understated",
                 f"{card_id}: claims `{maturity}` while a passing test of its own covers its last step "
@@ -701,9 +838,10 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
                     findings.append(Finding(
                         "evidence_stale",
                         f"{card_id}: `deployed` was last affirmed {age} days ago "
-                        f"(horizon {horizon}) — nobody has looked since",
+                        f"(horizon {json_schema.js_string(horizon)}) — nobody has looked since",
                         "warning"))
-            elif deployed:
+            # A dated map or a bare string (the schema's two forms); any other value is absent (1.5.1).
+            elif isinstance(deployed, str) and deployed:
                 findings.append(Finding(
                     "evidence_undated",
                     f"{card_id}: `deployed: {deployed}` carries no date, so it can never go stale",
@@ -764,10 +902,10 @@ def check_storage(config: dict, base: str) -> tuple[list[Finding], dict]:
     claims = 0
 
     for card_id, fm in cards:
-        for claim in (fm.get("data") or {}).get("storage") or []:
+        for claim in _maps(_map(fm.get("data")).get("storage")):
             claims += 1
-            pattern = claim.get("store") or ""
-            matched = [s for s in stores if fnmatch.fnmatch(str(s.get("name")), pattern)]
+            pattern = _text(claim.get("store")) or ""
+            matched = [s for s in stores if glob_matches(str(s.get("name")), pattern)]
 
             if not matched:
                 findings.append(Finding(
@@ -777,17 +915,18 @@ def check_storage(config: dict, base: str) -> tuple[list[Finding], dict]:
             for store in matched:
                 touched.add(str(store.get("name")))
 
-            claimed_keys = claim.get("keyed_by") or []
+            claimed_keys = _texts(claim.get("keyed_by"))
             if claimed_keys:
                 for store in matched:
                     actual = store.get("keyed_by") or []
-                    if list(claimed_keys) != list(actual):
+                    # Compared as the twin compares them, joined (1.5.1).
+                    if ",".join(claimed_keys) != ",".join(actual):
                         findings.append(Finding(
                             "store_key_mismatch",
                             f"{card_id}: claims `{pattern}` is keyed by [{', '.join(claimed_keys)}], "
                             f"but `{store.get('name')}` is keyed by [{', '.join(actual)}]"))
 
-            index = claim.get("via_index")
+            index = _text(claim.get("via_index"))
             if index:
                 for store in matched:
                     names = [str(i.get("name")) for i in (store.get("indexes") or [])]
@@ -844,18 +983,13 @@ def judge_calls(contract_id: str, name: str, control: dict, shown_when, data_of,
                                 f"{contract_id}: control `{name}` calls {calls}, "
                                 "which no card describes", "warning"))
         return
-    if not shown_when:
+    # A list, empty too, is a declared set of states, as the twin reads it (1.5.1).
+    if shown_when is None:
         return
     # `from` is one state or a SET of states (round 18): the control must be shown
     # only in states that belong to the set, and in at least one of them.
-    transition = card.get("data_transition")
-    raw_from = transition.get("from") if isinstance(transition, dict) else None
-    if isinstance(raw_from, list):
-        from_set = [str(s) for s in raw_from]
-    elif raw_from:
-        from_set = [str(raw_from)]
-    else:
-        from_set = []
+    raw_from = _map(card.get("data_transition")).get("from")
+    from_set = [raw_from] if isinstance(raw_from, str) and raw_from else _texts(raw_from)
     if from_set and "none" not in from_set and "any" not in from_set:
         mismatch = [s for s in shown_when if data_of(s) not in from_set]
         if mismatch or not any(data_of(s) in from_set for s in shown_when):
@@ -875,6 +1009,20 @@ def judge_calls(contract_id: str, name: str, control: dict, shown_when, data_of,
 # decided the screen must show; the inventory says what the rendered screen carries, state by
 # state. Contract lines the code has not caught up with are the product's TODO list, printed by
 # every build. See the TypeScript twin for the full commentary.
+def states_of(value):
+    """A list of state names, or None when the field is not a list (1.5.1: a name that is not a
+    string is absent). An empty list is a list: `when: []` names no state, as the twin reads it."""
+    return _texts(value) if isinstance(value, list) else None
+
+
+def floor_of(line: dict) -> int:
+    """`at_least`, an integer as Number.isInteger has it (`2.0` too), or 1. A message writes it
+    with js_string: past 2^53 it is a double, and Python wrote `2e+19` where the twin writes
+    20000000000000000000 (1.5.1)."""
+    value = line.get("at_least")
+    return _integer(value) if _is_integer(value) else 1
+
+
 def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     empty = {"contracts": 0, "screens": 0, "produced_by": ""}
     patterns = config.get("forms") or []
@@ -901,6 +1049,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     if not data.get("produced_by"):
         findings.append(Finding("form_inventory_malformed", f"{location}: missing `produced_by`"))
 
+    # Names in the order the inventory gives them, as the twin's Set keeps them (1.5.1): a set here
+    # put the undescribed elements of one screen in an order PYTHONHASHSEED chose, run by run.
     by_screen: dict[str, dict[str, dict]] = {}
     for form in data.get("forms") or []:
         states = {}
@@ -909,9 +1059,9 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
             # membership NOT JUDGED, never failed.
             raw_within = s.get("within")
             states[str(s.get("state"))] = {
-                "fields": {str(x) for x in s.get("fields") or []},
-                "controls": {str(x) for x in s.get("controls") or []},
-                "within": ({str(k): {str(c) for c in v or []} for k, v in raw_within.items()}
+                "fields": dict.fromkeys(str(x) for x in s.get("fields") or []),
+                "controls": dict.fromkeys(str(x) for x in s.get("controls") or []),
+                "within": ({str(k): dict.fromkeys(str(c) for c in v or []) for k, v in raw_within.items()}
                            if isinstance(raw_within, dict) else None),
             }
         by_screen[str(form.get("screen"))] = states
@@ -928,10 +1078,14 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     card_by_id = dict(cards)
 
     contracts: list[tuple[str, dict]] = []
+    read: list[tuple[str, dict]] = []
     for path in expand_globs(base, patterns):
         fm = read_document(path)
-        if fm and is_contract(fm):
-            contracts.append((str(fm.get("id", path)), fm))
+        if isinstance(fm, dict) and is_contract(fm):
+            contract_id = _text(fm.get("id"))
+            contracts.append((contract_id if contract_id is not None else path, fm))
+            read.append((path, fm))
+    refuse_twins(read)
     if not contracts:
         findings.append(Finding("form_contracts_missing", "the `forms` patterns matched no contract"))
 
@@ -939,20 +1093,20 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     designed_ahead = 0
 
     for contract_id, fm in contracts:
-        screen = str(fm.get("screen") or "")
+        screen = _text(fm.get("screen")) or ""
         states = by_screen.get(screen)
         # A contract may be written before its screen and say so with `maturity: designed`
         # (issue #8): then an absent screen is a warning, not the error a vanished screen earns.
         # The flag cannot go stale silently — a screen that renders while the contract still
         # says designed is reported too.
-        maturity = str(fm.get("maturity") or "implemented")
+        maturity = _text(fm.get("maturity")) or "implemented"
         # Screen state → data state through the contract's `states:` map (issue #11);
         # identity when unmapped.
-        state_map = fm.get("states") if isinstance(fm.get("states"), dict) else {}
+        state_map = _map(fm.get("states"))
 
-        def data_of(state: str, _map=state_map) -> str:
-            spec = _map.get(state)
-            return str(spec["data"]) if isinstance(spec, dict) and spec.get("data") else state
+        def data_of(state: str, _states=state_map) -> str:
+            spec = _states.get(state)
+            return (_text(spec.get("data")) if isinstance(spec, dict) else None) or state
 
         if states is None:
             if maturity == "designed":
@@ -964,11 +1118,10 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                 # `calls` is chosen while the contract is `designed`, and comparing it with the
                 # cards needs no inventory (issue #13). Only where the config declares `cards:`.
                 if config.get("cards") is not None:
-                    for control in fm.get("controls") or []:
-                        if not isinstance(control, dict):
-                            continue
-                        name = str(control.get("control_pattern") or control.get("control") or "")
-                        judge_calls(contract_id, name, control, control.get("shown_when"),
+                    for control in _maps(fm.get("controls")):
+                        name = (_text(control.get("control_pattern")) or _text(control.get("control"))
+                                or "")
+                        judge_calls(contract_id, name, control, states_of(control.get("shown_when")),
                                     data_of, card_by_id, findings, "warning")
             else:
                 findings.append(Finding("form_screen_missing",
@@ -984,19 +1137,19 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
         mine = claimed.setdefault(screen, {"fields": set(), "controls": set(),
                                            "field_families": [], "control_families": []})
 
-        def count_of(regex: re.Pattern, names: set) -> int:
+        def count_of(regex: re.Pattern, names) -> int:
             return sum(1 for n in names if regex.match(n))
 
-        for entry in fm.get("presents") or []:
-            pattern = str(entry.get("field_pattern") or "")
+        for entry in _maps(fm.get("presents")):
+            pattern = _text(entry.get("field_pattern")) or ""
+            when = states_of(entry.get("when"))
             if pattern:
                 # A family (issue #10): every matching anchor is accounted for; `at_least`
                 # keeps the family from silently becoming empty.
                 regex = family_regex(pattern)
-                raw_floor = entry.get("at_least")
-                at_least = raw_floor if isinstance(raw_floor, int) and not isinstance(raw_floor, bool) else 1
+                at_least = floor_of(entry)
                 mine["field_families"].append(regex)
-                for state in entry.get("when") or every_state:
+                for state in when if when is not None else every_state:
                     rendered = states.get(state)
                     if rendered is None:
                         findings.append(Finding("form_state_missing",
@@ -1007,14 +1160,14 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                         if count < at_least:
                             findings.append(Finding("element_missing",
                                                     f"{contract_id}: `{pattern}` must match at least "
-                                                    f"{at_least} element(s) in state `{state}` and "
+                                                    f"{json_schema.js_string(at_least)} element(s) in state `{state}` and "
                                                     f"matches {count}"))
-                _field_out_of_state(contract_id, pattern, entry.get("when"), states,
+                _field_out_of_state(contract_id, pattern, when, states,
                                     lambda r, rx=regex: count_of(rx, r["fields"]) > 0, findings)
                 continue
-            field = str(entry.get("field") or "")
+            field = _text(entry.get("field")) or ""
             mine["fields"].add(field)
-            for state in entry.get("when") or every_state:
+            for state in when if when is not None else every_state:
                 rendered = states.get(state)
                 if rendered is None:
                     findings.append(Finding("form_state_missing",
@@ -1024,20 +1177,19 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                     findings.append(Finding("element_missing",
                                             f"{contract_id}: `{field}` must be shown in state "
                                             f"`{state}` and is not"))
-            _field_out_of_state(contract_id, field, entry.get("when"), states,
+            _field_out_of_state(contract_id, field, when, states,
                                 lambda r, f=field: f in r["fields"], findings)
 
-        for control in fm.get("controls") or []:
-            pattern = str(control.get("control_pattern") or "")
+        for control in _maps(fm.get("controls")):
+            pattern = _text(control.get("control_pattern")) or ""
             regex = family_regex(pattern) if pattern else None
-            raw_floor = control.get("at_least")
-            at_least = raw_floor if isinstance(raw_floor, int) and not isinstance(raw_floor, bool) else 1
-            name = pattern or str(control.get("control") or "")
+            at_least = floor_of(control)
+            name = pattern or _text(control.get("control")) or ""
             if regex is not None:
                 mine["control_families"].append(regex)
             else:
                 mine["controls"].add(name)
-            shown_when = control.get("shown_when")
+            shown_when = states_of(control.get("shown_when"))
 
             # For a literal both questions are "is it there"; for a family they differ: enough
             # members for the floor, versus any member at all (which is what leaks out of state).
@@ -1051,7 +1203,7 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                     return _name in rendered["controls"]
                 return count_of(_regex, rendered["controls"]) > 0
 
-            if shown_when:
+            if shown_when is not None:
                 for state in shown_when:
                     rendered = states.get(state)
                     if rendered is None:
@@ -1060,7 +1212,7 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                                                 f"state `{state}`, which the inventory never rendered"))
                     elif not enough(rendered):
                         if regex is not None:
-                            detail = (f"{contract_id}: `{name}` must match at least {at_least} "
+                            detail = (f"{contract_id}: `{name}` must match at least {json_schema.js_string(at_least)} "
                                       f"control(s) in state `{state}` and matches "
                                       f"{count_of(regex, rendered['controls'])}")
                         else:
@@ -1079,8 +1231,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
             judge_calls(contract_id, name, control, shown_when, data_of, card_by_id,
                         findings, "error")
 
-        for entry in fm.get("removed") or []:
-            name = str(entry.get("control") or "")
+        for entry in _maps(fm.get("removed")):
+            name = _text(entry.get("control")) or ""
             mine["controls"].add(name)
             for state, rendered in states.items():
                 if name in rendered["controls"]:
@@ -1091,9 +1243,9 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
         # A group's anchor is accounted for BY the group line: the owner named the container
         # when grouping by it. Warning about it as undescribed would ask the owner to decide
         # what they already decided — measured 19.08: three of fourteen warnings were this.
-        for group in fm.get("groups") or []:
-            if group.get("group"):
-                mine["fields"].add(str(group.get("group")))
+        for group in _maps(fm.get("groups")):
+            if _text(group.get("group")):
+                mine["fields"].add(group["group"])
 
         # ── group membership ─────────────────────────────────────────────────
         # The contract seats elements in groups; the inventory's `within` records which
@@ -1101,8 +1253,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
         # and the inventory carries the measurement. The first inventory with containers refuted
         # its own contract: `add-set` was contracted into the footer and measured living only in
         # the set table — the checker's first catch was its author.
-        for group in fm.get("groups") or []:
-            gname = str(group.get("group") or "")
+        for group in _maps(fm.get("groups")):
+            gname = _text(group.get("group")) or ""
             if not gname:
                 continue
             anchor_seen = any(
@@ -1114,16 +1266,17 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                 findings.append(Finding("group_missing",
                                         f"{contract_id}: group `{gname}` is contracted but its "
                                         "anchor never renders"))
-            for member_raw in group.get("contains") or []:
-                member = str(member_raw)
+            for member in _texts(group.get("contains")):
                 # A family seated in a group: every rendered member of the family must sit there.
                 regex = family_regex(member) if "*" in member else None
                 for state, rendered in states.items():
                     if rendered["within"] is None:
                         continue
                     if regex is not None:
-                        present = sorted(a for a in rendered["fields"] | rendered["controls"]
-                                         if regex.match(a))
+                        # Fields, then controls, each in the inventory's order, as the twin walks
+                        # them (1.5.1): sorted here, another member of the family was named.
+                        present = [a for a in [*rendered["fields"], *rendered["controls"]]
+                                   if regex.match(a)]
                     elif member in rendered["fields"] or member in rendered["controls"]:
                         present = [member]
                     else:
@@ -1131,8 +1284,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                     offender = next((a for a in present
                                      if gname not in (rendered["within"].get(a) or set())), None)
                     if offender is not None:
-                        chain = rendered["within"].get(offender) or set()
-                        inside = ", ".join(sorted(chain))
+                        chain = rendered["within"].get(offender) or {}
+                        inside = ", ".join(sorted(chain, key=utf16_order))
                         findings.append(Finding("member_out_of_group",
                                                 f"{contract_id}: `{offender}` is contracted into "
                                                 f"`{gname}` but in state `{state}` renders "
@@ -1185,10 +1338,11 @@ def report(title: str, findings: list[Finding]) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="checks 1 and 2 — no wild endpoints, no unproven steps")
+        description="checks 1–5 — no wild endpoints, no unproven steps, no inflated maturity, "
+                    "no imagined storage, the form matches its contract")
     parser.add_argument("config", nargs="?", help="path to usedesign.config.yaml")
     parser.add_argument("--conformance", action="store_true",
-                        help="run the conformance corpus for checks 1 and 2")
+                        help="run the checks conformance corpus")
     args = parser.parse_args()
 
     if args.conformance:
@@ -1200,18 +1354,22 @@ def main() -> int:
     config, base = load_config(args.config)
 
     # `checks: [5]` scopes which checks apply to THIS repository — same rule as the TypeScript twin.
+    # The config holds a non-empty list of check numbers or nothing (1.5.1).
     scope = config.get("checks")
     def in_scope(n: int) -> bool:
-        return not scope or n in scope
+        return scope is None or n in scope
     errors = 0
 
     if in_scope(1):
         route_findings, summary = check(config, base)
         print(f"inventory:  {summary['served']} route(s) served"
               + (f", produced by {summary['produced_by']}" if summary["produced_by"] else ""))
-        print(f"cards:      {summary['declared']} REST route(s) declared")
+        # The routes designed ahead are counted here as in the twin (1.5.1); this line had lost them.
+        print(f"cards:      {summary['declared']} REST route(s) declared"
+              + (f", {summary['designed_ahead']} designed ahead of the code"
+                 if summary["designed_ahead"] else ""))
         print(f"excluded:   {summary['excluded']} route(s)")
-        for pattern, count in summary["hidden_per_rule"].items():
+        for pattern, count in js_entries(summary["hidden_per_rule"]):
             print(f"              {pattern} → {count}")
         print()
         errors += report("check 1 (no wild endpoints)", route_findings)
@@ -1232,7 +1390,7 @@ def main() -> int:
         maturity_findings, maturity = check_maturity(config, base)
         print(f"cards:      {maturity['cards']} card(s), {maturity['paths_checked']} evidence path(s) checked"
               + ("" if maturity["code_root"] else " — no `code_root`, path check NOT RUN"))
-        print(f"horizon:    {maturity['horizon']} days")
+        print(f"horizon:    {json_schema.js_string(maturity['horizon'])} days")
         print()
         errors += report("check 3 (no inflated maturity)", maturity_findings)
 
@@ -1243,8 +1401,9 @@ def main() -> int:
               + f"; {storage['claims']} claim(s) in cards touching {storage['touched']}")
         errors += report("check 4 (no imagined storage)", storage_findings)
 
-    # Check 5 is opt-in: naming it in `checks:` or declaring `forms:` opts in.
-    if (scope and 5 in scope) or (not scope and config.get("forms")):
+    # Check 5 is opt-in: naming it in `checks:` or declaring `forms:` opts in — `forms: []` too, as
+    # in the twin (1.5.1), where it then reports that no pattern is given.
+    if (5 in scope) if scope is not None else (config.get("forms") is not None):
         form_findings, form = check_form(config, base)
         print(f"forms:      {form['contracts']} contract(s) against {form['screens']} rendered screen(s)"
               + (f", {form['designed_ahead']} designed ahead of the code" if form.get("designed_ahead") else "")

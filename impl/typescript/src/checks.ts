@@ -1,16 +1,20 @@
 /**
- * The three checks. Each one has the same shape: the repository states a fact in a format it
+ * The five checks. Each one has the same shape: the repository states a fact in a format it
  * already produces, and usedesign compares that statement with the cards. Nothing here parses a
  * framework, reads source code, or guesses.
  *
- *   1. no wild endpoints      design/route-conformance.md
- *   2. no unproven steps      design/step-coverage.md
- *   3. no inflated maturity   design/maturity-evidence.md
+ *   1. no wild endpoints                design/route-conformance.md
+ *   2. no unproven steps                design/step-coverage.md
+ *   3. no inflated maturity             design/maturity-evidence.md
+ *   4. no imagined storage              SPEC §7.4
+ *   5. the form matches its contract    SPEC §7.5
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { XMLParser } from "fast-xml-parser";
-import { Card, Config, Finding, expandGlobs, loadCardFiles, readDocument } from "./core.js";
+import {
+  Card, Config, Finding, expandGlobs, globMatches, isMap, list, loadCardFiles, map, maps, readDocument, refuseTwins, text, texts,
+} from "./core.js";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
@@ -52,10 +56,11 @@ function loadDeclared(config: Config, base: string): { declared: Map<string, str
   const { cards, findings } = loadCardFiles(config, base);
 
   for (const [cardId, fm] of cards) {
-    maturityById.set(cardId, String(fm["maturity"] ?? ""));
-    for (const [name, iface] of Object.entries<any>(fm["interfaces"] ?? {})) {
-      if (!iface || typeof iface !== "object" || iface.transport !== "http_rest") continue;
-      const { method, path } = iface;
+    maturityById.set(cardId, text(fm["maturity"]) ?? "");
+    for (const [name, iface] of Object.entries<any>(map(fm["interfaces"]))) {
+      if (!isMap(iface) || iface["transport"] !== "http_rest") continue;
+      const method = text(iface["method"]);
+      const path = text(iface["path"]);
       if (!method || !path) {
         findings.push(
           new Finding("incomplete_rest_interface", `${cardId}: interface \`${name}\` declares http_rest without method or path`),
@@ -65,13 +70,15 @@ function loadDeclared(config: Config, base: string): { declared: Map<string, str
       // The key stays the route shape — that is what the inventory can be compared against.
       // Dispatch tells cards apart from each other, not routes from each other.
       const key = normalise(method, path);
-      const d = iface.dispatch;
+      const d = map(iface["dispatch"]);
+      const by = text(d["by"]);
+      const value = text(d["value"]);
       declared.set(key, [...(declared.get(key) ?? []), cardId]);
-      dispatchOf.set(`${key}\u0000${cardId}`, d?.by && d?.value ? `${d.by}=${d.value}` : "");
+      dispatchOf.set(`${key}\u0000${cardId}`, by && value ? `${by}=${value}` : "");
     }
   }
 
-  for (const [key, owners] of [...declared.entries()].sort()) {
+  for (const [key, owners] of byKey(declared)) {
     if (owners.length < 2) continue;
     // Several operations may legitimately share a route, told apart by a request field — a
     // widespread REST idiom, not a defect. It is only ambiguous when two cards claim the same
@@ -87,6 +94,15 @@ function loadDeclared(config: Config, base: string): { declared: Map<string, str
     );
   }
   return { declared, maturityById, findings };
+}
+
+/**
+ * Declared routes in the order of their `METHOD shape` (1.5.1). Sorted as pairs, they were ordered
+ * by the text `GET /a,owner` — `GET /a+b` before `GET /a` — and the Python prototype by the pair
+ * itself, so two routes could print in a different order in each.
+ */
+function byKey(declared: Map<string, string[]>): [string, string[]][] {
+  return [...declared.entries()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 }
 
 interface Route {
@@ -131,17 +147,12 @@ function loadInventory(config: Config, base: string): { routes: Route[]; finding
   return { routes, findings, producedBy: data.produced_by ?? "" };
 }
 
-/** Shell-style match for exclusion patterns: `*` and `?` do not cross a `/`. */
-function matchesPattern(shape: string, pattern: string): boolean {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]");
-  return new RegExp(`^${escaped}$`).test(shape);
-}
-
+/** The rule that hides this route, by the glob of a `cards:` segment (1.5.1), or -1. */
 function excludedBy(config: Config, method: string, shape: string): number {
   const rules = config.exclude ?? [];
   for (const [index, rule] of rules.entries()) {
     if (rule.method && rule.method.toUpperCase() !== method) continue;
-    if (matchesPattern(shape, rule.path ?? "")) return index;
+    if (globMatches(shape, rule.path ?? "")) return index;
   }
   return -1;
 }
@@ -172,7 +183,7 @@ export function checkRoutes(config: Config, base: string): CheckResult {
     }
   }
 
-  for (const [key, owners] of [...declared.entries()].sort()) {
+  for (const [key, owners] of byKey(declared)) {
     const method = key.slice(0, key.indexOf(" "));
     const shape = key.slice(key.indexOf(" ") + 1);
     if (routes.length > 0 && !served.has(key) && excludedBy(config, method, shape) === -1) {
@@ -352,9 +363,9 @@ export function checkCoverage(config: Config, base: string): CheckResult {
     const byStep = new Map<string, string[]>();
     ownProof.set(cardId, byStep);
 
-    for (const test of (fm["tests"] ?? []) as any[]) {
-      const refs: any[] = Array.isArray(test?.covers) ? test.covers : [test?.covers];
-      const testId: string = test?.id ?? "";
+    for (const test of maps(fm["tests"])) {
+      const refs = coversOf(test);
+      const testId = text(test["id"]) ?? "";
       const matched = haveReport ? findCases(testId, byFull, byName) : [];
 
       if (haveReport) {
@@ -385,14 +396,14 @@ export function checkCoverage(config: Config, base: string): CheckResult {
   // Pass 2 — verdicts, with a variant's inherited steps credited from the original.
   const byId = new Map<string, Card>(cards);
   for (const [cardId, fm] of cards) {
-    const steps: string[] = (fm["steps"] ?? []).map((s: any) => s?.id);
-    const gaps = new Set<string>((fm["coverage_gaps"] ?? []).map((g: any) => g?.step));
+    const steps = stepIdsOf(fm);
+    const gaps = gapStepsOf(fm);
     const byStep = ownProof.get(cardId)!;
     const { credited, explained } = inheritance(cardId, fm, steps, byStep, byId, ownProof, haveReport, findings);
     // Round 26 ⑬: a gap says why the proof is missing — counted apart, so "not written yet" is
     // never read as "cannot be written".
-    for (const entry of (fm["coverage_gaps"] ?? []) as any[]) {
-      const kind = String(entry?.kind ?? "unwritten");
+    for (const entry of maps(fm["coverage_gaps"])) {
+      const kind = text(entry["kind"]) || "unwritten";
       if (kind === "unwritten" || kind === "harness" || kind === "unreachable") gapKinds[kind] += 1;
     }
 
@@ -428,6 +439,22 @@ export function checkCoverage(config: Config, base: string): CheckResult {
   };
 }
 
+/** The steps a test covers: one id or a list of them (1.5.1: an id of another type is absent). */
+function coversOf(test: Record<string, any>): string[] {
+  const covers = test["covers"];
+  return typeof covers === "string" ? [covers] : texts(covers);
+}
+
+/** A card's step ids, in order; a step that is not a map, or an id that is not a string, is absent. */
+function stepIdsOf(fm: Card): string[] {
+  return texts(maps(fm["steps"]).map((step) => step["id"]));
+}
+
+/** The steps a card declares a gap for. */
+function gapStepsOf(fm: Card): Set<string> {
+  return new Set(texts(maps(fm["coverage_gaps"]).map((gap) => gap["step"])));
+}
+
 /**
  * Which inherited steps of a variant (§5.2e) the original's own tests prove. `explained` holds the
  * steps whose missing credit a variant finding has already reported, so check 2 does not repeat it
@@ -446,12 +473,10 @@ function inheritance(
   const credited = new Set<string>();
   const explained = new Set<string>();
   const variant = fm["variant_of"];
-  if (!variant || typeof variant !== "object") return { credited, explained };
+  if (!isMap(variant)) return { credited, explained };
 
-  const inherits: string[] = (Array.isArray(variant.inherits) ? variant.inherits : []).filter(
-    (s: unknown): s is string => typeof s === "string",
-  );
-  const originalId = String(variant.card ?? "");
+  const inherits = texts(variant["inherits"]);
+  const originalId = text(variant["card"]) ?? "";
   const original = byId.get(originalId);
   if (!original) {
     findings.push(new Finding("variant_of_unknown", `${cardId}: \`variant_of\` names \`${originalId}\`, which no card in the set declares`));
@@ -459,8 +484,8 @@ function inheritance(
     return { credited, explained };
   }
 
-  const shared = String(variant.shared ?? "").trim().replace(LINE_SUFFIX, "");
-  const codeShared = evidencePaths(original["maturity_evidence"]?.["implemented"]).includes(shared);
+  const shared = (text(variant["shared"]) ?? "").trim().replace(LINE_SUFFIX, "");
+  const codeShared = evidencePaths(map(original["maturity_evidence"])["implemented"]).includes(shared);
   if (!codeShared) {
     findings.push(
       new Finding("variant_code_not_shared", `${cardId}: \`${shared}\` is not in the \`implemented\` evidence of \`${originalId}\` — nothing shows the two run the same code`),
@@ -480,8 +505,8 @@ function inheritance(
     );
   }
 
-  const originalSteps = new Set<string>((original["steps"] ?? []).map((s: any) => s?.id));
-  const originalGaps = new Set<string>((original["coverage_gaps"] ?? []).map((g: any) => g?.step));
+  const originalSteps = new Set(stepIdsOf(original));
+  const originalGaps = gapStepsOf(original);
   const originalProof = ownProof.get(originalId) ?? new Map<string, string[]>();
   for (const step of inherits) {
     if (!originalSteps.has(step)) {
@@ -508,12 +533,15 @@ const LEVELS = ["conceived", "designed", "implemented", "tested", "in_production
 const LINE_SUFFIX = /:\d+$/;
 const DEFAULT_HORIZON_DAYS = 180;
 
-/** `implemented` is one path or several — one example joins two with ' + '. */
+/**
+ * `implemented` is one path or several — one example joins two with ' + '. A value that is not a
+ * string is absent (1.5.1): `true` was the path `true` here and `True` in the Python prototype.
+ */
 export function evidencePaths(value: unknown): string[] {
-  const values = Array.isArray(value) ? value : [value];
+  const values = typeof value === "string" ? [value] : texts(value);
   const paths: string[] = [];
   for (const item of values) {
-    for (const part of String(item).split("+")) {
+    for (const part of item.split("+")) {
       const trimmed = part.trim().replace(LINE_SUFFIX, "");
       if (trimmed) paths.push(trimmed);
     }
@@ -549,10 +577,10 @@ export function checkMaturity(config: Config, base: string, today = new Date()):
   let checkedPaths = 0;
 
   for (const [cardId, fm] of cards as [string, Card][]) {
-    const maturity: string = fm["maturity"];
+    const maturity = text(fm["maturity"]) ?? "";
     if (!LEVELS.includes(maturity)) continue;
     const level = LEVELS.indexOf(maturity);
-    const evidence: Record<string, any> = fm["maturity_evidence"] ?? {};
+    const evidence = map(fm["maturity_evidence"]);
 
     // Tier 1 — the code the card points at exists.
     if (level >= LEVELS.indexOf("implemented") && evidence["implemented"] && root) {
@@ -567,13 +595,12 @@ export function checkMaturity(config: Config, base: string, today = new Date()):
     // Tier 2 — the claim is derived from the report, not from prose.
     const passing: string[] = [];
     const covered = new Set<string>();
-    for (const test of (fm["tests"] ?? []) as any[]) {
-      const matched = haveReport ? findCases(test?.id ?? "", byFull, byName) : [];
+    for (const test of maps(fm["tests"])) {
+      const testId = text(test["id"]) ?? "";
+      const matched = haveReport ? findCases(testId, byFull, byName) : [];
       if (matched.length > 0 && matched.every((c) => c.status === "passed")) {
-        passing.push(test?.id);
-        for (const ref of Array.isArray(test?.covers) ? test.covers : [test?.covers]) {
-          if (typeof ref === "string") covered.add(ref);
-        }
+        passing.push(testId);
+        for (const ref of coversOf(test)) covered.add(ref);
       }
     }
 
@@ -593,10 +620,9 @@ export function checkMaturity(config: Config, base: string, today = new Date()):
     // And only when a passing test covers the LAST step — the proof §5.2e rule 4 accepts that an
     // operation goes all the way through. Tests of the door alone (sign-in, permission) pass in
     // front of an operation that answers 501; that card is honestly `designed`.
-    const steps: any[] = Array.isArray(fm["steps"]) ? fm["steps"] : [];
-    const stepIds = steps.filter((s) => s && typeof s === "object" && !Array.isArray(s)).map((s) => s.id);
+    const stepIds = stepIdsOf(fm);
     const last = stepIds.length > 0 ? stepIds[stepIds.length - 1] : undefined;
-    if (haveReport && level < LEVELS.indexOf("implemented") && typeof last === "string" && covered.has(last)) {
+    if (haveReport && level < LEVELS.indexOf("implemented") && last !== undefined && covered.has(last)) {
       findings.push(
         new Finding(
           "maturity_understated",
@@ -608,8 +634,9 @@ export function checkMaturity(config: Config, base: string, today = new Date()):
 
     // Tier 3 — what cannot be verified must expire.
     if (level >= LEVELS.indexOf("in_production")) {
+      // A dated map or a bare string (the schema's two forms); any other value is absent (1.5.1).
       const deployed = evidence["deployed"];
-      if (deployed && typeof deployed === "object" && !Array.isArray(deployed)) {
+      if (isMap(deployed)) {
         // A day the calendar has (1.4.3): `new Date` carried 2026-02-30 over to 2 March and called it
         // stale, where the Python prototype said it is not a date. Year 0 is none either.
         const raw = typeof deployed.since === "string" ? deployed.since : "";
@@ -628,7 +655,7 @@ export function checkMaturity(config: Config, base: string, today = new Date()):
             ),
           );
         }
-      } else if (deployed) {
+      } else if (typeof deployed === "string" && deployed) {
         findings.push(
           new Finding("evidence_undated", `${cardId}: \`deployed: ${deployed}\` carries no date, so it can never go stale`, "warning"),
         );
@@ -698,10 +725,10 @@ export function checkStorage(config: Config, base: string): CheckResult {
   let claims = 0;
 
   for (const [cardId, fm] of cards) {
-    for (const claim of (fm["data"] as any)?.storage ?? []) {
+    for (const claim of maps(map(fm["data"])["storage"])) {
       claims += 1;
-      const pattern: string = claim?.store ?? "";
-      const matched = stores.filter((store) => matchesPattern(String(store.name), pattern));
+      const pattern = text(claim["store"]) ?? "";
+      const matched = stores.filter((store) => globMatches(String(store.name), pattern));
 
       if (matched.length === 0) {
         findings.push(
@@ -712,7 +739,7 @@ export function checkStorage(config: Config, base: string): CheckResult {
       for (const store of matched) touched.add(String(store.name));
 
       // Every environment must agree, or the card is true in one place and false in another.
-      const claimedKeys: string[] = claim?.keyed_by ?? [];
+      const claimedKeys = texts(claim["keyed_by"]);
       if (claimedKeys.length > 0) {
         for (const store of matched) {
           const actual: string[] = store.keyed_by ?? [];
@@ -727,7 +754,7 @@ export function checkStorage(config: Config, base: string): CheckResult {
         }
       }
 
-      const index: string | undefined = claim?.via_index;
+      const index = text(claim["via_index"]);
       if (index) {
         for (const store of matched) {
           const names = (store.indexes ?? []).map((i: any) => String(i.name));
@@ -862,9 +889,8 @@ function judgeCalls(
   // `from` is one state or a SET of states (round 18): the control must be shown only in
   // states that belong to the set, and in at least one of them. `none` / `any` switch the
   // rule off — `any` is the honest word for an operation that does not check its origin.
-  const transition = card["data_transition"];
-  const rawFrom = transition && typeof transition === "object" ? transition.from : undefined;
-  const fromSet: string[] = Array.isArray(rawFrom) ? rawFrom.map(String) : rawFrom ? [String(rawFrom)] : [];
+  const rawFrom = map(card["data_transition"])["from"];
+  const fromSet = typeof rawFrom === "string" && rawFrom ? [rawFrom] : texts(rawFrom);
   if (fromSet.length > 0 && !fromSet.includes("none") && !fromSet.includes("any")) {
     const mismatch = shownWhen.filter((state) => !fromSet.includes(dataOf(state)));
     if (mismatch.length > 0 || !shownWhen.some((state) => fromSet.includes(dataOf(state)))) {
@@ -878,6 +904,16 @@ function judgeCalls(
       );
     }
   }
+}
+
+/** A list of state names, or undefined when the field is not a list (1.5.1: a name that is not a string is absent). */
+function statesOf(value: unknown): string[] | undefined {
+  return Array.isArray(value) ? texts(value) : undefined;
+}
+
+/** `at_least`, an integer, or 1. */
+function floorOf(line: Record<string, any>): number {
+  return Number.isInteger(line["at_least"]) ? Number(line["at_least"]) : 1;
 }
 
 export function checkForm(config: Config, base: string): CheckResult {
@@ -937,10 +973,15 @@ export function checkForm(config: Config, base: string): CheckResult {
   const cardById = new Map<string, Card>(cards);
 
   const contracts: [string, Card][] = [];
+  const read: [string, Card][] = [];
   for (const path of expandGlobs(base, patterns)) {
     const fm = readDocument(path);
-    if (fm && fm["usedesign_form"] === 1) contracts.push([String(fm["id"] ?? path), fm]);
+    if (isMap(fm) && fm["usedesign_form"] === 1) {
+      contracts.push([text(fm["id"]) ?? path, fm]);
+      read.push([path, fm]);
+    }
   }
+  refuseTwins(read);
   if (contracts.length === 0) {
     findings.push(new Finding("form_contracts_missing", "the `forms` patterns matched no contract"));
   }
@@ -950,19 +991,20 @@ export function checkForm(config: Config, base: string): CheckResult {
   let designedAhead = 0;
 
   for (const [contractId, fm] of contracts) {
-    const screen = String(fm["screen"] ?? "");
+    const screen = text(fm["screen"]) ?? "";
     const states = byScreen.get(screen);
     // A contract may be written before its screen — the format's own recommended order of
     // work — and say so with `maturity: designed` (issue #8, the forms twin of issue #3). Then
     // an absent screen is a warning, not the same error as a screen that vanished. The flag
     // cannot go stale silently: the day the screen renders, the contract still saying
     // `designed` is reported too — the gate itself tells the owner to flip it.
-    const maturity = String(fm["maturity"] ?? "implemented");
+    const maturity = text(fm["maturity"]) || "implemented";
     // Screen state → data state, through the contract's `states:` map; identity when unmapped.
-    const stateMap: Record<string, any> = fm["states"] && typeof fm["states"] === "object" ? fm["states"] : {};
+    // Looked up among the map's own keys: `toString` is not a state.
+    const stateMap = map(fm["states"]);
     const dataOf = (state: string): string => {
-      const spec = stateMap[state];
-      return spec && typeof spec === "object" && spec.data ? String(spec.data) : state;
+      const spec = Object.prototype.hasOwnProperty.call(stateMap, state) ? stateMap[state] : undefined;
+      return (isMap(spec) && text(spec["data"])) || state;
     };
     if (!states) {
       if (maturity === "designed") {
@@ -978,9 +1020,9 @@ export function checkForm(config: Config, base: string): CheckResult {
         // and comparing it with the cards needs no inventory (issue #13). Only where the config
         // declares `cards:`: a frontend-only repository has none, and stays as quiet as before.
         if ((config as any).cards) {
-          for (const control of fm["controls"] ?? []) {
-            const name = control?.control_pattern ? String(control.control_pattern) : String(control?.control ?? "");
-            judgeCalls(contractId, name, control, control?.shown_when as string[] | undefined, dataOf, cardById, findings, "warning");
+          for (const control of maps(fm["controls"])) {
+            const name = text(control["control_pattern"]) || text(control["control"]) || "";
+            judgeCalls(contractId, name, control, statesOf(control["shown_when"]), dataOf, cardById, findings, "warning");
           }
         }
       } else {
@@ -1003,17 +1045,18 @@ export function checkForm(config: Config, base: string): CheckResult {
 
     const countOf = (regex: RegExp, set: Set<string>) => [...set].filter((name) => regex.test(name)).length;
 
-    for (const entry of fm["presents"] ?? []) {
-      const pattern = entry?.field_pattern ? String(entry.field_pattern) : "";
+    for (const entry of maps(fm["presents"])) {
+      const pattern = text(entry["field_pattern"]) ?? "";
+      const when = statesOf(entry["when"]);
       if (pattern) {
         // A family: one element per item of a list that arrives at runtime. Every rendered
         // anchor matching the pattern is accounted for; `at_least` keeps the family from
         // silently becoming empty — a screen rendering NO tabs because the backend returned
         // nothing is a real failure, and without the floor nothing would notice.
         const regex = familyRegex(pattern);
-        const atLeast = Number.isInteger(entry?.at_least) ? Number(entry.at_least) : 1;
+        const atLeast = floorOf(entry);
         mine.fieldFamilies.push(regex);
-        for (const state of (entry?.when as string[] | undefined) ?? everyState) {
+        for (const state of when ?? everyState) {
           const rendered = states.get(state);
           if (!rendered) {
             findings.push(new Finding("form_state_missing", `${contractId}: \`${pattern}\` is required in state \`${state}\`, which the inventory never rendered`));
@@ -1026,12 +1069,12 @@ export function checkForm(config: Config, base: string): CheckResult {
             }
           }
         }
-        fieldOutOfState(contractId, pattern, entry?.when, states, (rendered) => countOf(regex, rendered.fields) > 0, findings);
+        fieldOutOfState(contractId, pattern, when, states, (rendered) => countOf(regex, rendered.fields) > 0, findings);
         continue;
       }
-      const field = String(entry?.field ?? "");
+      const field = text(entry["field"]) ?? "";
       mine.fields.add(field);
-      for (const state of (entry?.when as string[] | undefined) ?? everyState) {
+      for (const state of when ?? everyState) {
         const rendered = states.get(state);
         if (!rendered) {
           findings.push(new Finding("form_state_missing", `${contractId}: \`${field}\` is required in state \`${state}\`, which the inventory never rendered`));
@@ -1039,17 +1082,17 @@ export function checkForm(config: Config, base: string): CheckResult {
           findings.push(new Finding("element_missing", `${contractId}: \`${field}\` must be shown in state \`${state}\` and is not`));
         }
       }
-      fieldOutOfState(contractId, field, entry?.when, states, (rendered) => rendered.fields.has(field), findings);
+      fieldOutOfState(contractId, field, when, states, (rendered) => rendered.fields.has(field), findings);
     }
 
-    for (const control of fm["controls"] ?? []) {
-      const pattern = control?.control_pattern ? String(control.control_pattern) : "";
+    for (const control of maps(fm["controls"])) {
+      const pattern = text(control["control_pattern"]) ?? "";
       const regex = pattern ? familyRegex(pattern) : null;
-      const atLeast = Number.isInteger(control?.at_least) ? Number(control.at_least) : 1;
-      const name = pattern || String(control?.control ?? "");
+      const atLeast = floorOf(control);
+      const name = pattern || (text(control["control"]) ?? "");
       if (regex) mine.controlFamilies.push(regex);
       else mine.controls.add(name);
-      const shownWhen = control?.shown_when as string[] | undefined;
+      const shownWhen = statesOf(control["shown_when"]);
       // For a literal both questions are "is it there"; for a family they differ: enough
       // members for the floor, versus any member at all (which is what leaks out of state).
       const enough = (rendered: RenderedState) => (regex ? countOf(regex, rendered.controls) >= atLeast : rendered.controls.has(name));
@@ -1086,8 +1129,8 @@ export function checkForm(config: Config, base: string): CheckResult {
       judgeCalls(contractId, name, control, shownWhen, dataOf, cardById, findings, "error");
     }
 
-    for (const entry of fm["removed"] ?? []) {
-      const name = String(entry?.control ?? "");
+    for (const entry of maps(fm["removed"])) {
+      const name = text(entry["control"]) ?? "";
       mine.controls.add(name);
       for (const [state, rendered] of states) {
         if (rendered.controls.has(name)) {
@@ -1099,8 +1142,9 @@ export function checkForm(config: Config, base: string): CheckResult {
     // A group's anchor is accounted for BY the group line: the owner named the container when
     // grouping by it. Warning about it as undescribed would ask the owner to decide what they
     // already decided — measured 19.08: three of fourteen warnings were exactly this noise.
-    for (const group of fm["groups"] ?? []) {
-      if (group?.group) mine.fields.add(String(group.group));
+    for (const group of maps(fm["groups"])) {
+      const gname = text(group["group"]);
+      if (gname) mine.fields.add(gname);
     }
 
     // ── group membership ───────────────────────────────────────────────────────────────────
@@ -1109,8 +1153,8 @@ export function checkForm(config: Config, base: string): CheckResult {
     // where the member renders and the inventory carries the measurement. The first inventory
     // with containers refuted its own contract: `add-set` was contracted into the footer and
     // measured living only in the set table — the checker's first catch was its author.
-    for (const group of fm["groups"] ?? []) {
-      const gname = String(group?.group ?? "");
+    for (const group of maps(fm["groups"])) {
+      const gname = text(group["group"]) ?? "";
       if (!gname) continue;
       const anchorSeen = [...states.values()].some(
         (r) => r.fields.has(gname) || (r.within !== null && [...r.within.values()].some((chain) => chain.has(gname))),
@@ -1118,8 +1162,7 @@ export function checkForm(config: Config, base: string): CheckResult {
       if (!anchorSeen) {
         findings.push(new Finding("group_missing", `${contractId}: group \`${gname}\` is contracted but its anchor never renders`));
       }
-      for (const memberRaw of group?.contains ?? []) {
-        const member = String(memberRaw);
+      for (const member of texts(group["contains"])) {
         // A family seated in a group: every rendered member of the family must sit there.
         const regex = member.includes("*") ? familyRegex(member) : null;
         for (const [state, rendered] of states) {

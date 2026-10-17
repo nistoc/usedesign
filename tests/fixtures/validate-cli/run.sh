@@ -266,3 +266,163 @@ node "$root/impl/typescript/dist/cli.js" validate schema > "$out" 2>&1
 # Two empty outputs are the same too: the schema must have spoken (74 lines at 1.4.3).
 [ "$(grep -c "schema_violation" "$out")" -ge 20 ] || { echo "::error::schema/ drew too few schema_violation lines"; cat "$out"; exit 1; }
 echo "  ok"
+
+# `check` reads as `validate` reads since 1.4.3 (1.5.1): every field in its type, one id one
+# document, the glob of `cards:` for an exclusion and a store name, the config as YAML 1.2, lines in
+# one order. Each case runs both implementations; the exit codes and every line must agree, and a
+# run must never end in a traceback or in the runtime's own words.
+agree() {
+  local want="$1" name="$2"; shift 2
+  node "$root/impl/typescript/dist/cli.js" check "$@" > "$scratch/$name.ts.out" 2> "$scratch/$name.ts.err"; local t=$?
+  python "$root/impl/python/check.py" "$@" > "$scratch/$name.py.out" 2> "$scratch/$name.py.err"; local p=$?
+  sed -i 's/^usedesign: //' "$scratch/$name.ts.err"; sed -i 's/^check\.py: //' "$scratch/$name.py.err"
+  cat "$scratch/$name.ts.out" "$scratch/$name.ts.err" > "$out"
+  for side in out err; do
+    if ! diff --strip-trailing-cr "$scratch/$name.ts.$side" "$scratch/$name.py.$side" > "$scratch/$name.diff"; then
+      echo "::error::$name: \`check\` prints different lines in the two implementations"
+      cat "$scratch/$name.diff"; exit 1
+    fi
+  done
+  [ "$t" -eq "$p" ] || fail "$name: \`check\` exits $t in TypeScript and $p in Python"
+  [ "$t" -eq "$want" ] || fail "$name: \`check\` exited $t, expected $want"
+  grep -q "Traceback\|is not a function\|is not iterable\|Cannot read properties" "$out" "$scratch/$name.py.err" \
+    && fail "$name: \`check\` stopped in the runtime's words"
+  return 0
+}
+echo "— check, line for line"
+# Fields of another type are absent to the rules: the typed fixtures stopped 1.5.0 here (TypeScript:
+# `path.trim is not a function`, Python: a traceback).
+mkdir -p "$scratch/typed"
+cp schema/sample.thing.typed.op.md schema/sample.thing.typed-whole.op.md schema/sample.thing.shapes.op.md \
+  schema/sample.thing.nulls.op.md schema/sample.session.shapes.contract.md "$scratch/typed/"
+printf '%s\n' '{"usedesign_form_inventory": 1, "produced_by": "t", "forms": [{"screen": "ShapesPanel",' \
+  '"states": [{"state": "idle", "fields": ["a", "b"], "controls": ["c"], "within": {"a": ["g"]}}]}]}' > "$scratch/typed/forms.json"
+config typedall 'cards:' '  - typed/*.op.md' 'forms:' '  - typed/*.contract.md' 'form_inventory: typed/forms.json' \
+  'code_root: typed' 'test_report: typed/report.xml' 'storage_inventory: typed/storage.json' 'inventory: typed/routes.json'
+printf '<testsuite><testcase classname="c" name="t1"/></testsuite>\n' > "$scratch/typed/report.xml"
+printf '{"usedesign_storage_inventory": 1, "produced_by": "t", "stores": [{"name": "things", "keyed_by": ["id"]}]}\n' > "$scratch/typed/storage.json"
+printf '{"usedesign_inventory": 1, "produced_by": "t", "routes": [{"method": "POST", "path": "/things"}]}\n' > "$scratch/typed/routes.json"
+agree 1 typed "$scratch/typedall.config.yaml"
+# One id, one document: two cards or two contracts with one id stop `check` with both names; kept by
+# id, 1.5.0 judged one of the two without a word.
+config samecards 'checks: [3]' 'cards:' '  - sameid/*.op.md'
+config sameforms 'checks: [5]' 'forms:' '  - sameform/*.contract.md' 'form_inventory: form-inventory.json'
+agree 2 samecards "$scratch/samecards.config.yaml"; says "carry the same id \`sample.session.finish\`"
+agree 2 sameforms "$scratch/sameforms.config.yaml"; says "carry the same id \`sample.session.panel\`"
+# Cards and contracts keep two spaces of ids, as in `validate`: a card and a contract that share one
+# id, both matched by `cards:`, are not twins.
+mkdir -p "$scratch/cardform"
+printf '%s\n' '---' 'id: sample.both.thing' 'maturity: designed' '---' > "$scratch/cardform/x.op.md"
+printf '%s\n' '---' 'usedesign_form: 1' 'id: sample.both.thing' 'screen: BothPanel' 'maturity: designed' \
+  'presents:' '  - field: a' '---' > "$scratch/cardform/x.contract.md"
+config cardform 'checks: [3]' 'cards:' '  - cardform/*.md'
+agree 0 cardform "$scratch/cardform.config.yaml"
+# `gen openapi` reads the cards as `check` does; 1.5.0 merged the two into one route in silence.
+node "$root/impl/typescript/dist/cli.js" gen openapi "$scratch/samecards.config.yaml" --out "$scratch/twins.json" > "$out" 2>&1
+[ $? -eq 2 ] || fail "gen openapi took two cards with one id"; says "carry the same id \`sample.session.finish\`"
+# An exclusion and a store name are matched by the glob of `cards:`: `*` stays inside one part of a
+# route, `?` is one character, brackets are plain, letter case counts. 1.5.0 matched them with
+# fnmatch in Python (`*` crossed `/`, `[1]` was a set, case went on Windows) and by UTF-16 unit here.
+mkdir -p "$scratch/glob/cards"
+printf '%s\n' '{"usedesign_inventory": 1, "produced_by": "t", "routes": [' \
+  '{"method": "GET", "path": "/health/deep/x"}, {"method": "GET", "path": "/a/'"$grin"'"},' \
+  '{"method": "GET", "path": "/Docs"}, {"method": "GET", "path": "/x[1]"}, {"method": "GET", "path": "/b\\c"}]}' > "$scratch/glob/routes.json"
+printf '%s\n' '{"usedesign_storage_inventory": 1, "produced_by": "t", "stores": [' \
+  '{"name": "sessions[1]", "keyed_by": ["id"]}, {"name": "'"$grin"'log", "keyed_by": ["id"]}]}' > "$scratch/glob/storage.json"
+printf '%s\n' '---' 'id: sample.store.read' 'data:' '  storage:' '    - store: "sessions[1]"' '    - store: "?log"' '---' > "$scratch/glob/cards/a.op.md"
+config glob 'checks: [1, 4]' 'cards:' '  - glob/cards/*.op.md' 'inventory: glob/routes.json' 'storage_inventory: glob/storage.json' \
+  'exclude:' '  - { path: "/health/*", reason: r }' '  - { path: "/a/?", reason: r }' '  - { path: /docs, reason: r }' '  - { path: "/x[1]", reason: r }' \
+  '  - { path: "/b*", reason: r }'
+agree 1 glob "$scratch/glob.config.yaml"
+says "excluded:   2 route(s)"; says "wild_endpoint: GET /health/deep/x"; says "wild_endpoint: GET /Docs"
+says "wild_endpoint: GET /b\\\\c"
+grep -q "unknown_store" "$out" && fail "glob: a store name matched by the glob of \`cards:\` is a store the storage has"
+# The config is read as YAML 1.2, and a value of another type stops the run with the key's name.
+# 1.5.0 read `030` as 24 in Python, took the last of two keys there, and stopped on `cards: 5` with a
+# traceback and with `patterns is not iterable`.
+config octal 'checks: [3]' 'cards:' '  - real/*.op.md' 'evidence_horizon_days: 030'
+config twice 'checks: [3]' 'checks: [3]' 'cards:' '  - real/*.op.md'
+config number 'cards: 5'
+config noscope 'checks: []' 'cards:' '  - real/*.op.md'
+agree 0 octal "$scratch/octal.config.yaml"; says "horizon:    30 days"
+agree 2 twice "$scratch/twice.config.yaml"; says "config is not valid YAML"
+agree 2 number "$scratch/number.config.yaml"; says "\`cards\` in the config must be a list of strings"
+agree 2 noscope "$scratch/noscope.config.yaml"; says "\`checks\` in the config must be a list of check numbers"
+config horizon 'checks: [3]' 'cards:' '  - real/*.op.md' 'evidence_horizon_days: "30"'
+config six 'checks: [6]' 'cards:' '  - real/*.op.md'
+config rules 'checks: [1]' 'cards:' '  - real/*.op.md' 'exclude:' '  - { path: 5, reason: r }'
+config typo 'chceks: [1]' 'cards:' '  - real/*.op.md'
+agree 2 horizon "$scratch/horizon.config.yaml"; says "\`evidence_horizon_days\` in the config must be an integer"
+agree 2 six "$scratch/six.config.yaml"; says "\`checks\` in the config must be a list of check numbers"
+agree 2 rules "$scratch/rules.config.yaml"; says "\`exclude\` in the config must be a list of rules"
+agree 2 typo "$scratch/typo.config.yaml"; says "\`chceks\` is not a config key"
+# Past Python's 4 300 digits an integer is Infinity, as JavaScript holds it, and nesting deeper than
+# the reader's stack is not valid YAML: 1.5.0 Python ended both in a traceback with exit 1. The
+# words after the dash are the parsers' own (the reference adds a line and a column).
+config huge 'checks: [3]' 'cards:' '  - real/*.op.md' "evidence_horizon_days: 1$(printf '0%.0s' $(seq 1 5000))"
+agree 2 huge "$scratch/huge.config.yaml"; says "\`evidence_horizon_days\` in the config must be an integer"
+config deep 'checks: [3]' 'cards:' '  - real/*.op.md' "x: $(printf '[%.0s' $(seq 1 3000))$(printf ']%.0s' $(seq 1 3000))"
+node "$root/impl/typescript/dist/cli.js" check "$scratch/deep.config.yaml" > "$out" 2>&1; t=$?
+python "$root/impl/python/check.py" "$scratch/deep.config.yaml" >> "$out" 2>&1; p=$?
+[ "$t" -eq 2 ] && [ "$p" -eq 2 ] || fail "deep: \`check\` exits $t in TypeScript and $p in Python, expected 2"
+[ "$(grep -c "config is not valid YAML — Maximum call stack size exceeded" "$out")" -eq 2 ] || fail "deep: not refused as YAML in both"
+grep -q "Traceback" "$out" && fail "deep: \`check\` stopped in the runtime's words"
+# Routes come in the order of their `METHOD shape` (`/a` before `/a b` and `/a+b`) by UTF-16 code
+# unit (`/b😀` before `/b～`), and names that look like array indices in the order JavaScript gives
+# them — interfaces `b`, `2`, `a`, `10` as 2, 10, b, a, exclusions `/z`, `10`, `9` as 9, 10, /z; an
+# `at_least` past 2^53 is written as the reference writes it. 1.5.0 printed each of these in another
+# order or form in one of the two.
+mkdir -p "$scratch/routes"
+printf '%s\n' '---' 'id: sample.order.read' 'maturity: implemented' 'interfaces:' \
+  '  b: { transport: http_rest }' '  2: { transport: http_rest }' '  a: { transport: http_rest }' '  10: { transport: http_rest }' \
+  '  long: { transport: http_rest, method: GET, path: "/a+b" }' '  short: { transport: http_rest, method: GET, path: /a }' \
+  '  space: { transport: http_rest, method: GET, path: "/a b" }' \
+  "  astral: { transport: http_rest, method: GET, path: \"/b$grin\" }" "  high: { transport: http_rest, method: GET, path: \"/b$tilde\" }" \
+  '---' > "$scratch/routes/p.op.md"
+printf '%s\n' '{"usedesign_inventory": 1, "produced_by": "t", "routes": [' \
+  '{"method": "GET", "path": "/z"}, {"method": "GET", "path": "10"}, {"method": "GET", "path": "9"}, {"method": "GET", "path": "/w"}]}' \
+  > "$scratch/routes/routes.json"
+config routes 'checks: [1]' 'cards:' '  - routes/*.op.md' 'inventory: routes/routes.json' \
+  'exclude:' '  - { path: /z, reason: r }' '  - { path: "10", reason: r }' '  - { path: "9", reason: r }'
+agree 1 routes "$scratch/routes.config.yaml"; says "interface \`2\` declares http_rest"
+[ "$(grep "phantom_route" "$out" | sed 's/.*GET \(.*\) is declared.*/\1/' | tr '\n' '|')" = "/a|/a b|/a+b|/b$grin|/b$tilde|" ] \
+  || fail "routes: declared routes not in the order of their \`METHOD shape\` by UTF-16 code unit"
+printf '%s\n' '---' 'usedesign_form: 1' 'id: sample.big.panel' 'screen: BigPanel' 'maturity: implemented' \
+  'presents:' '  - field_pattern: "row-*"' '    at_least: 20000000000000000000' \
+  'controls:' '  - control_pattern: "act-*"' '    at_least: 123456789012345678' '    shown_when: [idle]' '---' > "$scratch/routes/big.contract.md"
+printf '%s\n' '{"usedesign_form_inventory": 1, "produced_by": "t", "forms": [{"screen": "BigPanel", "states": [{"state": "idle",' \
+  '"fields": ["row-1"], "controls": ["act-1"]}]}]}' > "$scratch/routes/forms.json"
+config big 'checks: [5]' 'forms:' '  - routes/*.contract.md' 'form_inventory: routes/forms.json'
+agree 1 big "$scratch/big.config.yaml"; says "at least 20000000000000000000 element(s)"; says "at least 123456789012345680 control(s)"
+# Lines come in one order whatever the hash seed: 1.5.0 Python kept the names a screen renders in
+# sets, and the elements no contract line accounts for came out in an order PYTHONHASHSEED chose.
+mkdir -p "$scratch/seed"
+printf '%s\n' '---' 'usedesign_form: 1' 'id: sample.seed.panel' 'screen: SeedPanel' 'maturity: implemented' \
+  'presents:' '  - field: a' '---' > "$scratch/seed/seed.contract.md"
+printf '%s\n' '{"usedesign_form_inventory": 1, "produced_by": "t", "forms": [{"screen": "SeedPanel", "states": [{"state": "idle",' \
+  '"fields": ["a", "zeta", "alpha", "mid", "beta", "omega", "delta", "kappa", "gamma"], "controls": ["z1", "y2", "x3", "w4"]}]}]}' \
+  > "$scratch/seed/forms.json"
+config seed 'checks: [5]' 'forms:' '  - seed/*.contract.md' 'form_inventory: seed/forms.json'
+for seed in 0 1 2 3; do
+  export PYTHONHASHSEED=$seed; agree 0 "seed-$seed" "$scratch/seed.config.yaml"
+done
+unset PYTHONHASHSEED
+says "SeedPanel: \`zeta\` is rendered but no contract line accounts for it"
+echo "  ok"
+
+# Every case of the checks corpus prints the same lines in both implementations, whatever the hash
+# seed (the case `seed` above is the one whose order the seed changed in 1.5.0); 1.5.0 Python left
+# the routes designed ahead out of its summary line.
+echo "— the checks corpus, line for line"
+for config_path in "$root"/tests/conformance/checks/cases/*/usedesign.config.yaml; do
+  name="corpus-$(basename "$(dirname "$config_path")")"
+  node "$root/impl/typescript/dist/cli.js" check "$config_path" > "$scratch/$name.ts.out" 2> /dev/null
+  for seed in 0 1 2 3; do
+    PYTHONHASHSEED=$seed python "$root/impl/python/check.py" "$config_path" > "$scratch/$name.py.out" 2> /dev/null
+    if ! diff --strip-trailing-cr "$scratch/$name.ts.out" "$scratch/$name.py.out" > "$scratch/$name.diff"; then
+      echo "::error::$name with PYTHONHASHSEED=$seed: \`check\` prints different lines in the two implementations"
+      cat "$scratch/$name.diff"; exit 1
+    fi
+  done
+done
+echo "  ok"
