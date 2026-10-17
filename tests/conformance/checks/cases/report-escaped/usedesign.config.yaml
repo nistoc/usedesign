@@ -1,0 +1,4 @@
+usedesign_config: 1
+cards:
+  - ../../../../../examples/library/*.op.md
+test_report: test-report.xml

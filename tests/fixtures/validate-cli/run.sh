@@ -465,3 +465,25 @@ for config_path in "$root"/tests/conformance/checks/cases/*/usedesign.config.yam
   done
 done
 echo "  ok"
+
+# The test report is read as XML reads it (1.5.2). 1.5.1 TypeScript refused a report past 1 000
+# escaped characters — 300 test names with four `&quot;` each, as a suite of parametrised tests
+# writes them — and named a directory as malformed XML, where Python stopped with a traceback. The
+# corpus holds the report cut while it was written and the one with a DOCTYPE.
+echo "— the test report, as XML"
+mkdir -p "$scratch/xml/cards" "$scratch/xml/report.xml.d"
+printf '%s\n' '---' 'id: sample.report.read' 'maturity: designed' 'steps:' '  - { id: s1, text: Read }' \
+  'tests:' '  - { id: T.t1, covers: s1, level: unit }' '---' > "$scratch/xml/cards/a.op.md"
+{
+  printf '<?xml version="1.0" encoding="UTF-8"?>\n<testsuites><testsuite name="s">\n'
+  printf '<testcase classname="T" name="t1"><system-out>'
+  head -c 100000 /dev/zero | tr '\0' 'q' | sed 's/q/\&quot;/g'
+  printf '</system-out></testcase>\n'
+  for i in $(seq 300); do printf '<testcase classname="T" name="t%s(&quot;&quot;&#x41;&#65;)"/>\n' "$i"; done
+  printf '</testsuite></testsuites>\n'
+} > "$scratch/xml/report.xml"
+config escapes 'checks: [2]' 'cards:' '  - xml/cards/*.op.md' 'test_report: xml/report.xml'
+agree 0 escapes "$scratch/escapes.config.yaml"; says "report:     301 test case(s)"
+config reportdir 'checks: [2]' 'cards:' '  - xml/cards/*.op.md' 'test_report: xml/report.xml.d'
+agree 1 reportdir "$scratch/reportdir.config.yaml"; says "report_missing: xml/report.xml.d cannot be read: it is a directory"
+echo "  ok"

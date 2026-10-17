@@ -11,9 +11,10 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { XMLParser } from "fast-xml-parser";
+import { SaxesParser } from "saxes";
 import {
   Card, Config, Finding, expandGlobs, globMatches, isMap, list, loadCardFiles, map, maps, readDocument, refuseTwins, text, texts,
+  whyUnreadable,
 } from "./core.js";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
@@ -245,6 +246,52 @@ export interface TestCase {
   full: string;
 }
 
+/**
+ * The test cases of a report, read as XML 1.0 reads it: a `testcase` element in no namespace, at any
+ * depth, in document order; its `classname` and `name`; and its status from its own children —
+ * `failure` or `error` fails it, `skipped` skips it, in any letter case, and the last of them decides.
+ *
+ * 1.5.1 read the report with a lenient parser: a report cut off while it was written read as far as
+ * it went, so a test cut before its `<failure>` passed; past 1 000 escaped characters (`&quot;`) the
+ * report was refused; `&#233;` stayed six characters. The Python prototype read all three as XML
+ * reads them; both do now (1.5.2). A DOCTYPE is refused in both: JUnit reports carry none, and its
+ * entities are what the expansion attacks are made of.
+ */
+function readReport(text: string): TestCase[] | "doctype" | "malformed" {
+  class Doctype extends Error {}
+  const parser = new SaxesParser({ xmlns: true });
+  const cases: TestCase[] = [];
+  const open: (TestCase | null)[] = [];
+  parser.on("doctype", () => {
+    throw new Doctype();
+  });
+  parser.on("opentag", (tag) => {
+    const parent = open[open.length - 1];
+    if (parent && tag.uri === "") {
+      const local = tag.local.toLowerCase();
+      if (local === "failure" || local === "error") parent.status = "failed";
+      else if (local === "skipped") parent.status = "skipped";
+    }
+    let own: TestCase | null = null;
+    if (tag.uri === "" && tag.local === "testcase") {
+      const classname = tag.attributes["classname"]?.value ?? "";
+      const name = tag.attributes["name"]?.value ?? "";
+      own = { classname, name, status: "passed", full: classname ? `${classname}.${name}` : name };
+      cases.push(own);
+    }
+    open.push(own);
+  });
+  parser.on("closetag", () => {
+    open.pop();
+  });
+  try {
+    parser.write(text).close();
+  } catch (exc) {
+    return exc instanceof Doctype ? "doctype" : "malformed";
+  }
+  return cases;
+}
+
 function loadReport(config: Config, base: string): { cases: TestCase[]; findings: Finding[] } {
   const location = config.test_report;
   if (!location) {
@@ -256,38 +303,20 @@ function loadReport(config: Config, base: string): { cases: TestCase[]; findings
 
   const path = join(base, location);
   if (!existsSync(path)) return { cases: [], findings: [new Finding("report_missing", `${location} does not exist`)] };
+  // 1.5.1 named a directory here as malformed XML, and the Python prototype stopped with a traceback.
+  const why = whyUnreadable(path);
+  if (why) return { cases: [], findings: [new Finding("report_missing", `${location} cannot be read: ${why}`)] };
 
-  let tree: any;
-  try {
-    tree = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_", isArray: (name) => name === "testcase" }).parse(
-      readFileSync(path, "utf8"),
-    );
-  } catch (exc) {
-    return { cases: [], findings: [new Finding("report_malformed", `${location}: ${(exc as Error).message}`)] };
+  const cases = readReport(readFileSync(path, "utf8"));
+  if (cases === "doctype") {
+    return { cases: [], findings: [new Finding("report_malformed", `${location}: a DOCTYPE — a JUnit report has none, and check 2 reads none`)] };
   }
-
-  const cases: TestCase[] = [];
-  const walk = (node: any): void => {
-    if (!node || typeof node !== "object") return;
-    for (const [key, value] of Object.entries<any>(node)) {
-      if (key === "testcase") {
-        for (const item of Array.isArray(value) ? value : [value]) {
-          let status: TestCase["status"] = "passed";
-          for (const child of Object.keys(item ?? {})) {
-            const tag = child.toLowerCase();
-            if (tag === "failure" || tag === "error") status = "failed";
-            else if (tag === "skipped") status = "skipped";
-          }
-          const classname = String(item?.["@_classname"] ?? "");
-          const name = String(item?.["@_name"] ?? "");
-          cases.push({ classname, name, status, full: classname ? `${classname}.${name}` : name });
-        }
-      } else if (typeof value === "object") {
-        for (const item of Array.isArray(value) ? value : [value]) walk(item);
-      }
-    }
-  };
-  walk(tree);
+  if (cases === "malformed") {
+    return {
+      cases: [],
+      findings: [new Finding("report_malformed", `${location}: not well-formed XML — a run that stopped while writing its report leaves such a file`)],
+    };
+  }
 
   if (cases.length === 0) {
     return { cases, findings: [new Finding("report_empty", `${location}: no test cases — a failed run, not a suite without tests`)] };

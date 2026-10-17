@@ -21,7 +21,7 @@ clone as well as through `npx usedesign`.
 | Cards corpus | every case passes (`tests/conformance/cards/`) |
 | Repository corpus | every case passes (`tests/conformance/checks/`) |
 | Runtime | Node ≥ 20, no native modules |
-| Dependencies | `ajv`, `ajv-formats`, `yaml`, `fast-xml-parser` |
+| Dependencies | `ajv`, `ajv-formats`, `yaml`, `saxes` |
 
 ```bash
 npm install && npm run build

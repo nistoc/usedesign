@@ -129,6 +129,33 @@ cases:
       No report at all. Check 2 is then reported as not run — never as passed, which is the whole
       difference between a checker and a rubber stamp.
 
+  - dir: report-cut
+    check: 2
+    expect: fail
+    codes: [report_malformed]
+    note: >-
+      The report of a run that stopped while writing it: the file ends right after the open tag of
+      the one failing test, before its `<failure>`. Not XML — and 1.5.1 TypeScript read it as far as
+      it went, found every test, the failing one with no failure under it, and passed check 2.
+
+  - dir: report-doctype
+    check: 2
+    expect: fail
+    codes: [report_malformed]
+    note: >-
+      The green report with a DOCTYPE in front. JUnit reports carry none, and the entities of one
+      are what the expansion attacks are made of, so both implementations refuse it rather than
+      each limit them its own way (1.5.2).
+
+  - dir: report-escaped
+    check: 2
+    expect: pass
+    codes: []
+    note: >-
+      The green report with 1 100 escaped quotes in a test's output, and a test name written with
+      character references (`retry_joins_&#101;xisting_&#x6A;ob`). 1.5.1 TypeScript refused the
+      report past 1 000 escapes, and kept `&#101;` as six characters, so that name matched nothing.
+
   # ── check 3 — no inflated maturity ───────────────────────────────────────────────────────────
 
   - dir: evidence-path-missing

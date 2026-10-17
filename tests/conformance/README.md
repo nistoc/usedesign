@@ -118,9 +118,9 @@ how a fork begins.
 | `test_failing` | error | The named test ran and failed. For a parametrised family, one failing case is enough |
 | `test_skipped` | error | The named test was skipped. Louder than absent on purpose: a skipped test keeps its name |
 | `step_unproven` | error | A step with neither a test nor a declared gap. A warning when no report is available, an error when one is |
-| `report_missing` | error | No report. Check 2 is then **not run**, never passed |
+| `report_missing` | error | No report, or a path that cannot be read as a file. Check 2 is then **not run**, never passed |
 | `report_empty` | error | A report with zero cases — a failed run, not a suite without tests |
-| `report_malformed` | error | The report is not parseable XML |
+| `report_malformed` | error | The report is not well-formed XML — a run that stopped while writing it leaves such a file — or it declares a DOCTYPE |
 
 ### Check 3 — comparing a maturity claim against its evidence
 

@@ -101,6 +101,7 @@ the whole family passes — but it means a single flaky case marks a step unprov
 | `step_unproven` | error | A step with neither a test nor a declared gap. Today a warning from the card alone; with a report it becomes an error |
 | `report_missing` | error | No report. Check 2 is then **not run**, never passed |
 | `report_empty` | error | A report with zero test cases — a failed run, not a suite without tests |
+| `report_malformed` | error | The report is not well-formed XML, or declares a DOCTYPE. A run that stopped while writing its report leaves such a file; read as far as it went, it would show the test cut before its `<failure>` as passed |
 
 ### The rule that did not survive its own example set
 

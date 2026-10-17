@@ -21,7 +21,7 @@ import re
 import sys
 from datetime import date, datetime, timezone
 from typing import Any
-from xml.etree import ElementTree
+from xml.parsers import expat
 
 try:
     import yaml
@@ -481,6 +481,50 @@ class TestCase:
         return f"{self.classname}.{self.name}" if self.classname else self.name
 
 
+class _Doctype(Exception):
+    pass
+
+
+def read_report(data: bytes) -> list[TestCase] | str:
+    """The test cases of a report, as the reference reads them: a `testcase` element in no namespace,
+    at any depth, in document order; its `classname` and `name`; and its status from its own
+    children — `failure` or `error` fails it, `skipped` skips it, in any letter case, and the last of
+    them decides. A DOCTYPE is refused, as the reference refuses it (1.5.2): JUnit reports carry
+    none, and the ElementTree reader of 1.5.1 expanded its entities. The message no longer names
+    expat's reason and position, which the reference's parser words differently."""
+    parser = expat.ParserCreate(namespace_separator=" ")
+    cases: list[TestCase] = []
+    open_: list[TestCase | None] = []
+
+    def start(tag, attributes):
+        parent = open_[-1] if open_ else None
+        if parent is not None:
+            local = tag.lower()
+            if local in ("failure", "error"):
+                parent.status = "failed"
+            elif local == "skipped":
+                parent.status = "skipped"
+        own = None
+        if tag == "testcase":
+            own = TestCase(attributes.get("classname", ""), attributes.get("name", ""), "passed")
+            cases.append(own)
+        open_.append(own)
+
+    def doctype(*_):
+        raise _Doctype
+
+    parser.StartElementHandler = start
+    parser.EndElementHandler = lambda tag: open_.pop()
+    parser.StartDoctypeDeclHandler = doctype
+    try:
+        parser.Parse(data, True)
+    except _Doctype:
+        return "doctype"
+    except expat.ExpatError:
+        return "malformed"
+    return cases
+
+
 def load_report(config: dict, base: str) -> tuple[list[TestCase], list[Finding]]:
     location = config.get("test_report")
     if not location:
@@ -491,22 +535,19 @@ def load_report(config: dict, base: str) -> tuple[list[TestCase], list[Finding]]
     path = os.path.join(base, location)
     if not os.path.exists(path):
         return [], [Finding("report_missing", f"{location} does not exist")]
+    # A directory or a file without read permission stopped this run with a traceback (1.5.1).
+    why = why_unreadable(path)
+    if why:
+        return [], [Finding("report_missing", f"{location} cannot be read: {why}")]
 
-    try:
-        root = ElementTree.parse(path).getroot()
-    except ElementTree.ParseError as exc:
-        return [], [Finding("report_malformed", f"{location}: {exc}")]
-
-    cases: list[TestCase] = []
-    for node in root.iter("testcase"):
-        status = "passed"
-        for child in node:
-            tag = child.tag.lower()
-            if tag in ("failure", "error"):
-                status = "failed"
-            elif tag == "skipped":
-                status = "skipped"
-        cases.append(TestCase(node.get("classname", ""), node.get("name", ""), status))
+    with open(path, "rb") as handle:
+        cases = read_report(handle.read())
+    if cases == "doctype":
+        return [], [Finding("report_malformed", f"{location}: a DOCTYPE — a JUnit report has none, and check 2 reads none")]
+    if cases == "malformed":
+        return [], [Finding(
+            "report_malformed",
+            f"{location}: not well-formed XML — a run that stopped while writing its report leaves such a file")]
 
     if not cases:
         return cases, [Finding(
