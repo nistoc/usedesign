@@ -12,12 +12,13 @@ What `validate` does with the paths it is given, and which files `validate`, `ch
 - A card with a byte-order mark before its front matter (made by the script) is read as any other.
 - `cards/` and `forms/` together: the contract calls `sample.session.finsh`, a typo no card
   describes — `form_calls_undescribed`, a warning (issue #13). `forms/` alone says nothing about it.
-- Seven cases of the checks corpus (`tests/conformance/checks/cases/form-card-*`), each a contract
+- The `form-card-*` cases of the checks corpus (`tests/conformance/checks/cases/`), each a contract
   and the cards it calls, read by `validate` as check 5 reads them (round 31): a card that describes
-  screens and misses the contract's screen is `form_screen_not_in_card`, one whose `control` does not
-  name the contract's control as a word of its own is `form_control_not_in_card` — warnings both,
-  the step named in a chain. A card that describes no screen, and a family of controls, are not
-  compared; the contract alone says nothing.
+  screens and misspells the contract's screen — another letter case, two letters off or fewer
+  (tools 1.7.1) — is `form_screen_not_in_card`, one whose `control` does not name the contract's
+  control as a word of its own is `form_control_not_in_card` — warnings both, the step named in a
+  chain. A card that describes no screen, a screen named another way (`Session`, three letters
+  off), and a family of controls are not compared; the contract alone says nothing.
 - `cards-empty.config.yaml` declares `cards: []` — `check` reports `no_cards_found` in both
   implementations.
 - Which files both implementations collect (1.4.2), each input made by the script beside a copy of

@@ -952,7 +952,26 @@ def anchor_or_family(line: dict, literal_key: str, pattern_key: str, where: str,
 # ── the card names the screen that calls it (round 31) ─────────────────────────────────────────
 # A contract's `calls` names the operation a control runs; the operation's card names, in each `ui`
 # interface, the screen it is called from and the control. Read from the contract's side: a card
-# naming a screen no control calls is often right. See the TypeScript twin.
+# naming a screen no control calls is often right. Tools 1.7.1: a screen is held to the contract only
+# when the card misspelt it — another letter case, or two letters off or fewer; a name further off
+# is another naming, and nothing is compared. See the TypeScript twin.
+
+def _edit_distance(a: str, b: str) -> int:
+    """Letters added, dropped or changed to turn `a` into `b`, counted by code point."""
+    row = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        nxt = [i]
+        for j, cb in enumerate(b, 1):
+            nxt.append(min(row[j] + 1, nxt[j - 1] + 1, row[j - 1] + (ca != cb)))
+        row = nxt
+    return row[-1]
+
+
+def near_screen(card_screen: str, contract_screen: str) -> bool:
+    """The card's screen reads as a slip for the contract's: another letter case, or two letters
+    off or fewer (tools 1.7.1)."""
+    return _edit_distance(card_screen.lower(), contract_screen.lower()) <= 2
+
 
 def _wordish(char: str | None) -> bool:
     return char is not None and (char in "-_" or unicodedata.category(char)[0] in "LMN")
@@ -975,19 +994,19 @@ def names_anchor(prose: str, anchor: str) -> bool:
 
 def screen_of_card(card: dict, op: str, screen: str, control: str):
     """Does the card of `op`, which a contract's `control` on `screen` calls, describe that screen
-    and name that control? Only a card that describes screens at all is held to it. Returns
-    (code, reason) or None."""
+    and name that control? Only a card that describes screens at all is held to it, and to another
+    screen only when it reads as a slip for the contract's. Returns (code, reason) or None."""
     shown = [(name, _map(iface)) for name, iface in _map(card.get("interfaces")).items()
              if _map(iface).get("transport") == "ui"]
     if not shown:
         return None
     here = [(name, iface) for name, iface in shown if _text(iface.get("screen")) == screen]
     if not here:
-        named = list(dict.fromkeys(s for s in (_text(iface.get("screen")) for _, iface in shown) if s))
-        if not named:
-            which = "screens without a name"
-        else:
-            which = f"the screen{'s' if len(named) > 1 else ''} " + ", ".join(f"`{s}`" for s in named)
+        near = list(dict.fromkeys(s for s in (_text(iface.get("screen")) for _, iface in shown)
+                                  if s and near_screen(s, screen)))
+        if not near:
+            return None
+        which = f"the screen{'s' if len(near) > 1 else ''} " + ", ".join(f"`{s}`" for s in near)
         return "form_screen_not_in_card", f"its card describes {which}, and not `{screen}`"
     if any(names_anchor(_text(iface.get("control")) or "", control) for _, iface in here):
         return None

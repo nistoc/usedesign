@@ -160,8 +160,34 @@ function anchorOrFamily(
 // no control calls is often right — a picture that loads by itself, a list read when the page
 // opens — and was measured to be. `control` is read as prose, so a name the text gives another
 // screen counts too (SPEC §7.5).
+//
+// Tools 1.7.1: a screen is held to the contract only when the card misspelt it. A second product
+// named screens for a person in its cards (`Account`) and by component in its contracts
+// (`AccountPage`) — another naming, not a mistake — and 1.7.0 gave 113 such warnings. A card's
+// screen that is the contract's in another letter case, or two letters off or fewer, is the slip
+// the check is for; a name further off is another naming, and nothing is compared.
 
 const WORDISH = /[\p{L}\p{M}\p{N}_-]/u;
+
+/** Letters added, dropped or changed to turn `a` into `b`, counted by code point. */
+function editDistance(a: string, b: string): number {
+  const x = [...a];
+  const y = [...b];
+  let row = Array.from({ length: y.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= x.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= y.length; j++) {
+      next[j] = Math.min(row[j]! + 1, next[j - 1]! + 1, row[j - 1]! + (x[i - 1] === y[j - 1] ? 0 : 1));
+    }
+    row = next;
+  }
+  return row[y.length]!;
+}
+
+/** The card's screen reads as a slip for the contract's: another letter case, or two letters off or fewer (tools 1.7.1). */
+export function nearScreen(cardScreen: string, contractScreen: string): boolean {
+  return editDistance(cardScreen.toLowerCase(), contractScreen.toLowerCase()) <= 2;
+}
 
 /** `anchor` stands in `prose` as a word of its own: no letter, mark, number, `-` or `_` touches it. */
 export function namesAnchor(prose: string, anchor: string): boolean {
@@ -179,17 +205,21 @@ export function namesAnchor(prose: string, anchor: string): boolean {
  * Does the card of `op`, which a contract's `control` on `screen` calls, describe that screen and
  * name that control? Only a card that describes screens at all — one `ui` interface or more — is
  * held to it: a card that has not reached its screens yet is behind, not wrong, and saying so on
- * every card would turn each contract's first run into a list of chores. Returns the finding's
- * code and its reason, or null.
+ * every card would turn each contract's first run into a list of chores. A card that describes
+ * other screens is held to it only when one of them reads as a slip for the contract's
+ * (`nearScreen`); otherwise the two sides name screens differently and nothing is compared.
+ * Returns the finding's code and its reason, or null.
  */
 export function screenOfCard(card: Card, op: string, screen: string, control: string): { code: string; reason: string } | null {
   const shown = Object.entries(map(card["interfaces"])).filter(([, iface]) => map(iface)["transport"] === "ui");
   if (shown.length === 0) return null;
   const here = shown.filter(([, iface]) => text(map(iface)["screen"]) === screen);
   if (here.length === 0) {
-    const named = [...new Set(shown.map(([, iface]) => text(map(iface)["screen"])).filter((name): name is string => !!name))];
-    const which =
-      named.length === 0 ? "screens without a name" : `the screen${named.length > 1 ? "s" : ""} ${named.map((name) => `\`${name}\``).join(", ")}`;
+    const near = [
+      ...new Set(shown.map(([, iface]) => text(map(iface)["screen"])).filter((name): name is string => !!name && nearScreen(name, screen))),
+    ];
+    if (near.length === 0) return null;
+    const which = `the screen${near.length > 1 ? "s" : ""} ${near.map((name) => `\`${name}\``).join(", ")}`;
     return { code: "form_screen_not_in_card", reason: `its card describes ${which}, and not \`${screen}\`` };
   }
   if (here.some(([, iface]) => namesAnchor(text(map(iface)["control"]) ?? "", control))) return null;

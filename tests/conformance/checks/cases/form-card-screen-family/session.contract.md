@@ -11,5 +11,5 @@ controls:
     calls: sample.session.finish
     shown_when: [active]
 ---
-A family of controls calls the operation, and the card describes another screen. A family has
+A family of controls calls the operation, and the card describes the screen misspelt. A family has
 no one name for a card to write, so round 31 compares only controls named as one anchor.

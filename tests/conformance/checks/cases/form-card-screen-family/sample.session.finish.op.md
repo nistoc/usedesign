@@ -16,7 +16,7 @@ interfaces:
   rest: { transport: http_rest, method: POST, path: "/session/{id}:finish" }
   ui:
     transport: ui
-    screen: ArchivePanel
+    screen: SessionPanl
     control: >-
       button[data-action="archive"]
     covers_steps: [s1-commit]
