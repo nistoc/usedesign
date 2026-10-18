@@ -6,10 +6,36 @@ errors under 1.0 has zero errors under every 1.x ([SPEC §8](SPEC.md)). `1.x.0` 
 `1.x.y` fixes the tools, `2.0.0` would break. A release that changes the format names its round
 in SPEC §8, where the round-by-round record is kept.
 
-`usedesign --version` prints both numbers: `usedesign 1.7.0 (SPEC v1.7)`. Releases before 1.0
+`usedesign --version` prints both numbers: `usedesign 1.7.1 (SPEC v1.7)`. Releases before 1.0
 (`0.2.0` … `0.16.0`) are tagged in this repository; the rounds that led to 1.0 are in SPEC §8.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
+
+## 1.7.1
+
+*2026-10-18 · the tools change, the format does not (SPEC v1.7)*
+
+`form_screen_not_in_card` speaks of a slip, not of another naming.
+
+- 1.7.0 compared a card's `screen` with the contract's letter for letter. A second product names a
+  screen for a person in its cards — `Account` — and by its component in its contracts —
+  `AccountPage`: 1.7.0 gave 113 warnings over 70 such pairs, none of them a mistake. Now the
+  warning stands only when one of the card's screens reads as a slip for the contract's: the same
+  name in another letter case, or two letters off or fewer, counted by code point once letter case
+  is set aside. For `SessionPanel`, `SessionPanl`, `SesionPanl` and `SESSIONPANEL` warn; `Session`
+  and `SesionPnl` do not. The warning lists the slips only (SPEC §7.5).
+- A card whose screens are all further off is passed over, its `control` too, and so is a `ui`
+  interface without a `screen` — 1.7.0 warned on it as "screens without a name". A screen renamed
+  whole on one side is not reported.
+- `form_control_not_in_card` is unchanged. On that product it found two controls a card names only
+  in its prose note, not in `control`.
+- On the same product 1.6.0 gives 77 warnings, 1.7.0 gives 192, 1.7.1 gives 79 — the 77 and those
+  two. A pilot's catalogue: no change. No new error, and no warning that 1.7.0 did not give.
+- The checks corpus has five new cases — `form-card-screen-other-naming`, `-two-off`, `-three-off`,
+  `-letter-case` and `-wide-letter`, a letter outside the Basic Multilingual Plane counted as one —
+  and two old ones, the chain and the family, now misspell the screen rather than name another, so
+  that they still tell apart an implementation that skips a step of a chain or compares a family.
+  `validate-cli/run.sh` reads that a warning lists the slips alone. 93 + 71 cases.
 
 ## 1.7.0
 
