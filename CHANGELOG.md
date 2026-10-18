@@ -6,10 +6,56 @@ errors under 1.0 has zero errors under every 1.x ([SPEC §8](SPEC.md)). `1.x.0` 
 `1.x.y` fixes the tools, `2.0.0` would break. A release that changes the format names its round
 in SPEC §8, where the round-by-round record is kept.
 
-`usedesign --version` prints both numbers: `usedesign 1.5.2 (SPEC v1.5)`. Releases before 1.0
+`usedesign --version` prints both numbers: `usedesign 1.6.0 (SPEC v1.6)`. Releases before 1.0
 (`0.2.0` … `0.16.0`) are tagged in this repository; the rounds that led to 1.0 are in SPEC §8.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
+
+## 1.6.0
+
+*2026-10-18 · SPEC v1.6 — how the text is read, written down; no round*
+
+The two implementations read the same text alike (SPEC §6). Until 1.5.2 the Python prototype read
+YAML with PyYAML, a YAML 1.1 scanner, and cut and matched text with Python's `strip()`, `\d` and
+`.`, where the reference reads with `yaml` and cuts with JavaScript's: on a tab after a colon, a
+raw U+2028 in a value, a file of CR line ends or a value that ends in U+FEFF, one of them passed a
+card the other refused, or the two printed other lines — the defect this project exists to catch.
+
+- The Python prototype reads YAML with `yaml12.py`, a port of the parse path of `yaml` 2.9.0, the
+  version the reference now pins, and needs nothing beyond the standard library. A value is the
+  same text in both, and a refusal the same words at the same line and column. PyYAML refused a
+  tab after a colon, U+2028, NEL, DEL or NUL in an unquoted value and a tag it did not know, read
+  a CR alone as a line break, read on past 100 aliases where the reference refused, each level
+  of a nested alias ten times slower, and worded each refusal its own way.
+- Four things YAML can write are refused in both as YAML that is not valid, in a card, a contract
+  or a config: a collection used as a map key, an alias inside the node it names, half of a
+  surrogate pair in a string, and collections nested deeper than 64 levels. The 1.5.2 reference
+  wrote such a key out as YAML text, returned a value that contains itself for the alias, kept the
+  half, and refused the nesting only where its stack ran out, past 700 levels; the prototype
+  stopped with a traceback on the alias, and past 400 levels.
+- An explicit tag outside the core schema — `!!set`, `!!binary`, `!!timestamp`, `!!omap` —
+  leaves the value as it reads untagged. The 1.5.2 reference made a set, bytes, a date or a map
+  of them, and its rules read each of them as a map.
+- Text is cut and matched as JavaScript does it, in both. Values are trimmed of JavaScript's white
+  space — U+FEFF is, U+0085 and U+001C–U+001F are not — where `outcomes_indistinguishable`
+  compares them, where `tested: N tests` is read, and where routes, evidence paths and
+  `variant_of.shared` are compared. A line number after `:` is the digits 0–9. An id read from a
+  block scalar ends in a line feed and is malformed in both. A family pattern's `*` and the
+  parameters of a test name run to no line terminator.
+- `check` reads a path in the config from the config's directory, and an absolute path is that
+  path; the 1.5.2 reference joined it under the directory. A `code_root` that is a file is
+  `code_root_missing`, "which is not a directory": the reference took it and found no path under
+  it. An evidence path that starts with `/` is read under `code_root`, where the prototype read it
+  from the root of the file system. The test report is read as UTF-8, whatever it declares, a byte
+  that is not UTF-8 as U+FFFD; the prototype decoded a report declared ISO-8859-1 as Latin-1, and
+  refused one with a stray byte as malformed.
+- What 1.6 refuses and 1.5 passed: front matter that holds one of the four refused things in a key
+  no rule reads — the card schema leaves unknown keys open — and a config whose `code_root` is a
+  file, where no card claims a path. None of the four is a value the format describes, and no card
+  of the corpus or the examples holds one.
+- `tests/fixtures/validate-cli/yaml.sh` holds 55 cases, and CI runs it beside `run.sh`; on 1.5.2
+  every one of them fails but the boundary, 64 levels, which 1.5.2 read too. The corpus holds
+  93 + 59 cases, as in 1.5.2.
 
 ## 1.5.2
 
