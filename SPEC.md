@@ -1135,11 +1135,11 @@ it was in 1.3, `cards:` or not.
 
 **The card names the screen that calls it** (round 31). A contract's `calls` says which operation a
 control runs; the operation's card says, in each `ui` interface, which screen calls it and from
-which control (§5.7). Until round 31 nothing compared the two: a pilot's author misspelt a screen
-in one card by a letter and a control in another, ran `validate` over the cards and the contracts
-together, and read no finding — having written the day before that `validate` must catch exactly
-that. Now a card that describes screens — one interface with `transport: ui` or more — names the
-screen of every contract whose control calls it:
+which control (§5.7). Until round 31 nothing compared the two: a pilot's backend author broke one
+card on purpose — its screen by a letter, and a control's name — to prove a check they were about
+to rely on, ran `validate` over the cards and the contracts together, and read no finding. Now a
+card that describes screens — one interface with `transport: ui` or more — names the screen of
+every contract whose control calls it:
 
 - an interface whose `screen` is the contract's `screen`, letter for letter, or
   `form_screen_not_in_card`, which lists the screens the card does describe;
@@ -1158,6 +1158,12 @@ contract designed ahead of its screen or a rendered one: a new check over fields
 - **The other direction** — a card naming a screen whose contract calls it from no control — is not
   reported. On the pilot that card was right: a picture loads by itself, and a list is read when
   the page opens.
+- **A name the prose gives another screen** counts too. `control` is read as prose, and the
+  contract's control is found wherever it stands as a word of its own — also where the text says
+  the control is the same as on another screen (`finish — as on SessionList, finish`). With such a
+  mention a misspelling in the other place passes; the pilot's catalogue has a card written so. A
+  stricter reading, the name at the start only, does not fit the cards measured: some open with
+  what the control does and name it later.
 - **A family** (`control_pattern`) has no one name for a card to write, and is not compared.
 - **`where`** is not compared (§5.7).
 
@@ -1305,7 +1311,7 @@ where the format broke:
 | 28 | **Context hid the collapse; a line number was demanded where §5.7 advised against one** — a pilot catalogue re-measured its screens and wrote where and why into every refusal: each value became unique, and refusals sharing one status line stopped being reported. Most of its step sources named files only — steps spread across a file, code that moves — and one line-numbered source it checked had drifted about 110 lines in silence; the schema refused the file-only ones (issue #12). On its 93 cards the new reading turns 33 `outcomes_indistinguishable` warnings into 47, none lost | None new. `outcomes_indistinguishable` compares the words inside «…» or “…” — case-folded and NFC-normalised, a mark part of the word before it, spans of two words of two letters or more, as a set — and falls back to the whole value; computed from the 1.2 key, it still reports every pair 1.2 reported (§5.7). `steps[].source` accepts a path alone and `path#Symbol` besides `path:line` — what §5.7 already recommended; a widening, not a break: every card with zero errors under 1.2 still has none. No new code |
 | 29 | **Protection the caller never sees, and a contract read only after its screen** — a pilot's request queue guards five writes with a conditional write on a revision the server keeps to itself, and the vocabulary offered only `none_by_design`, a label that said the opposite of the code; a contract written ahead of its screen had its `calls` read by nothing until the screen rendered (issue #13); `validate` pointed at a config, an empty directory or plain Markdown printed `0 error(s)` over nothing, and a card with a line above its front matter dropped out of the count in silence (issue #14) | One value of an existing field: `concurrency.mode: server_read_version` (§5.4) — a widening, as in round 28: every card 1.3 read with zero errors still has none. Check 5 reads the `calls` of a `designed` contract before its screen renders, `form_calls_undescribed` and `shown_when_conflicts_transition` there as warnings (§7.5); `validate` reads `calls` against the cards of the same run, a warning (§7.5). A path with nothing to validate is refused with exit 2, and a collected file whose front matter cannot be read is counted as `missing_required_field` — it carries none of the frozen required keys, so 1.3 skipping it unread was a validator accepting what this document already forbade, fixed (§6). No new code |
 | 30 | **The line among the quotes** — a pilot catalogue's refusals told a whole screen story each, what flickers, what is reread, which footer comes back, with the one line that differs quoted among buttons and statuses; and a refusal the screen cannot reach said "the same banner as unauthorized" in prose, which nothing compares | One spelling of an optional field: a `covers_outcomes` value may be a pair `{shows, where, note}`, or a list of two or more pairs (§5.7); `outcomes_indistinguishable` compares the lines of `shows`, with no floor, beside the quoted spans of text values, and never `where`. On its cards, 220 refusals rewritten as pairs turn 129 outcomes in groups into 161, no group lost. The one new error, `malformed_outcome_pair`, is about the new spelling only |
-| 31 | **The card names the screen that calls it** — a pilot's backend author misspelt a screen in one card by a letter and a control in another, ran `validate` over the cards together with the frontend's contracts and read no finding, having written the day before that `validate` must catch exactly that: nothing compared a card's `screen` and `control` with the contract calling it. On the pilot's catalogue 11 of the 12 links from a contract's control to a card held as written; the twelfth was a card not yet brought to its screen, and its author brought it there the same day | No new field. Two warnings over fields 1.0 already had, `form_screen_not_in_card` and `form_control_not_in_card` (§7.5): a card that describes screens names the screen of every contract whose control calls it, and the control as a word of its own. A card that describes no screen is not held to it, so the pilot's catalogue and this repository's corpus pass as they did. No new error |
+| 31 | **The card names the screen that calls it** — a pilot's backend author broke one card on purpose — its screen by a letter, and a control's name — to prove a check they were about to rely on, ran `validate` over the cards together with the frontend's contracts and read no finding: nothing compared a card's `screen` and `control` with the contract calling it. On the pilot's catalogue 11 of the 12 links from a contract's control to a card held as written; the twelfth was a card not yet brought to its screen, and its author brought it there the same day | No new field. Two warnings over fields 1.0 already had, `form_screen_not_in_card` and `form_control_not_in_card` (§7.5): a card that describes screens names the screen of every contract whose control calls it, and the control as a word of its own. A card that describes no screen is not held to it, so the pilot's catalogue and this repository's corpus pass as they did. No new error |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

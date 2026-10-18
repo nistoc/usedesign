@@ -32,6 +32,9 @@ compared the two: a screen misspelt by one letter in a card, or a control rename
 - Left out on purpose: a card that describes no screen (it is behind, not wrong — none of the 16
   cards of this repository's check-5 corpus describes one), a card naming a screen whose contract
   calls it from no control (a picture that loads by itself), a family of controls, and `where`.
+- `control` is read as prose: the contract's control is found wherever the text names it as a word
+  of its own, also where it says the control is the same as on another screen. With such a mention
+  a misspelling in the other place passes.
 - No new error and no new field: a card or a contract with zero errors under 1.6.0 has zero errors
   under 1.7.0. The checks corpus has seven new cases, `form-card-*`, and `validate-cli/run.sh`
   reads them with `validate`.

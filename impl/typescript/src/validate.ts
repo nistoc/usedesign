@@ -153,12 +153,13 @@ function anchorOrFamily(
 //
 // A contract's `calls` names the operation a control runs; the operation's card names, in each
 // `ui` interface, the screen it is called from and the control. Nothing compared the two until
-// round 31: a pilot's author misspelt the screen in a card by one letter, and the control in
-// another, ran `validate` over the cards and the contracts together, and read 0 errors, 0
-// warnings — having written down the day before that `validate` must catch exactly that. Read
-// from the contract's side, because the contract is where the owner says which control calls
-// what: a card naming a screen no control calls is often right — a picture that loads by
-// itself, a list read when the page opens — and was measured to be.
+// round 31: a pilot's backend author broke one card on purpose — its screen by a letter, and a
+// control's name — to prove a check they were about to rely on, ran `validate` over the cards and
+// the contracts together, and read no finding about either. Read from the contract's side,
+// because the contract is where the owner says which control calls what: a card naming a screen
+// no control calls is often right — a picture that loads by itself, a list read when the page
+// opens — and was measured to be. `control` is read as prose, so a name the text gives another
+// screen counts too (SPEC §7.5).
 
 const WORDISH = /[\p{L}\p{M}\p{N}_-]/u;
 
