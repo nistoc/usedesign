@@ -65,7 +65,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install pyyaml
       - name: Cards corpus
         run: python validate.py --conformance
       - name: Repository corpus
@@ -85,7 +84,6 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install pyyaml
       - run: npm ci && npm run build
         working-directory: impl/typescript
 
@@ -111,3 +109,8 @@ jobs:
       # is an error, and contracts validated with cards have their `calls` read against them.
       - name: validate on its paths, both implementations
         run: bash tests/fixtures/validate-cli/run.sh
+
+      # The same text, read alike: YAML both parsers read apart until 1.6.0, what the parser lets
+      # through and both refuse, and text cut and matched as JavaScript does — in both.
+      - name: the same YAML and text, both implementations
+        run: KEEP_GOING=1 bash tests/fixtures/validate-cli/yaml.sh

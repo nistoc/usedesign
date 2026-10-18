@@ -42,7 +42,10 @@ The fixture is expected to fail — two wild endpoints, three broken proofs, a m
 and no storage inventory: seven errors; [why that is the
 deliverable](../../tests/fixtures/library-service/README.md).
 
-Requires only PyYAML.
+Requires nothing beyond the standard library. Since 1.6.0 it reads YAML with
+[`yaml12.py`](yaml12.py), a port of the parser the TypeScript implementation reads with (`yaml`
+2.9.0), so both read the same text alike and refuse what they refuse in the same words. Until 1.5.2
+it read YAML with PyYAML, whose scanner read some text apart from the reference (below).
 
 ## What it does not do
 
@@ -56,9 +59,11 @@ Requires only PyYAML.
   `steps` that is not a list count as absent, and the schema names what is wrong. Both layers are
   held to the TypeScript implementation's output, line for line, on the cards of
   [`tests/fixtures/validate-cli/schema/`](../../tests/fixtures/validate-cli/schema/) by
-  [`run.sh`](../../tests/fixtures/validate-cli/run.sh) in CI. PyYAML's scanner is still PyYAML's:
-  a raw U+0085, U+2028 or U+2029 and a surrogate pair read as [SPEC §5.7](../../SPEC.md#57-interfaces)
-  says.
+  [`run.sh`](../../tests/fixtures/validate-cli/run.sh) in CI. Since 1.6.0 the text is the
+  reference's to the character — its parser, ported — and is trimmed and matched as JavaScript
+  does it; [`yaml.sh`](../../tests/fixtures/validate-cli/yaml.sh) holds each case the two read
+  apart in 1.5.2: a tab after a colon, U+2028 or NEL in a plain value, a file of CR line ends,
+  a collection used as a key, U+FEFF and NEL at the ends of a value, a digit that is not 0–9.
 - **Does not produce route inventories.** By design — see
   [`design/route-conformance.md`](../../design/route-conformance.md) §3. The inventory comes from
   the repository being checked.

@@ -12,7 +12,7 @@
  * decided, state by state, and where reality disagrees.
  */
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { resolve } from "node:path";
 import { Config, expandGlobs, readDocument } from "./core.js";
 
 interface PreviewData {
@@ -38,8 +38,8 @@ export function collectPreviewData(config: Config, base: string): PreviewData {
   let inventory: PreviewData["inventory"] = null;
   let producedBy = "";
   const location = (config as any).form_inventory as string | undefined;
-  if (location && existsSync(join(base, location))) {
-    const data = JSON.parse(readFileSync(join(base, location), "utf8"));
+  if (location && existsSync(resolve(base, location))) {
+    const data = JSON.parse(readFileSync(resolve(base, location), "utf8"));
     producedBy = data.produced_by ?? "";
     inventory = {};
     for (const form of data.forms ?? []) {

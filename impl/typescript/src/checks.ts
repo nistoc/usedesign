@@ -10,11 +10,11 @@
  *   5. the form matches its contract    SPEC §7.5
  */
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { SaxesParser } from "saxes";
 import {
-  Card, Config, Finding, expandGlobs, globMatches, isMap, list, loadCardFiles, map, maps, readDocument, refuseTwins, text, texts,
-  whyUnreadable,
+  Card, Config, Finding, expandGlobs, globMatches, isDirectory, isMap, list, loadCardFiles, map, maps, readDocument, refuseTwins, text,
+  texts, whyUnreadable,
 } from "./core.js";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
@@ -122,7 +122,10 @@ function loadInventory(config: Config, base: string): { routes: Route[]; finding
     };
   }
 
-  const path = join(base, location);
+  // A path in the config is read from the config's directory, and an absolute one is that path, as
+  // in the Python prototype; 1.5.2 joined an absolute path under the directory (1.6.0). So are the
+  // test report, `code_root` and the storage and form inventories.
+  const path = resolve(base, location);
   if (!existsSync(path)) {
     return { routes: [], findings: [new Finding("inventory_missing", `${location} does not exist`)], producedBy: "" };
   }
@@ -301,7 +304,7 @@ function loadReport(config: Config, base: string): { cases: TestCase[]; findings
     };
   }
 
-  const path = join(base, location);
+  const path = resolve(base, location);
   if (!existsSync(path)) return { cases: [], findings: [new Finding("report_missing", `${location} does not exist`)] };
   // 1.5.1 named a directory here as malformed XML, and the Python prototype stopped with a traceback.
   const why = whyUnreadable(path);
@@ -589,13 +592,15 @@ export function checkMaturity(config: Config, base: string, today = new Date()):
   const { byFull, byName } = indexReport(cases);
 
   const codeRoot = config.code_root;
-  const root = codeRoot ? join(base, codeRoot) : null;
+  const root = codeRoot ? resolve(base, codeRoot) : null;
   // A misspelt `code_root` otherwise reports every evidence path as missing from the repository,
   // which is both false and one error per card. Cascading noise is how a checker teaches people
-  // to stop reading it — say the true thing once instead.
-  if (root && !existsSync(root)) {
+  // to stop reading it — say the true thing once instead. A file is no root either: 1.5.2 took
+  // one and found no path under it, where the Python prototype refused it (1.6.0).
+  if (root && !isDirectory(root)) {
+    const what = existsSync(root) ? "which is not a directory" : "which does not exist";
     return {
-      findings: [new Finding("code_root_missing", `\`code_root\` points at \`${codeRoot}\`, which does not exist — check 3 cannot verify any path`)],
+      findings: [new Finding("code_root_missing", `\`code_root\` points at \`${codeRoot}\`, ${what} — check 3 cannot verify any path`)],
       summary: { cards: 0, paths_checked: 0, code_root: codeRoot ?? "", horizon: config.evidence_horizon_days ?? 180 },
     };
   }
@@ -726,7 +731,7 @@ export function checkStorage(config: Config, base: string): CheckResult {
     };
   }
 
-  const path = join(base, location);
+  const path = resolve(base, location);
   if (!existsSync(path)) {
     return {
       findings: [new Finding("storage_inventory_missing", `${location} does not exist`)],
@@ -963,7 +968,7 @@ export function checkForm(config: Config, base: string): CheckResult {
       summary: empty,
     };
   }
-  const inventoryPath = join(base, location);
+  const inventoryPath = resolve(base, location);
   if (!existsSync(inventoryPath)) {
     return { findings: [new Finding("form_inventory_missing", `${location} does not exist`)], summary: empty };
   }

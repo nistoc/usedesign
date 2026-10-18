@@ -359,15 +359,15 @@ agree 2 six "$scratch/six.config.yaml"; says "\`checks\` in the config must be a
 agree 2 rules "$scratch/rules.config.yaml"; says "\`exclude\` in the config must be a list of rules"
 agree 2 typo "$scratch/typo.config.yaml"; says "\`chceks\` is not a config key"
 # Past Python's 4 300 digits an integer is Infinity, as JavaScript holds it, and nesting deeper than
-# the reader's stack is not valid YAML: 1.5.0 Python ended both in a traceback with exit 1. The
-# words after the dash are the parsers' own (the reference adds a line and a column).
+# 64 levels is not valid YAML: 1.5.0 Python ended both in a traceback with exit 1, and 1.5.1–1.5.2
+# refused the nesting only where each runtime's stack ran out (1.6.0 in the same words in both).
 config huge 'checks: [3]' 'cards:' '  - real/*.op.md' "evidence_horizon_days: 1$(printf '0%.0s' $(seq 1 5000))"
 agree 2 huge "$scratch/huge.config.yaml"; says "\`evidence_horizon_days\` in the config must be an integer"
 config deep 'checks: [3]' 'cards:' '  - real/*.op.md' "x: $(printf '[%.0s' $(seq 1 3000))$(printf ']%.0s' $(seq 1 3000))"
 node "$root/impl/typescript/dist/cli.js" check "$scratch/deep.config.yaml" > "$out" 2>&1; t=$?
 python "$root/impl/python/check.py" "$scratch/deep.config.yaml" >> "$out" 2>&1; p=$?
 [ "$t" -eq 2 ] && [ "$p" -eq 2 ] || fail "deep: \`check\` exits $t in TypeScript and $p in Python, expected 2"
-[ "$(grep -c "config is not valid YAML — Maximum call stack size exceeded" "$out")" -eq 2 ] || fail "deep: not refused as YAML in both"
+[ "$(grep -c "config is not valid YAML — Collections are nested deeper than 64 levels" "$out")" -eq 2 ] || fail "deep: not refused as YAML in both"
 grep -q "Traceback" "$out" && fail "deep: \`check\` stopped in the runtime's words"
 # Routes come in the order of their `METHOD shape` (`/a` before `/a b` and `/a+b`) by UTF-16 code
 # unit (`/b😀` before `/b～`), and names that look like array indices in the order JavaScript gives

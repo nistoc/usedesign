@@ -8,7 +8,7 @@
  *   usedesign conformance          the corpora this implementation must pass
  */
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { parse as parseYaml } from "yaml";
+import { readYaml } from "./readYaml.js";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { CHECKS, checkCoverage, checkForm, checkMaturity, checkRoutes, checkStorage } from "./checks.js";
@@ -71,7 +71,7 @@ function summarise(title: string, findings: Finding[]): number {
 function isUsedesignConfig(path: string, fm: Record<string, any> | null): boolean {
   if (fm && "usedesign_config" in fm) return true;
   try {
-    const parsed = parseYaml(readFileSync(path, "utf8"));
+    const parsed = readYaml(readFileSync(path, "utf8"));
     return Boolean(parsed && typeof parsed === "object" && "usedesign_config" in parsed);
   } catch {
     return false;
@@ -337,7 +337,7 @@ function main(argv: string[]): number {
     return args.length === 0 ? 2 : 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.log(`usedesign ${version()} (SPEC v1.5)`);
+    console.log(`usedesign ${version()} (SPEC v1.6)`);
     return 0;
   }
 

@@ -23,12 +23,8 @@ from datetime import date, datetime, timezone
 from typing import Any
 from xml.parsers import expat
 
-try:
-    import yaml
-except ImportError:  # pragma: no cover
-    sys.exit("PyYAML is required: pip install pyyaml")
-
 import json_schema
+import yaml12
 from validate import (CannotRead, _list, _map, _segment, _text, cause_of, expand_globs, front_matter,
                       is_contract, utf16_order, why_unreadable)
 
@@ -64,10 +60,10 @@ def normalise(method: str, path: str) -> tuple[str, str]:
     saying :id describe the same route. See design/route-conformance.md §4, including the case
     this deliberately cannot tell apart.
     """
-    shape = PARAM.sub("{}", path.strip())
+    shape = PARAM.sub("{}", yaml12.js_trim(path))  # trimmed as the reference trims (1.6.0)
     if len(shape) > 1:
         shape = shape.rstrip("/")
-    return method.strip().upper(), shape
+    return yaml12.js_trim(method).upper(), shape
 
 
 # Every key the config may carry. Enforced at load, not merely published in the schema:
@@ -146,8 +142,12 @@ CONFIG_TYPES = [
 
 
 def family_regex(pattern: str) -> re.Pattern:
-    """A family pattern (issue #10): `*` matches any run of characters, the rest is literal."""
-    return re.compile("^" + ".*".join(re.escape(part) for part in pattern.split("*")) + "$")
+    """A family pattern (issue #10): `*` matches any run of characters, the rest is literal.
+
+    Any character but a line terminator, as JavaScript's `.` reads it, and to the very end (1.6.0):
+    Python's `.` crossed a CR, U+2028 and U+2029, and its `$` matched before a final line feed."""
+    any_run = "[^\n\r\u2028\u2029]*"
+    return re.compile("^" + any_run.join(re.escape(part) for part in pattern.split("*")) + r"\Z")
 
 
 def _field_out_of_state(contract_id: str, name: str, when, states: dict, present, findings: list) -> None:
@@ -169,19 +169,18 @@ def _field_out_of_state(contract_id: str, name: str, when, states: dict, present
 def load_config(path: str) -> tuple[dict, str]:
     """The config, read as the TypeScript twin reads it (1.5.1): YAML 1.2, a key written twice
     refused, and a refusal stops the run with exit 2. PyYAML read `030` as 24 and `1e2` as text,
-    took the last of two keys, and the refusals ended with exit 1."""
+    took the last of two keys, and the refusals ended with exit 1. Since 1.6.0 by the twin's own
+    parser, ported (yaml12.py): nesting past 64 levels is refused in the same words in both, where
+    it was the end of each runtime's stack."""
     why = why_unreadable(path)
     if why:
         raise CannotRead(f"`{path}` cannot be read — {why}")
     try:
-        with open(path, encoding="utf-8-sig", errors="replace") as handle:
-            config = json_schema.load(handle.read())
-    except yaml.YAMLError as e:
-        raise CannotRead(f"{path}: config is not valid YAML — {str(e).splitlines()[0]}") from None
-    except RecursionError:
-        # Nesting deeper than the reader's stack: the twin stops on the same file with exit 2 in
-        # these words. Here it was a traceback and exit 1 (1.5.1).
-        raise CannotRead(f"{path}: config is not valid YAML — Maximum call stack size exceeded") from None
+        # A byte-order mark is dropped there and a CR kept, alone or before a LF (1.6.0).
+        with open(path, encoding="utf-8-sig", errors="replace", newline="") as handle:
+            config = yaml12.load(handle.read())
+    except yaml12.YAMLError as e:
+        raise CannotRead(f"{path}: config is not valid YAML — {yaml12.first_line(e)}") from None
     except OSError as e:
         raise CannotRead(f"`{path}` cannot be read — {cause_of(e)}") from None
     if not isinstance(config, dict) or not (_is_integer(config.get("usedesign_config"))
@@ -250,8 +249,8 @@ def read_document(path: str):
         raise CannotRead(f"`{path}` cannot be read — {why}")
     try:
         return front_matter(path)
-    except yaml.YAMLError as e:
-        raise CannotRead(f"`{path}` front matter is not valid YAML — {str(e).splitlines()[0]}") from None
+    except yaml12.YAMLError as e:
+        raise CannotRead(f"`{path}` front matter is not valid YAML — {yaml12.first_line(e)}") from None
     except OSError as e:
         raise CannotRead(f"`{path}` cannot be read — {cause_of(e)}") from None
 
@@ -416,8 +415,8 @@ def check(config: dict, base: str) -> tuple[list[Finding], dict]:
 
 
 def run_conformance() -> int:
-    with open(os.path.join(CORPUS, "manifest.yaml"), encoding="utf-8") as handle:
-        manifest = yaml.safe_load(handle)
+    with open(os.path.join(CORPUS, "manifest.yaml"), encoding="utf-8", newline="") as handle:
+        manifest = yaml12.load(handle.read())
     passed = failed = 0
 
     for case in manifest["cases"]:
@@ -467,7 +466,7 @@ def run_conformance() -> int:
 # here the format already exists (JUnit XML), so nothing new is invented.
 # See design/step-coverage.md.
 
-PARAMETRISED = re.compile(r"[\[(].*$")   # checkout[blocked] · checkout(1) -> checkout
+PARAMETRISED = re.compile("[\\[(][^\n\r\u2028\u2029]*\\Z")   # checkout[blocked] · checkout(1) -> checkout
 
 
 class TestCase:
@@ -491,7 +490,11 @@ def read_report(data: bytes) -> list[TestCase] | str:
     children — `failure` or `error` fails it, `skipped` skips it, in any letter case, and the last of
     them decides. A DOCTYPE is refused, as the reference refuses it (1.5.2): JUnit reports carry
     none, and the ElementTree reader of 1.5.1 expanded its entities. The message no longer names
-    expat's reason and position, which the reference's parser words differently."""
+    expat's reason and position, which the reference's parser words differently.
+
+    The bytes are read as UTF-8, a byte that is not UTF-8 as U+FFFD, whatever the report declares,
+    as the reference reads it (1.6.0): given bytes, expat decoded a report declared ISO-8859-1 as
+    Latin-1 and refused one with a stray byte; given text, it reads the declaration and ignores it."""
     parser = expat.ParserCreate(namespace_separator=" ")
     cases: list[TestCase] = []
     open_: list[TestCase | None] = []
@@ -517,7 +520,7 @@ def read_report(data: bytes) -> list[TestCase] | str:
     parser.EndElementHandler = lambda tag: open_.pop()
     parser.StartDoctypeDeclHandler = doctype
     try:
-        parser.Parse(data, True)
+        parser.Parse(data.decode("utf-8", "replace"), True)
     except _Doctype:
         return "doctype"
     except expat.ExpatError:
@@ -722,7 +725,7 @@ def _inheritance(card_id: str, fm: dict, steps: list, by_step: dict, by_id: dict
         explained.update(inherits)
         return credited, explained
 
-    shared = LINE_SUFFIX.sub("", (_text(variant.get("shared")) or "").strip())
+    shared = LINE_SUFFIX.sub("", yaml12.js_trim(_text(variant.get("shared")) or ""))
     code_shared = shared in evidence_paths(_map(original.get("maturity_evidence")).get("implemented"))
     if not code_shared:
         findings.append(Finding(
@@ -767,8 +770,16 @@ def _inheritance(card_id: str, fm: dict, steps: list, by_step: dict, by_id: dict
 # See design/maturity-evidence.md.
 
 LEVELS = ["conceived", "designed", "implemented", "tested", "in_production", "deprecated"]
-LINE_SUFFIX = re.compile(r":\d+$")
+LINE_SUFFIX = re.compile(r":[0-9]+\Z")  # the digits 0–9, as JavaScript's `\d` (1.6.0)
 DEFAULT_HORIZON_DAYS = 180
+
+
+def _under(root: str, path: str) -> str:
+    """An evidence path in the repository, as the reference's `path.join` puts it there (1.6.0): a
+    path that starts at `/` starts at `code_root` too, `..` is resolved in the text, and a final
+    separator stays. `os.path.join` read `/src/x.ts` from the root of the file system."""
+    joined = os.path.normpath(root + os.sep + path)
+    return joined + os.sep if path.endswith(("/", os.sep)) else joined
 
 
 def evidence_paths(value) -> list[str]:
@@ -778,7 +789,7 @@ def evidence_paths(value) -> list[str]:
     paths: list[str] = []
     for item in values:
         for part in item.split("+"):
-            part = LINE_SUFFIX.sub("", part.strip())
+            part = LINE_SUFFIX.sub("", yaml12.js_trim(part))
             if part:
                 paths.append(part)
     return paths
@@ -798,8 +809,9 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
     # A misspelt `code_root` otherwise reports every evidence path as missing from the repository —
     # false, and one error per card. Say the true thing once instead.
     if root and not os.path.isdir(root):
+        what = "which is not a directory" if os.path.exists(root) else "which does not exist"
         return ([Finding("code_root_missing",
-                         f"`code_root` points at `{code_root}`, which does not exist — "
+                         f"`code_root` points at `{code_root}`, {what} — "
                          "check 3 cannot verify any path")],
                 {"cards": 0, "paths_checked": 0, "code_root": code_root or "", "horizon": horizon})
     # Today in UTC, as the TypeScript twin counts it (1.4.3). The local date put «N days ago» one
@@ -821,7 +833,7 @@ def check_maturity(config: dict, base: str) -> tuple[list[Finding], dict]:
         if level >= LEVELS.index("implemented") and evidence.get("implemented") and root:
             for path in evidence_paths(evidence["implemented"]):
                 checked_paths += 1
-                if not os.path.exists(os.path.join(root, path)):
+                if not os.path.exists(_under(root, path)):
                     findings.append(Finding(
                         "evidence_path_missing",
                         f"{card_id}: `{path}` is not in the repository"))

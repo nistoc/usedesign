@@ -1,7 +1,7 @@
-# Operation Card — Specification v1.5
+# Operation Card — Specification v1.6
 
-> **Status:** v1.5 — v1.0 declared 2026-09-13, rounds 26–30 added to it without breaking it; §8 says
-> what the number promises. This document
+> **Status:** v1.6 — v1.0 declared 2026-09-13, rounds 26–30 added to it without breaking it, and
+> v1.6 wrote down how its text is read (§6); §8 says what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
 > database migrations — all read from and point back to.
@@ -611,19 +611,14 @@ being reported, in silence. The rule has known limits:
   `α`, U+0301, U+0345, reads `άι` — two spellings of one character that compare apart. It takes
   polytonic Greek with the iota subscript typed before another accent; the order of rule 1 stays,
   and the conformance case `outcomes-quoted-fold-order` pins it.
-- **The two runtimes still differ at the edges, as in 1.2.** Trimming is each runtime's own:
-  Python's `strip()` also removes U+0085 and U+001C–U+001F, JavaScript's `trim()` also removes
-  U+FEFF, so a value compared whole that begins or ends with one of them is grouped differently.
-  Up to 1.4.2 the Python prototype read YAML 1.1, where a bare `no`, `off`, `1:20` or a date is
-  not text and was not compared; since 1.4.3 it resolves values as the TypeScript parser does
-  (YAML 1.2), and they are text in both. Its scanner is still PyYAML's, which reads a raw U+0085,
-  U+2028 or U+2029 as a line break: inside an unquoted value it can stop PyYAML with a
-  `ScannerError`, and the Python prototype refuses the card as front matter that is not valid YAML
-  where TypeScript reads the value. Quoting stops the refusal, but only an
-  escape in double quotes — `"\x85"`, `"\u2028"` — gives both readers the same text: inside
-  quotes PyYAML folds a raw U+0085 into a space and drops the spaces around a raw U+2028 or
-  U+2029. Write a character beyond U+FFFF as `\U0001F600`, never as a surrogate pair
-  (`\uD83D\uDE00`), which PyYAML keeps as two halves. Case folding, NFC
+- **The two runtimes read the same text since v1.6, and differ only in their Unicode tables.**
+  Until 1.5 trimming was each runtime's own — Python's `strip()` also removed U+0085 and
+  U+001C–U+001F, JavaScript's `trim()` also removes U+FEFF — and the Python prototype read YAML
+  with PyYAML's scanner, which took a raw U+0085, U+2028 or U+2029 for a line break, refused it in
+  an unquoted value, folded it inside quotes and kept a surrogate pair as two halves. Both trim as
+  JavaScript does now and read YAML with one parser (§6), so a value compared whole is grouped
+  the same way whatever it begins or ends with, and a raw U+0085 or U+2028 is the same character
+  in both. Case folding, NFC
   and the letter/mark/number test follow the runtime's Unicode tables: measured with Python 3.14
   (Unicode 16) and Node 26 (Unicode 17), the two implementations group values the same way on
   every character both tables assign; an older runtime may read a newer character as neither
@@ -884,6 +879,30 @@ card it did not read. Two cards — or two contracts — with one id stop `check
 the first, and `check` judged one of them without a word. And `check` reads a field only in the
 type the format gives it, as `validate` does: a value of another type is absent to the checks,
 and `validate` names it.
+
+**How the text is read (v1.6).** Front matter, the config and the corpus manifests are YAML 1.2
+with the core schema, and both implementations read them with one parser: the Python prototype
+runs a port of the one the reference reads with (`yaml` 2.9.0). A value is the same text in both,
+and a refusal is the same words at the same line and column — until tools 1.5.2 the prototype
+read YAML with a 1.1 scanner, which refused a tab after a colon, a raw U+2028 or NEL in an
+unquoted value and a tag it did not know, took a CR alone for a line break, and worded its
+refusals its own way. A tag outside the core schema — `!!set`, `!!binary`, `!!timestamp`,
+`!foo` — leaves the value as it reads untagged; the 1.5 reference made a set, bytes or a date of
+the first three, and its rules read each of them as a map. Four things YAML can write and a card
+has no use for are refused as front matter that is not valid YAML, in the same words in both:
+
+- a collection used as a map key — the schema validates JSON, where a key is text; the 1.5
+  reference wrote the collection out as YAML and used that as the key;
+- an alias inside the node it names (`&a [*a]`), a value that contains itself;
+- half of a surrogate pair in a string (`"\uD83D"`), which is not a character — the whole pair,
+  `"\uD83D\uDE00"`, is one, as is `"\U0001F600"`;
+- collections nested deeper than 64 levels, the front matter itself the first of them. JSON lets
+  an implementation limit the depth (RFC 8259 §9); the 1.5 tools refused only where the runtime's
+  stack ran out, the reference past 700 levels and the prototype, with a traceback, past 400.
+
+Text is cut and matched as JavaScript does it, in both: a value is trimmed of JavaScript's white
+space — U+FEFF is, U+0085 and U+001C–U+001F are not — a line number after `:` is the digits 0–9,
+and `*` in a family pattern (§7.5) runs to no line terminator.
 
 ---
 
@@ -1204,7 +1223,11 @@ unknown key, naming it and the known set. A value of another type than the schem
 `cards: 5`, an `exclude` rule that is not a map, `evidence_horizon_days: "30"` — is refused the same
 way (tools 1.5.1), naming the key and the type it needs; `null` is an absent key. So is `checks: []`
 and a number outside 1–5 there: it ran no check and passed. The config is read as YAML 1.2, a key
-written twice refused.
+written twice refused, as §6 reads front matter. A path in the config is read from the config's
+directory, and an absolute path is that path (tools 1.6.0: the 1.5 reference joined it under the
+directory). `code_root` is a directory: a file there is `code_root_missing`, as a path that does
+not exist is. A `maturity_evidence.implemented` path is in the repository, read under `code_root`
+— `/src/x.ts` too.
 
 A frontend repository may still list `cards:` — pointing at a sibling checkout of the server
 repository, which a gate performs only when it holds a read token (the starter kit shows the
@@ -1271,6 +1294,15 @@ rounds, on three stacks, in which no required field changed. From here the numbe
 
 The rounds continue; the table above keeps growing. What changed on this date is only what a
 round is allowed to do to a card that already exists.
+
+**v1.6 — how the text is read, no round (2026-10-18).** Not a measurement on foreign ground but
+the record of two readings of the implementations side by side: they read the same text apart — a
+tab after a colon, a raw U+2028, a file of CR line ends, a value that ends in U+FEFF — so one card
+passed one checker and failed the other. §6 now says how the text is read, and both read it with
+one parser. Four things YAML can write and 1.5 read are refused there — a collection as a key, an
+alias inside its own node, half of a surrogate pair, nesting past 64 levels — and none of them is
+a value this document describes; a card that 1.5 passed with one of them, in a key no rule reads,
+has an error under 1.6.
 
 ⚠️ Round 11 is the first round whose findings were mostly about **the previous round's rule**
 rather than the format. A rule written from one measurement fits that measurement: `covers_outcomes`

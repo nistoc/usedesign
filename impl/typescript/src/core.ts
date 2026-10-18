@@ -6,7 +6,7 @@
 import { closeSync, openSync, readFileSync, existsSync, lstatSync, readdirSync, realpathSync, statSync } from "node:fs";
 import type { Dirent } from "node:fs";
 import { basename, dirname, join, resolve, sep } from "node:path";
-import { parse as parseYaml } from "yaml";
+import { readYaml } from "./readYaml.js";
 
 export type Severity = "error" | "warning";
 
@@ -71,7 +71,7 @@ export function frontMatter(path: string): Card | null {
   if (!text.startsWith("---")) return null;
   const end = text.indexOf("\n---", 3);
   if (end === -1) return null;
-  const parsed = parseYaml(text.slice(3, end));
+  const parsed = readYaml(text.slice(3, end));
   return parsed && typeof parsed === "object" ? (parsed as Card) : null;
 }
 
@@ -165,7 +165,7 @@ export function loadConfig(path: string): { config: Config; base: string } {
   if (why) throw new Error(`\`${path}\` cannot be read — ${why}`);
   let config: Config;
   try {
-    config = parseYaml(readFileSync(path, "utf8").replace(/^﻿/, "")) as Config;
+    config = readYaml(readFileSync(path, "utf8").replace(/^﻿/, "")) as Config;
   } catch (e) {
     if ((e as NodeJS.ErrnoException).syscall) throw new Error(`\`${path}\` cannot be read — ${causeOf(e)}`);
     throw new Error(`${path}: config is not valid YAML — ${String((e as Error).message).split("\n")[0]}`);
@@ -211,7 +211,7 @@ function segmentToRegExp(segment: string): RegExp {
 }
 
 /** Whether `path` leads to a directory, through a link too; false where nothing can be read. */
-function isDirectory(path: string): boolean {
+export function isDirectory(path: string): boolean {
   try {
     return statSync(path).isDirectory();
   } catch {

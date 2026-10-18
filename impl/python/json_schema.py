@@ -7,9 +7,7 @@ reads the published schemas as Ajv does: the same messages, in the same order, a
 It implements the keywords the schemas use and refuses a schema with any other, so that a keyword
 added to `schema/` cannot pass here unread.
 
-The front matter is read for it as the twin reads it, as YAML 1.2: `yes` is a string and
-`2026-10-11` a string the schema's `format` judges, where PyYAML (YAML 1.1) makes a boolean and
-a date of them.
+The front matter is read for it as the twin reads it, by `yaml12` (1.6.0).
 """
 from __future__ import annotations
 
@@ -19,94 +17,12 @@ from decimal import Decimal
 import os
 import re
 
-import yaml
-
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA_DIR = os.path.join(HERE, "..", "..", "schema")
 
 
 class SchemaRefused(Exception):
     """A schema that uses what this module does not implement."""
-
-
-# ── YAML as the twin reads it ─────────────────────────────────────────────────────────────────
-#
-# The `yaml` package's core schema (YAML 1.2): these scalars are null, booleans and numbers, every
-# other plain scalar is a string — no `yes`, no dates, no `012` as octal, no `<<` merge.
-
-class _Core(yaml.SafeLoader):
-    def construct_mapping(self, node, deep=False):
-        # The twin's parser refuses a key written twice — two scalars of one value, `1` and `0x1`
-        # alike, `1` and `"1"` not; PyYAML keeps the last of them.
-        seen = set()
-        for key_node, _ in node.value:
-            if isinstance(key_node, yaml.ScalarNode):
-                key = self.construct_object(key_node)
-                kind = "null" if key is None else "bool" if isinstance(key, bool) else (
-                    "number" if isinstance(key, (int, float)) else "string")
-                if kind == "number" and math.isnan(key):
-                    continue
-                if (kind, key) in seen:
-                    mark = key_node.start_mark
-                    raise yaml.constructor.ConstructorError(
-                        None, None, f"Map keys must be unique at line {mark.line + 1}, column {mark.column + 1}:")
-                seen.add((kind, key))
-        return super().construct_mapping(node, deep)
-
-
-_Core.yaml_implicit_resolvers = {}
-_SCALARS = {}
-for _tag, _pattern, _first in [
-    ("null", r"^(?:~|[Nn]ull|NULL)?$", ["~", "n", "N", ""]),
-    ("bool", r"^(?:[Tt]rue|TRUE|[Ff]alse|FALSE)$", list("tTfF")),
-    ("int", r"^(?:0o[0-7]+|[-+]?[0-9]+|0x[0-9a-fA-F]+)$", list("-+0123456789")),
-    ("float", r"^(?:[-+]?\.(?:inf|Inf|INF)|\.nan|\.NaN|\.NAN"
-              r"|[-+]?(?:\.[0-9]+|[0-9]+(?:\.[0-9]*)?)[eE][-+]?[0-9]+"
-              r"|[-+]?(?:\.[0-9]+|[0-9]+\.[0-9]*))$", list("-+.0123456789")),
-]:
-    _SCALARS[_tag] = re.compile(_pattern)
-    _Core.add_implicit_resolver(f"tag:yaml.org,2002:{_tag}", _SCALARS[_tag], _first)
-
-
-def _tagged(kind: str, construct):
-    """A scalar under an explicit tag whose text is not of that kind — `!!float 1`, `!!int 1.5`,
-    `!!bool yes` — stays the text, as the twin's parser leaves it with an "Unresolved tag" warning
-    (1.4.3). PyYAML made `!!float 1` the number 1.0, and stopped the run on `!!int 1.5`."""
-    def construct_kind(loader, node):
-        text = loader.construct_scalar(node)
-        return construct(loader, node) if _SCALARS[kind].match(text) else text
-    return construct_kind
-
-
-def _int(loader, node):
-    text = loader.construct_scalar(node)
-    try:
-        value = int(text[2:], 8) if text.startswith("0o") else int(text[2:], 16) if text.startswith("0x") else int(text)
-    except ValueError:
-        # Past Python's 4 300 digits for int(): far past a double, so Infinity, as the twin holds
-        # it. The run ended in a traceback (1.5.1).
-        return float(text)
-    if abs(value) <= 2 ** 53:
-        return value
-    # A JavaScript number is a double: past 2^53 an integer is rounded, past ~1.8e308 it is Infinity.
-    try:
-        return float(value)
-    except OverflowError:
-        return -math.inf if value < 0 else math.inf
-
-
-def _float(loader, node):
-    text = loader.construct_scalar(node)
-    if text.lstrip("+-").lower() == ".inf":
-        return -math.inf if text.startswith("-") else math.inf
-    return math.nan if text.lower() == ".nan" else float(text)
-
-
-_Core.add_constructor("tag:yaml.org,2002:int", _tagged("int", _int))
-_Core.add_constructor("tag:yaml.org,2002:float", _tagged("float", _float))
-_Core.add_constructor("tag:yaml.org,2002:bool", _tagged(
-    "bool", lambda loader, node: loader.construct_scalar(node).lower() == "true"))
-_Core.add_constructor("tag:yaml.org,2002:null", _tagged("null", lambda loader, node: None))
 
 
 def js_string(value) -> str:
@@ -148,20 +64,6 @@ def _js_number(value: float) -> str:
     if -6 < n <= 0:
         return sign + "0." + "0" * -n + digits
     return sign + digits[0] + ("." + digits[1:] if k > 1 else "") + f"e{'+' if n > 0 else '-'}{abs(n - 1)}"
-
-
-def _plain(value):
-    """Mappings with string keys, as a JavaScript object has them."""
-    if isinstance(value, dict):
-        return {("" if key is None else js_string(key)): _plain(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_plain(item) for item in value]
-    return value
-
-
-def load(text: str):
-    """The front matter as the twin's YAML parser gives it."""
-    return _plain(yaml.load(text, Loader=_Core))
 
 
 # ── The schema ────────────────────────────────────────────────────────────────────────────────

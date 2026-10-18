@@ -22,12 +22,8 @@ import re
 import sys
 import unicodedata
 
-try:
-    import yaml
-except ImportError:  # pragma: no cover
-    sys.exit("PyYAML is required: pip install pyyaml")
-
 import json_schema
+import yaml12
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -43,8 +39,10 @@ TRANSPORTS = ["http_rest", "json_rpc", "in_process", "ui"]
 TEST_LEVELS = ["unit", "integration", "ui", "contract"]
 GAP_KINDS = ["unwritten", "harness", "unreachable"]
 
-OPERATION_ID = re.compile(r"^[a-z0-9]+(\.[a-z0-9-]+){2,}$")
-STEP_ID = re.compile(r"^s[0-9]+-[a-z0-9-]+$")
+# `\Z`, not `$`: Python's `$` also matches before a final line feed, which an id read from a block
+# scalar (`id: |`) ends with; JavaScript's does not (1.6.0).
+OPERATION_ID = re.compile(r"^[a-z0-9]+(\.[a-z0-9-]+){2,}\Z")
+STEP_ID = re.compile(r"^s[0-9]+-[a-z0-9-]+\Z")
 
 EVIDENCE_FOR = {  # maturity level -> evidence key it must carry
     "implemented": "implemented",
@@ -103,15 +101,14 @@ class Finding:
 def front_matter(path: str):
     """Return the parsed YAML front matter, or None if the file has none.
 
-    Read as the TypeScript twin reads it — YAML 1.2, numbers as JavaScript holds them, a key
-    written twice refused — for the rules as for the schema (1.4.3). The rules read YAML 1.1 here:
-    `yes` and `on` were booleans, an unquoted date a date, `!!float 1` the number 1.0, while the
-    twin read the text.
+    Read by the twin's own parser, ported (yaml12.py, 1.6.0): the same values, and the same errors
+    with the same line and column. PyYAML read a tab after a colon, U+2028 in a plain scalar and a
+    file whose lines end in CR alone otherwise than the twin, and refused in other words.
     """
     text = front_matter_text(path)
     if text is None:
         return None
-    return json_schema.load(text)
+    return yaml12.load(text)
 
 
 def is_contract(fm: dict) -> bool:
@@ -124,8 +121,10 @@ def is_contract(fm: dict) -> bool:
 def front_matter_text(path: str):
     """The YAML between the fences, or None if the file has none."""
     # A byte-order mark must not decide whether a card parses, and bytes that are not UTF-8 must
-    # not crash the run: read as the TypeScript twin reads (round 29).
-    text = open(path, encoding="utf-8-sig", errors="replace").read()
+    # not crash the run: read as the TypeScript twin reads (round 29). CRLF is LF there, and a CR
+    # alone stays a CR; Python's universal newlines made it a line break (1.6.0).
+    with open(path, encoding="utf-8-sig", errors="replace", newline="") as handle:
+        text = handle.read().replace("\r\n", "\n")
     if not text.startswith("---"):
         return None
     end = text.find("\n---", 3)
@@ -142,8 +141,8 @@ def schema_findings(path: str, form: bool = False) -> list[Finding]:
     here. Front matter the twin's YAML cannot read is its business, not the schema's.
     """
     try:
-        data = json_schema.load(front_matter_text(path) or "")
-    except yaml.YAMLError:
+        data = yaml12.load(front_matter_text(path) or "")
+    except yaml12.YAMLError:
         return []
     if not isinstance(data, dict):
         return []
@@ -446,7 +445,7 @@ def shown_key(value: str) -> tuple:
     normalising only add matches). A set of spans never equals a whole value: the two keys are
     tagged apart.
     """
-    folded = unicodedata.normalize("NFC", value.strip().casefold())
+    folded = unicodedata.normalize("NFC", yaml12.js_trim(value).casefold())
     kept = set()
     for span in quoted_spans(folded):
         words = shown_words(span)
@@ -474,7 +473,7 @@ def line_key(shows: str) -> str:
     """One line of a pair: rules 1 and 3, with no floor — `shows` is the line by declaration, and
     the floor exists only to tell a message from a button quoted beside it. A line with no word
     left, such as a lone ✓, is compared as rule 1 leaves it."""
-    folded = unicodedata.normalize("NFC", shows.strip().casefold())
+    folded = unicodedata.normalize("NFC", yaml12.js_trim(shows).casefold())
     words = shown_words(folded)
     return " ".join(words) if words else folded
 
@@ -585,7 +584,7 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         said = json_schema.js_string(tested_prose)
         stale = tested_prose != len(tests)
     elif isinstance(tested_prose, str):
-        tested_match = re.match(r"\s*([0-9]+)", tested_prose)
+        tested_match = re.match("[" + re.escape(yaml12.JS_SPACE) + "]*([0-9]+)", tested_prose)
         if tested_match:
             said = tested_match.group(1)
             stale = int(said) != len(tests)
@@ -674,9 +673,10 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         shared = variant.get("shared")
         if "implemented" in evidence and isinstance(shared, str):
             items = implemented if isinstance(implemented, list) else [implemented]
-            own = [re.sub(r":\d+$", "", part.strip())
+            # Trimmed as JavaScript trims, and `:N` with the digits 0–9 only, as there (1.6.0).
+            own = [re.sub(r":[0-9]+\Z", "", yaml12.js_trim(part))
                    for item in items if isinstance(item, str) for part in item.split("+")]
-            shared = re.sub(r":\d+$", "", shared.strip())
+            shared = re.sub(r":[0-9]+\Z", "", yaml12.js_trim(shared))
             if shared not in own:
                 err("variant_shared_not_implemented",
                     f"`variant_of.shared` `{shared}` is not in this card's `maturity_evidence.implemented`")
@@ -1177,7 +1177,9 @@ def is_usedesign_config(path: str, fm) -> bool:
     if isinstance(fm, dict) and "usedesign_config" in fm:
         return True
     try:
-        parsed = yaml.safe_load(open(path, encoding="utf-8-sig", errors="replace"))
+        # The whole file, as the twin reads it: a byte-order mark is the parser's business there.
+        with open(path, encoding="utf-8", errors="replace", newline="") as handle:
+            parsed = yaml12.load(handle.read())
     except Exception:
         return False
     return isinstance(parsed, dict) and "usedesign_config" in parsed
@@ -1195,8 +1197,8 @@ def read_front(path: str):
         return None, f"cannot be read — {why}"
     try:
         fm = front_matter(path)
-    except yaml.YAMLError as e:
-        return None, f"front matter is not valid YAML — {str(e).splitlines()[0]}"
+    except yaml12.YAMLError as e:
+        return None, f"front matter is not valid YAML — {yaml12.first_line(e)}"
     except OSError as e:
         return None, f"cannot be read — {cause_of(e)}"
     if isinstance(fm, list):
@@ -1303,7 +1305,8 @@ def run_files(paths: list[str], with_schema: bool = True) -> int:
 
 
 def run_conformance(with_schema: bool = True) -> int:
-    manifest = yaml.safe_load(open(os.path.join(CORPUS, "manifest.yaml"), encoding="utf-8"))
+    with open(os.path.join(CORPUS, "manifest.yaml"), encoding="utf-8", newline="") as handle:
+        manifest = yaml12.load(handle.read())
     passed = failed = 0
 
     for case in manifest["cases"]:
