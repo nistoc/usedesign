@@ -84,7 +84,7 @@ which is exactly why migrations end up orphaned everywhere else.
 
 ## Status
 
-**The format is SPEC v1.7; the tools are 1.7.0.** Since v1.0, declared 13 September 2026, the
+**The format is SPEC v1.7; the tools are 1.7.1.** Since v1.0, declared 13 September 2026, the
 format has been under one promise: the required keys of a card are frozen, so a card with zero
 errors under 1.0 has zero errors under every 1.x. A round adds optional fields, optional artifact
 kinds and new codes, and a new check on existing fields arrives as a warning; renaming or removing
@@ -93,7 +93,7 @@ follows the format — `1.x.0` adds, `1.x.y` fixes, `2.0.0` breaks. v1.6 wrote d
 a card is read, which both implementations now read alike; it refuses four things YAML can write
 and a card has no use for, so a card that 1.5 passed with one of them in a key no rule reads has an
 error under 1.6 ([SPEC §8](SPEC.md)). v1.7 compares the screen and the control a card names with
-the contract that calls it, and reports a mismatch as a warning. The package is published to npm
+the contract that calls it, and reports a misspelt screen or an unnamed control as a warning. The package is published to npm
 with build provenance.
 
 Thirty-one rounds of hardening stand behind it, eight of them driven by a pilot on a real product. The
