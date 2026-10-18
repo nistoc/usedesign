@@ -6,10 +6,35 @@ errors under 1.0 has zero errors under every 1.x ([SPEC §8](SPEC.md)). `1.x.0` 
 `1.x.y` fixes the tools, `2.0.0` would break. A release that changes the format names its round
 in SPEC §8, where the round-by-round record is kept.
 
-`usedesign --version` prints both numbers: `usedesign 1.6.0 (SPEC v1.6)`. Releases before 1.0
+`usedesign --version` prints both numbers: `usedesign 1.7.0 (SPEC v1.7)`. Releases before 1.0
 (`0.2.0` … `0.16.0`) are tagged in this repository; the rounds that led to 1.0 are in SPEC §8.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
+
+## 1.7.0
+
+*2026-10-18 · SPEC v1.7 — round 31: the card names the screen that calls it*
+
+A form contract's `calls` says which operation a control runs, and the operation's card says, in
+each `ui` interface, which screen it is called from and from which control. Until 1.6.0 nothing
+compared the two: a screen misspelt by one letter in a card, or a control renamed in it, passed
+`validate` over the cards and the contracts together, and `check` alike (SPEC §7.5, round 31).
+
+- Two warnings, wherever cards and contracts meet — `validate` over both, and check 5 with
+  `cards:`, for a contract designed ahead of its screen and for a rendered one:
+  - `form_screen_not_in_card` — a card that describes screens describes none that a contract's
+    control calls it from; the warning lists the screens the card does describe, so a misspelling
+    is in view. Screens are compared letter for letter.
+  - `form_control_not_in_card` — the card describes the screen, and no `control` there names the
+    contract's control as a word of its own: `button[data-action="finish"]` names `finish`,
+    `finish-all` and `finished` do not.
+- Every operation of a chain is compared, and the warning names its step.
+- Left out on purpose: a card that describes no screen (it is behind, not wrong — none of the 16
+  cards of this repository's check-5 corpus describes one), a card naming a screen whose contract
+  calls it from no control (a picture that loads by itself), a family of controls, and `where`.
+- No new error and no new field: a card or a contract with zero errors under 1.6.0 has zero errors
+  under 1.7.0. The checks corpus has seven new cases, `form-card-*`, and `validate-cli/run.sh`
+  reads them with `validate`.
 
 ## 1.6.0
 
