@@ -34,8 +34,9 @@ a day.
 - The checks corpus has six new cases — `form-card-screen-other-naming`, `-two-off`, `-three-off`,
   `-letter-case`, `-wide-letter`, a letter outside the Basic Multilingual Plane counted as one, and
   `-unnamed`, a `ui` without a screen while the contract's screen stands on the card's `rest`
-  interface, where it is not a screen the card shows — and two old ones, the chain and the family, now misspell the screen rather than name another, so
-  that they still tell apart an implementation that skips a step of a chain or compares a family.
+  interface, where it is not a screen the card shows — and two old ones, the chain and the family,
+  now misspell the screen rather than name another, so that they still tell apart an
+  implementation that skips a step of a chain or compares a family.
   `validate-cli/run.sh` reads that a warning lists the slips alone. 93 + 72 cases.
 
 ## 1.7.0
