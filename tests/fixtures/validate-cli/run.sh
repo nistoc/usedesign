@@ -140,6 +140,23 @@ for impl in ts py; do
   expect 0 "${v[@]}" forms
   grep -q form_calls_undescribed "$out" && fail "contracts alone must not report form_calls_undescribed"
 
+  # A card that describes screens names the screen of every contract calling it, and the control
+  # (round 31) — read by `validate` over one run's cards and contracts as check 5 reads it.
+  form_cases="$root/tests/conformance/checks/cases"
+  for quiet in form-card-screen-named form-card-no-screens form-card-screen-family; do
+    expect 0 "${v[@]}" "$form_cases/$quiet"
+    grep -q "_not_in_card" "$out" && fail "$quiet: the card is not held to this contract, and the comparison spoke"
+  done
+  expect 0 "${v[@]}" "$form_cases/form-card-screen-not-in-card"
+  says "form_screen_not_in_card: control \`finish\` calls \`sample.session.finish\`: its card describes the screens \`SessionPanl\`, \`sessionPanel\`, and not \`SessionPanel\`"
+  expect 0 "${v[@]}" "$form_cases/form-card-control-not-named"
+  says "form_control_not_in_card: control \`finish\` calls \`sample.session.finish\`: its card describes \`SessionPanel\` in \`ui\`, and no \`control\` there names \`finish\`"
+  expect 0 "${v[@]}" "$form_cases/form-card-screen-chain"
+  says "calls \`sample.session.archive\` (step 2 of 2): its card describes the screen \`ArchivePanel\`, and not \`SessionPanel\`"
+  # The contract without its card has nothing to compare with.
+  expect 0 "${v[@]}" "$form_cases/form-card-screen-not-in-card/session.contract.md"
+  grep -q form_screen_not_in_card "$out" && fail "a contract alone must not report form_screen_not_in_card"
+
   # `cards: []` is a declared glob that matched nothing, in both implementations.
   expect 0 "${c[@]}" cards-empty.config.yaml; says "no_cards_found"
 

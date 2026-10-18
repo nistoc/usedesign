@@ -178,6 +178,8 @@ function commandValidate(paths: string[], withSchema: boolean): number {
     new Set(documents.map(({ fm }) => fm["id"]).filter((id): id is string => typeof id === "string"));
   const known = idsOf(cards);
   const knownForms = idsOf(forms);
+  const cardsById = new Map<string, Record<string, any>>();
+  for (const { fm } of cards) if (typeof fm["id"] === "string") cardsById.set(fm["id"], fm);
   // By id as String() writes it, then by path.
   const before = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   const inOrder = (documents: Doc[]) =>
@@ -195,7 +197,7 @@ function commandValidate(paths: string[], withSchema: boolean): number {
     show(path, [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known)]);
   }
   for (const { path, fm } of inOrder(forms)) {
-    show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms, cards.length > 0 ? known : null)]);
+    show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms, cards.length > 0 ? known : null, cards.length > 0 ? cardsById : null)]);
   }
   console.log(
     `\n${cards.length + unreadable.length - unreadableForms} card(s), ${forms.length + unreadableForms} form contract(s): ` +
@@ -337,7 +339,7 @@ function main(argv: string[]): number {
     return args.length === 0 ? 2 : 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.log(`usedesign ${version()} (SPEC v1.6)`);
+    console.log(`usedesign ${version()} (SPEC v1.7)`);
     return 0;
   }
 

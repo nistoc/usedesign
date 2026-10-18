@@ -16,6 +16,7 @@ import {
   Card, Config, Finding, expandGlobs, globMatches, isDirectory, isMap, list, loadCardFiles, map, maps, readDocument, refuseTwins, text,
   texts, whyUnreadable,
 } from "./core.js";
+import { screenOfCard } from "./validate.js";
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"];
 
@@ -887,6 +888,7 @@ function fieldOutOfState(
  */
 function judgeCalls(
   contractId: string,
+  screen: string,
   name: string,
   control: any,
   shownWhen: string[] | undefined,
@@ -909,6 +911,18 @@ function judgeCalls(
   for (const [step, later] of chain.entries()) {
     if (step > 0 && !cardById.has(later)) {
       findings.push(new Finding("form_calls_undescribed", `${contractId}: control \`${name}\` calls \`${later}\` (step ${step + 1} of ${chain.length}), which no card describes`, "warning"));
+    }
+  }
+  // Round 31: every card the chain has describes this screen and names this control, if it
+  // describes screens at all — a warning on both paths, a new check over fields 1.x had (§8). A
+  // family (`control_pattern`) has no one name for a card to write.
+  const literal = text(control?.control);
+  if (screen && literal) {
+    for (const [step, op] of chain.entries()) {
+      const card = cardById.get(op);
+      const found = card ? screenOfCard(card, op, screen, literal) : null;
+      const where = chain.length > 1 ? ` (step ${step + 1} of ${chain.length})` : "";
+      if (found) findings.push(new Finding(found.code, `${contractId}: control \`${literal}\` calls \`${op}\`${where}: ${found.reason}`, "warning"));
     }
   }
   if (chain.length === 0) return;
@@ -1056,7 +1070,7 @@ export function checkForm(config: Config, base: string): CheckResult {
         if ((config as any).cards) {
           for (const control of maps(fm["controls"])) {
             const name = text(control["control_pattern"]) || text(control["control"]) || "";
-            judgeCalls(contractId, name, control, statesOf(control["shown_when"]), dataOf, cardById, findings, "warning");
+            judgeCalls(contractId, screen, name, control, statesOf(control["shown_when"]), dataOf, cardById, findings, "warning");
           }
         }
       } else {
@@ -1160,7 +1174,7 @@ export function checkForm(config: Config, base: string): CheckResult {
         findings.push(new Finding("control_missing", `${contractId}: control \`${name}\` appears in no state at all`));
       }
 
-      judgeCalls(contractId, name, control, shownWhen, dataOf, cardById, findings, "error");
+      judgeCalls(contractId, screen, name, control, shownWhen, dataOf, cardById, findings, "error");
     }
 
     for (const entry of maps(fm["removed"])) {

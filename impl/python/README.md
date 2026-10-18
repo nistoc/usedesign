@@ -90,8 +90,8 @@ README explains the first of them. Warnings are advisory and never fail a run:
 `validate.py` reports more warnings than these three — on cards `tested_count_mismatch`,
 `concurrency_unexplained`, `violation_with_success_status`, `outcome_unshown`,
 `default_success_uncovered`, `outcomes_indistinguishable` and `reversibility_overstated`, on form
-contracts `undescribed_form` and `form_calls_undescribed`; [SPEC](../../SPEC.md) says what each
-one means.
+contracts `undescribed_form`, `form_calls_undescribed`, `form_screen_not_in_card` and
+`form_control_not_in_card`; [SPEC](../../SPEC.md) says what each one means.
 
 Running it over the example cards yields three `undescribed_counterpart` warnings and no errors —
 the counterpart operations are deliberately outside the example set.

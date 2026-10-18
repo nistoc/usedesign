@@ -949,11 +949,59 @@ def anchor_or_family(line: dict, literal_key: str, pattern_key: str, where: str,
     return literal or pattern or None
 
 
+# ── the card names the screen that calls it (round 31) ─────────────────────────────────────────
+# A contract's `calls` names the operation a control runs; the operation's card names, in each `ui`
+# interface, the screen it is called from and the control. Read from the contract's side: a card
+# naming a screen no control calls is often right. See the TypeScript twin.
+
+def _wordish(char: str | None) -> bool:
+    return char is not None and (char in "-_" or unicodedata.category(char)[0] in "LMN")
+
+
+def names_anchor(prose: str, anchor: str) -> bool:
+    """`anchor` stands in `prose` as a word of its own: no letter, mark, number, `-` or `_` touches it."""
+    if not anchor:
+        return False
+    at = prose.find(anchor)
+    while at != -1:
+        before = prose[at - 1] if at > 0 else None
+        end = at + len(anchor)
+        after = prose[end] if end < len(prose) else None
+        if not _wordish(before) and not _wordish(after):
+            return True
+        at = prose.find(anchor, at + 1)
+    return False
+
+
+def screen_of_card(card: dict, op: str, screen: str, control: str):
+    """Does the card of `op`, which a contract's `control` on `screen` calls, describe that screen
+    and name that control? Only a card that describes screens at all is held to it. Returns
+    (code, reason) or None."""
+    shown = [(name, _map(iface)) for name, iface in _map(card.get("interfaces")).items()
+             if _map(iface).get("transport") == "ui"]
+    if not shown:
+        return None
+    here = [(name, iface) for name, iface in shown if _text(iface.get("screen")) == screen]
+    if not here:
+        named = list(dict.fromkeys(s for s in (_text(iface.get("screen")) for _, iface in shown) if s))
+        if not named:
+            which = "screens without a name"
+        else:
+            which = f"the screen{'s' if len(named) > 1 else ''} " + ", ".join(f"`{s}`" for s in named)
+        return "form_screen_not_in_card", f"its card describes {which}, and not `{screen}`"
+    if any(names_anchor(_text(iface.get("control")) or "", control) for _, iface in here):
+        return None
+    where = ", ".join(f"`{name}`" for name, _ in here)
+    return ("form_control_not_in_card",
+            f"its card describes `{screen}` in {where}, and no `control` there names `{control}`")
+
+
 def validate_form(fm: dict, filename: str = "",
                   known_forms: set[str] | None = None,
-                  known_cards: set[str] | None = None) -> list[Finding]:
+                  known_cards: set[str] | None = None,
+                  cards_by_id: dict | None = None) -> list[Finding]:
     """Validate one form contract. `known_forms` enables the `opens` link warning, `known_cards`
-    the `calls` one (round 29, issue #13)."""
+    the `calls` one (round 29, issue #13), `cards_by_id` the screen and control one (round 31)."""
     out: list[Finding] = []
 
     def err(code: str, detail: str):
@@ -1060,11 +1108,21 @@ def validate_form(fm: dict, filename: str = "",
                 chain = [e for e in calls if isinstance(e, str) and e]
             else:
                 chain = []
+            # Round 31: the card that is there describes this screen and names this control — a
+            # control named as one anchor; a family (`control_pattern`) has no one name to write.
+            screen = _text(fm.get("screen"))
+            literal = _text(control.get("control"))
+            compared = bool(screen and literal and cards_by_id is not None)
             for step, op in enumerate(chain):
+                where = f" (step {step + 1} of {len(chain)})" if len(chain) > 1 else ""
                 if op not in known_cards:
-                    where = f" (step {step + 1} of {len(chain)})" if len(chain) > 1 else ""
                     warn("form_calls_undescribed",
                          f"control `{name or ''}` calls `{op}`{where}, which no card in this set describes")
+                    continue
+                card = cards_by_id.get(op) if compared else None
+                found = screen_of_card(card, op, screen, literal) if card is not None else None
+                if found:
+                    warn(found[0], f"control `{literal}` calls `{op}`{where}: {found[1]}")
 
     # ── groups ───────────────────────────────────────────────────────────────
     # Grouping by purpose: headers, footers, tables, and which controls sit where. Array order
@@ -1275,6 +1333,7 @@ def run_files(paths: list[str], with_schema: bool = True) -> int:
     unreadable_forms = sum(1 for path, _ in unreadable if path.endswith(".contract.md"))
     known = {fm["id"] for _, fm in cards if isinstance(fm.get("id"), str)}
     known_forms = {fm["id"] for _, fm in forms if isinstance(fm.get("id"), str)}
+    cards_by_id = {fm["id"]: fm for _, fm in cards if isinstance(fm.get("id"), str)}
 
     def in_order(documents: list) -> list:
         # By id as JavaScript writes it, then by path, both in the twin's order.
@@ -1298,7 +1357,8 @@ def run_files(paths: list[str], with_schema: bool = True) -> int:
         show(path, (schema_findings(path) if with_schema else []) + validate(fm, os.path.basename(path), known))
     for path, fm in in_order(forms):
         show(path, (schema_findings(path, form=True) if with_schema else [])
-             + validate_form(fm, os.path.basename(path), known_forms, known if cards else None))
+             + validate_form(fm, os.path.basename(path), known_forms, known if cards else None,
+                             cards_by_id if cards else None))
     print(f"\n{len(cards) + len(unreadable) - unreadable_forms} card(s), "
           f"{len(forms) + unreadable_forms} form contract(s): {errors} error(s), {warnings} warning(s)")
     return 1 if errors else 0

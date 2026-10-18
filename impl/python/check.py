@@ -26,7 +26,7 @@ from xml.parsers import expat
 import json_schema
 import yaml12
 from validate import (CannotRead, _list, _map, _segment, _text, cause_of, expand_globs, front_matter,
-                      is_contract, utf16_order, why_unreadable)
+                      is_contract, screen_of_card, utf16_order, why_unreadable)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -1006,8 +1006,8 @@ def check_storage(config: dict, base: str) -> tuple[list[Finding], dict]:
 # reads the contract and the cards, never the inventory — so since round 29 (issue #13) it runs for
 # a rendered screen (the conflict an error) and for a contract designed ahead of its screen (a
 # warning: a new check over existing fields, §8). See the TypeScript twin.
-def judge_calls(contract_id: str, name: str, control: dict, shown_when, data_of, card_by_id: dict,
-                findings: list, conflict: str) -> None:
+def judge_calls(contract_id: str, screen: str, name: str, control: dict, shown_when, data_of,
+                card_by_id: dict, findings: list, conflict: str) -> None:
     # A chain (round 27: `calls` as a list, in call order) is judged by its FIRST operation
     # — the chain departs from where that one does; every later step departs from
     # whatever the step before it left, which no screen state shows. Each operation of
@@ -1025,6 +1025,18 @@ def judge_calls(contract_id: str, name: str, control: dict, shown_when, data_of,
                                     f"{contract_id}: control `{name}` calls `{later}` "
                                     f"(step {step + 1} of {len(chain)}), "
                                     "which no card describes", "warning"))
+    # Round 31: every card the chain has describes this screen and names this control, if it
+    # describes screens at all — a warning on both paths (§8). A family (`control_pattern`) has no
+    # one name for a card to write.
+    literal = _text(control.get("control"))
+    if screen and literal:
+        for step, op in enumerate(chain):
+            card = card_by_id.get(op)
+            found = screen_of_card(card, op, screen, literal) if card is not None else None
+            where = f" (step {step + 1} of {len(chain)})" if len(chain) > 1 else ""
+            if found:
+                findings.append(Finding(found[0], f"{contract_id}: control `{literal}` calls `{op}`{where}: "
+                                        f"{found[1]}", "warning"))
     if not chain:
         return
     # How the first operation is named in a finding: bare for one, with its chain for several.
@@ -1174,7 +1186,7 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                     for control in _maps(fm.get("controls")):
                         name = (_text(control.get("control_pattern")) or _text(control.get("control"))
                                 or "")
-                        judge_calls(contract_id, name, control, states_of(control.get("shown_when")),
+                        judge_calls(contract_id, screen, name, control, states_of(control.get("shown_when")),
                                     data_of, card_by_id, findings, "warning")
             else:
                 findings.append(Finding("form_screen_missing",
@@ -1281,7 +1293,7 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                 findings.append(Finding("control_missing",
                                         f"{contract_id}: control `{name}` appears in no state at all"))
 
-            judge_calls(contract_id, name, control, shown_when, data_of, card_by_id,
+            judge_calls(contract_id, screen, name, control, shown_when, data_of, card_by_id,
                         findings, "error")
 
         for entry in _maps(fm.get("removed")):

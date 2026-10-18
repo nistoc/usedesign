@@ -149,15 +149,64 @@ function anchorOrFamily(
   return literal || pattern || undefined;
 }
 
+// ── the card names the screen that calls it (round 31) ──────────────────────────────────────
+//
+// A contract's `calls` names the operation a control runs; the operation's card names, in each
+// `ui` interface, the screen it is called from and the control. Nothing compared the two until
+// round 31: a pilot's author misspelt the screen in a card by one letter, and the control in
+// another, ran `validate` over the cards and the contracts together, and read 0 errors, 0
+// warnings — having written down the day before that `validate` must catch exactly that. Read
+// from the contract's side, because the contract is where the owner says which control calls
+// what: a card naming a screen no control calls is often right — a picture that loads by
+// itself, a list read when the page opens — and was measured to be.
+
+const WORDISH = /[\p{L}\p{M}\p{N}_-]/u;
+
+/** `anchor` stands in `prose` as a word of its own: no letter, mark, number, `-` or `_` touches it. */
+export function namesAnchor(prose: string, anchor: string): boolean {
+  if (!anchor) return false;
+  for (let at = prose.indexOf(anchor); at !== -1; at = prose.indexOf(anchor, at + 1)) {
+    // The code point on each side: two code units before the match end in the whole one.
+    const before = [...prose.slice(Math.max(0, at - 2), at)].pop();
+    const after = [...prose.slice(at + anchor.length, at + anchor.length + 2)][0];
+    if (!(before !== undefined && WORDISH.test(before)) && !(after !== undefined && WORDISH.test(after))) return true;
+  }
+  return false;
+}
+
+/**
+ * Does the card of `op`, which a contract's `control` on `screen` calls, describe that screen and
+ * name that control? Only a card that describes screens at all — one `ui` interface or more — is
+ * held to it: a card that has not reached its screens yet is behind, not wrong, and saying so on
+ * every card would turn each contract's first run into a list of chores. Returns the finding's
+ * code and its reason, or null.
+ */
+export function screenOfCard(card: Card, op: string, screen: string, control: string): { code: string; reason: string } | null {
+  const shown = Object.entries(map(card["interfaces"])).filter(([, iface]) => map(iface)["transport"] === "ui");
+  if (shown.length === 0) return null;
+  const here = shown.filter(([, iface]) => text(map(iface)["screen"]) === screen);
+  if (here.length === 0) {
+    const named = [...new Set(shown.map(([, iface]) => text(map(iface)["screen"])).filter((name): name is string => !!name))];
+    const which =
+      named.length === 0 ? "screens without a name" : `the screen${named.length > 1 ? "s" : ""} ${named.map((name) => `\`${name}\``).join(", ")}`;
+    return { code: "form_screen_not_in_card", reason: `its card describes ${which}, and not \`${screen}\`` };
+  }
+  if (here.some(([, iface]) => namesAnchor(text(map(iface)["control"]) ?? "", control))) return null;
+  const where = here.map(([name]) => `\`${name}\``).join(", ");
+  return { code: "form_control_not_in_card", reason: `its card describes \`${screen}\` in ${where}, and no \`control\` there names \`${control}\`` };
+}
+
 /**
  * Validate one form contract's *meaning*. `knownForms` enables the cross-contract link warning
  * (`opens` pointing at a contract that is not in the validated set); pass null for a lone file.
+ * `cardsById`, the cards of the run by id, adds the screen and control comparison of round 31.
  */
 export function validateForm(
   fm: Card,
   filename = "",
   knownForms: Set<string> | null = null,
   knownCards: Set<string> | null = null,
+  cardsById: Map<string, Card> | null = null,
 ): Finding[] {
   const out: Finding[] = [];
   const err = (code: string, detail: string) => out.push(new Finding(code, detail));
@@ -258,11 +307,20 @@ export function validateForm(
     // a forms-only run in a frontend repository) switches it off.
     if (knownCards !== null) {
       const chain = typeof calls === "string" && calls ? [calls] : Array.isArray(calls) ? calls.filter((e: unknown) => typeof e === "string" && e) : [];
+      // Round 31: the card that is there describes this screen and names this control — a control
+      // named as one anchor; a family (`control_pattern`) has no one name for a card to write.
+      const screen = text(fm["screen"]);
+      const literal = text(control["control"]);
+      const compared = !!(screen && literal && cardsById);
       for (const [step, id] of chain.entries()) {
+        const where = chain.length > 1 ? ` (step ${step + 1} of ${chain.length})` : "";
         if (!knownCards.has(id)) {
-          const where = chain.length > 1 ? ` (step ${step + 1} of ${chain.length})` : "";
           warn("form_calls_undescribed", `control \`${name ?? ""}\` calls \`${id}\`${where}, which no card in this set describes`);
+          continue;
         }
+        const card = compared ? cardsById!.get(id) : undefined;
+        const found = card ? screenOfCard(card, id, screen!, literal!) : null;
+        if (found) warn(found.code, `control \`${literal}\` calls \`${id}\`${where}: ${found.reason}`);
       }
     }
   }

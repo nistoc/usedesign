@@ -542,3 +542,78 @@ cases:
     note: >-
       The chain's second step has no card. Every operation of a chain must be described, not only
       the first; the warning names the step and its place. 1.1.0 skipped the list and said nothing.
+
+  # ── Round 31: the card names the screen that calls it (§7.5) ──────────────────────────────────
+  # A card that describes screens — one `ui` interface or more — names the screen of every contract
+  # whose control calls it, and that control as a word of its own in `control`. Warnings, on the
+  # designed path and the rendered one alike: a new check over fields 1.x had (§8).
+  - dir: form-card-screen-named
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built]
+    absent_warnings: [form_screen_not_in_card, form_control_not_in_card]
+    note: >-
+      The card's `ui` interface names the contract's screen, and its `control` names the contract's
+      control inside a selector — `button[data-action="finish"]`. A quote, a bracket or a space
+      beside a name does not join it to a word.
+  - dir: form-card-screen-not-in-card
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built, form_screen_not_in_card]
+    absent_warnings: [form_control_not_in_card]
+    note: >-
+      The card describes two screens and neither is the contract's: `SessionPanl`, misspelt by a
+      letter, and `sessionPanel`, another letter case — screens compare letter for letter. Until
+      round 31 nothing compared a card's `screen` with the contract calling it, and both passed
+      `validate` and `check` alike; the warning lists the screens the card does describe.
+  - dir: form-card-control-not-named
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built, form_control_not_in_card]
+    absent_warnings: [form_screen_not_in_card]
+    note: >-
+      The right screen, and `finish` only inside longer words — `finish-all`, `finished`. A name
+      counts as a word of its own: no letter, mark, number, `-` or `_` touching it. An
+      implementation searching for the bare substring passes here and must not.
+  - dir: form-card-no-screens
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built]
+    absent_warnings: [form_screen_not_in_card, form_control_not_in_card]
+    note: >-
+      The guard. The card describes no screen — `rest` is its only interface. A card that has not
+      reached its screens is behind, not wrong; holding it to the contract would put a warning on
+      every card a new contract calls, which is what the round measured on its own corpus.
+  - dir: form-card-screen-family
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built]
+    absent_warnings: [form_screen_not_in_card, form_control_not_in_card]
+    note: >-
+      A family (`control_pattern: finish-*`) calls the operation, and the card describes another
+      screen. A family has no one name for a card to write, so only a control named as one anchor
+      is compared.
+  - dir: form-card-screen-chain
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built, form_screen_not_in_card]
+    absent_warnings: [form_control_not_in_card]
+    note: >-
+      One control runs two operations. The first card describes the screen and names the control;
+      the second describes another screen only. Every operation of a chain is compared, as every
+      one must be described (round 27); the warning names the step.
+  - dir: form-card-screen-rendered
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [undescribed_element, form_screen_not_in_card]
+    absent_warnings: [form_control_not_in_card]
+    note: >-
+      The clean case with the card's screen misspelt. The screen renders and the contract holds;
+      the card drifted, and on a rendered screen too the finding is a warning, not an error.
