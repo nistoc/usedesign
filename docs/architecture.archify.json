@@ -12,7 +12,7 @@
       "id": "format",
       "type": "database",
       "label": "The format",
-      "sublabel": "SPEC v1.5 · six JSON Schemas",
+      "sublabel": "SPEC v1.6 · six JSON Schemas",
       "pos": [
         385,
         56
@@ -83,7 +83,7 @@
       "id": "npm",
       "type": "cloud",
       "label": "npm registry",
-      "sublabel": "1.5.2 · build provenance",
+      "sublabel": "1.6.0 · build provenance",
       "pos": [
         640,
         330
