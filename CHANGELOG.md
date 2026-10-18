@@ -31,11 +31,12 @@ a day.
   in its prose note, not in `control`.
 - On the same product 1.6.0 gives 77 warnings, 1.7.0 gives 192, 1.7.1 gives 79 — the 77 and those
   two. A pilot's catalogue: no change. No new error, and no warning that 1.7.0 did not give.
-- The checks corpus has five new cases — `form-card-screen-other-naming`, `-two-off`, `-three-off`,
-  `-letter-case` and `-wide-letter`, a letter outside the Basic Multilingual Plane counted as one —
-  and two old ones, the chain and the family, now misspell the screen rather than name another, so
+- The checks corpus has six new cases — `form-card-screen-other-naming`, `-two-off`, `-three-off`,
+  `-letter-case`, `-wide-letter`, a letter outside the Basic Multilingual Plane counted as one, and
+  `-unnamed`, a `ui` without a screen while the contract's screen stands on the card's `rest`
+  interface, where it is not a screen the card shows — and two old ones, the chain and the family, now misspell the screen rather than name another, so
   that they still tell apart an implementation that skips a step of a chain or compares a family.
-  `validate-cli/run.sh` reads that a warning lists the slips alone. 93 + 71 cases.
+  `validate-cli/run.sh` reads that a warning lists the slips alone. 93 + 72 cases.
 
 ## 1.7.0
 

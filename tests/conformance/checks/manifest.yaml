@@ -665,3 +665,15 @@ cases:
       Letters are counted by code point: `Sess𝒊onPane` — a bold italic letter from outside the Basic
       Multilingual Plane for `i`, and an `l` dropped — is two letters off `SessionPanel`. An
       implementation counting UTF-16 code units finds three, passes here and must not.
+  - dir: form-card-screen-unnamed
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_not_yet_built]
+    absent_warnings: [form_screen_not_in_card, form_control_not_in_card]
+    note: >-
+      The card's `ui` names no screen. With no name there is no slip to report, so nothing is
+      compared; 1.7.0 warned here that the card describes screens without a name. The contract's
+      `SessionPanel` stands in the card all the same, on its `rest` interface, and only a `ui`
+      interface describes a screen: an implementation that reads screens off every interface finds
+      `SessionPanel` there with no control naming `finish`, and fails here.
