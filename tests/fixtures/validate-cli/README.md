@@ -12,6 +12,13 @@ What `validate` does with the paths it is given, and which files `validate`, `ch
 - A card with a byte-order mark before its front matter (made by the script) is read as any other.
 - `cards/` and `forms/` together: the contract calls `sample.session.finsh`, a typo no card
   describes — `form_calls_undescribed`, a warning (issue #13). `forms/` alone says nothing about it.
+- `links/` holds four cards and two contracts that name each other: a card is undone by another
+  (`reversible_via`), a card serves another's step (`serves_step`), a control opens another
+  contract (`opens`). One name of each kind is described in the set and says nothing; the other —
+  the typo `sample.session.finsh`, `sample.session.start`, `sample.session.history` — is
+  `undescribed_counterpart` or `undescribed_form`, warnings. `validate` reads these names against
+  the documents of the same run, and the corpus validates one file at a time, so only a set of
+  files holds them; both implementations must print the same lines, with the schema and without.
 - The `form-card-*` cases of the checks corpus (`tests/conformance/checks/cases/`), each a contract
   and the cards it calls, read by `validate` as check 5 reads them (round 31): a card that describes
   screens and misspells the contract's screen — another letter case, two letters off or fewer

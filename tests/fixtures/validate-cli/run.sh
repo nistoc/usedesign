@@ -293,6 +293,26 @@ node "$root/impl/typescript/dist/cli.js" validate schema > "$out" 2>&1
 [ "$(grep -c "schema_violation" "$out")" -ge 20 ] || { echo "::error::schema/ drew too few schema_violation lines"; cat "$out"; exit 1; }
 echo "  ok"
 
+# A card names another by `reversible_via` and `serves_step`, a contract another by `opens`, and
+# `validate` reads each name against the documents of the same run. The corpus validates one file at
+# a time, with no such set, so it cannot hold these warnings; `links/` does. Both implementations
+# must print the same lines, with the schema and without, and a name the set describes says nothing.
+echo "— links between documents, line for line"
+for flag in "" --no-schema; do
+  node "$root/impl/typescript/dist/cli.js" validate $flag links > "$scratch/links.ts.txt" 2>&1; t=$?
+  python "$root/impl/python/validate.py" $flag links > "$scratch/links.py.txt" 2>&1; p=$?
+  if ! diff --strip-trailing-cr "$scratch/links.ts.txt" "$scratch/links.py.txt"; then
+    echo "::error::links: validate ${flag:-with the schema} prints different lines in the two implementations"; exit 1
+  fi
+  cp "$scratch/links.ts.txt" "$out"
+  [ "$t" -eq 0 ] && [ "$p" -eq 0 ] || fail "links: \`validate\` exits $t in TypeScript and $p in Python, expected 0"
+  says "warning  sample.session.resume.op.md: undescribed_counterpart: \`reversible_via\` points at undescribed \`sample.session.finsh\`"
+  says "warning  sample.session.progress.op.md: undescribed_counterpart: \`serves_step\` points at undescribed \`sample.session.start\`"
+  says "warning  session.contract.md: undescribed_form: control \`open-history\` opens \`sample.session.history\`, which no contract in this set describes"
+  [ "$(grep -c "undescribed_" "$out")" -eq 3 ] || fail "links: a name the set describes must say nothing${flag:+ under $flag}"
+done
+echo "  ok"
+
 # `check` reads as `validate` reads since 1.4.3 (1.5.1): every field in its type, one id one
 # document, the glob of `cards:` for an exclusion and a store name, the config as YAML 1.2, lines in
 # one order. Each case runs both implementations; the exit codes and every line must agree, and a
