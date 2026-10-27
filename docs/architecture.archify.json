@@ -55,7 +55,7 @@
       "id": "corpus",
       "type": "database",
       "label": "Conformance corpus",
-      "sublabel": "93 + 72 cases · a rotten fixture",
+      "sublabel": "101 + 95 cases · a rotten fixture",
       "pos": [
         395,
         176
@@ -352,7 +352,7 @@
       "dot": "emerald",
       "title": "Two readings, one corpus",
       "items": [
-        "TypeScript reference and Python prototype must report the same codes on 165 cases",
+        "TypeScript reference and Python prototype must report the same codes on 196 cases",
         "A deliberately rotten repository must still fail, and CI compares what both checkers report on it"
       ]
     },

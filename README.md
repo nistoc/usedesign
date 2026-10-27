@@ -128,7 +128,7 @@ else. See [SPEC §8.0](SPEC.md).
 | [SPEC.md](SPEC.md) | The format: fields, rules, and why each exists |
 | [schema/](schema/) | Six JSON Schemas: the card's front matter, the form contract, the config file, and the three inventories a producer writes for checks 1, 4 and 5 |
 | [examples/](examples/) | Five cards over a fictional library system |
-| [tests/conformance/](tests/conformance/) | Shared corpus every implementation must pass — 93 card-and-contract cases and 59 repository cases |
+| [tests/conformance/](tests/conformance/) | Shared corpus every implementation must pass — 101 card-and-contract cases and 95 repository cases |
 | [tests/fixtures/](tests/fixtures/) | `library-service`, a deliberately rotten repository that `check` must keep failing on, and `validate-cli`, command-line cases both implementations must answer alike |
 | [design/](design/) | Design notes — questions worked out before they were specified |
 | [impl/](impl/) | Implementations, one directory each: the TypeScript reference and the Python prototype |
@@ -153,8 +153,8 @@ enshrining one tool's bugs.
 
 The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
 [impl/](impl/) rather than by default. It validates cards and form contracts against the schemas
-and the cross-card rules, runs the five checks, and passes both corpora — **93 / 93 card and
-contract cases and 59 / 59 repository cases**.
+and the cross-card rules, runs the five checks, and passes both corpora — **101 / 101 card and
+contract cases and 95 / 95 repository cases**.
 
 ```bash
 npx usedesign check usedesign.config.yaml
@@ -175,7 +175,7 @@ CI runs both and diffs what they report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 93 card-and-contract cases and 59 repository cases, verdicts, codes
+- [x] Conformance corpus — 101 card-and-contract cases and 95 repository cases, verdicts, codes
       **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
@@ -193,7 +193,7 @@ CI runs both and diffs what they report about the same repository.
       validated with named codes, grouping by purpose included, group membership verified
       against the rendered container chains; a contract may be written ahead of its screen,
       describe a family of elements by a pattern, and map screen states onto data states
-- [x] `usedesign check` — the five checks, holding the 59-case repository corpus; a repository
+- [x] `usedesign check` — the five checks, holding the 95-case repository corpus; a repository
       declares which checks apply to it (`checks: [5]`, SPEC §7.6)
 - [x] `usedesign scaffold` — a draft card per undescribed route, read from the application's own
       OpenAPI. Every draft fails validation on purpose, until a person fills it in: a shell that

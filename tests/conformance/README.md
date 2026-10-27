@@ -72,7 +72,7 @@ layers print the same lines is held by [`validate-cli/run.sh`](../fixtures/valid
 Every card case is a real card, and its Markdown body explains what it is probing — read the case
 before arguing with it.
 
-Nineteen of the `checks/` cases point at the same five example cards, so what varies between them
+Twenty-five of the `checks/` cases point at the same five example cards, so what varies between them
 is only what the code is said to serve — which is the axis check 1 is about. The other cases carry
 cards of their own.
 
