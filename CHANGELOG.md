@@ -11,6 +11,16 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## Unreleased
+
+*not yet released*
+
+- Tests only, the tools do not change: the sum `scaffold` prints is checked by `unaccountedRoutes`,
+  which a golden test hands a plan with a route lost and one with a route counted twice
+  (`routes_unaccounted` cannot be reached from any input); `undescribed_counterpart` and
+  `undescribed_form`, which the corpus cannot hold, are held by
+  `tests/fixtures/validate-cli/links/`, line for line in both implementations.
+
 ## 1.7.1
 
 *2026-10-18 · the tools change, the format does not (SPEC v1.7)*
