@@ -14,7 +14,7 @@ import { dirname, join } from "node:path";
 import { CHECKS, checkCoverage, checkForm, checkMaturity, checkRoutes, checkStorage } from "./checks.js";
 import { causeOf, codesOf, collectKeyed, errors, Finding, frontMatter, loadConfig, once, warnings, whyUnreadable } from "./core.js";
 import { runCardCorpus, runChecksCorpus } from "./conformance.js";
-import { planScaffold, writeScaffold } from "./scaffold.js";
+import { planScaffold, unaccountedRoutes, writeScaffold } from "./scaffold.js";
 import { commandGen } from "./gen.js";
 import { commandPreview } from "./preview.js";
 import { validate, validateForm, validateFormSchema, validateSchema } from "./validate.js";
@@ -304,15 +304,10 @@ function commandScaffold(openapiPath: string, outDir: string, configPath: string
   console.log(`            ${plan.skippedExcluded.length} excluded by the config`);
   for (const skip of plan.skippedExcluded) console.log(`              ${skip.route} → ${skip.reason}`);
 
-  const accounted = plan.drafts.length + plan.skippedDeclared.length + plan.skippedExcluded.length;
-  if (accounted !== plan.total) {
+  const unaccounted = unaccountedRoutes(plan);
+  if (unaccounted) {
     console.log("");
-    print([
-      new Finding(
-        "routes_unaccounted",
-        `${plan.total} routes served but ${accounted} accounted for — ${plan.total - accounted} vanished without a reason`,
-      ),
-    ]);
+    print([unaccounted]);
     return 1;
   }
   console.log(`            → ${plan.drafts.length} + ${plan.skippedDeclared.length} + ${plan.skippedExcluded.length} = ${plan.total} ✓`);
