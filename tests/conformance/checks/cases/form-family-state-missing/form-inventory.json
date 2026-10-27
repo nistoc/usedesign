@@ -1,0 +1,37 @@
+{
+  "usedesign_form_inventory": 1,
+  "produced_by": "runtime dump — components rendered per state by a test",
+  "forms": [
+    {
+      "screen": "RegistryPage",
+      "states": [
+        {
+          "state": "live",
+          "fields": ["registry-head", "kind-tabs", "kind-tab-all", "kind-tab-project", "kind-tab-tool"],
+          "controls": ["row-open-1", "row-open-2", "row-open-3"],
+          "within": {
+            "registry-head": [],
+            "kind-tabs": [],
+            "kind-tab-all": ["kind-tabs"],
+            "kind-tab-project": ["kind-tabs"],
+            "kind-tab-tool": ["kind-tabs"],
+            "row-open-1": [],
+            "row-open-2": [],
+            "row-open-3": []
+          }
+        },
+        {
+          "state": "kind_empty",
+          "fields": ["registry-head", "kind-tabs", "kind-tab-all", "kind-tab-project"],
+          "controls": [],
+          "within": {
+            "registry-head": [],
+            "kind-tabs": [],
+            "kind-tab-all": ["kind-tabs"],
+            "kind-tab-project": ["kind-tabs"]
+          }
+        }
+      ]
+    }
+  ]
+}

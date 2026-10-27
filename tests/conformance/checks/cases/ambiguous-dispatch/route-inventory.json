@@ -1,0 +1,5 @@
+{
+  "usedesign_inventory": 1,
+  "produced_by": "runtime dump",
+  "routes": [{ "method": "POST", "path": "/v1/things:batch", "source": "src/routes.ts" }]
+}

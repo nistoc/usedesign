@@ -1,0 +1,5 @@
+{
+  "usedesign_inventory": 1,
+  "produced_by": "runtime dump",
+  "routes": [{ "method": "GET", "path": "/v1/copies/<int:copy_id>", "source": "app/routes.py" }]
+}

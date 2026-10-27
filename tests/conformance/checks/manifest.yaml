@@ -65,6 +65,33 @@ cases:
       An inventory that does not say how it was produced. A runtime dump and a hand-written list
       deserve different trust, and check 1 is only as good as its input.
 
+  - dir: no-inventory
+    check: 1
+    expect: fail
+    codes: [inventory_missing]
+    note: >-
+      No `inventory` in the config, against the five example cards `clean` passes with. Check 1 is
+      then reported as not run — never as passed: a config that lost its dump step must not read as
+      a repository with nothing wild in it. The twin of no-report.
+
+  - dir: inventory-absent
+    check: 1
+    expect: fail
+    codes: [inventory_missing]
+    note: >-
+      The config names an inventory and the file is not there — the dump step failed, or wrote
+      somewhere else. The same `inventory_missing` as a config that names none: a path that leads
+      nowhere is no inventory, and check 1 is not run.
+
+  - dir: inventory-unversioned
+    check: 1
+    expect: fail
+    codes: [inventory_malformed]
+    note: >-
+      The clean inventory without `usedesign_inventory: 1`. Every route still matches a card, but
+      nothing says the file is a route inventory at all — a dump of something else with a `routes`
+      key would be read as one. The other half of `inventory_malformed`, beside no-produced-by.
+
   # ── check 2 — no unproven steps ──────────────────────────────────────────────────────────────
 
   - dir: coverage-clean
@@ -243,10 +270,42 @@ cases:
     check: 1
     expect: pass
     codes: []
+    absent_warnings: [ambiguous_shape]
     note: >-
       Two operations on one route, told apart by a request field. Before round 9 this raised
       `ambiguous_shape` — the checker treating a widespread REST idiom as a defect. With distinct
       `dispatch.value` they are two honest cards, and the route is declared exactly once.
+
+  - dir: ambiguous-shape
+    check: 1
+    expect: pass
+    codes: []
+    warnings: [ambiguous_shape]
+    note: >-
+      Two cards declare one route in two parameter syntaxes — `{copyId}` and `:id` — with no
+      `dispatch` to tell them apart: an old card and its replacement, both left in place. The route
+      is served, so nothing is wild or phantom, and which card describes it cannot be said. A
+      warning; the shapes are compared after normalisation, as everything in check 1 is.
+
+  - dir: ambiguous-dispatch
+    check: 1
+    expect: pass
+    codes: []
+    warnings: [ambiguous_shape]
+    note: >-
+      dispatch-distinct with one value copied: both cards dispatch on `op=delete`. A shared route is
+      honest only while every card on it is told apart by a value of its own; two with the same
+      value are as ambiguous as two with none.
+
+  - dir: incomplete-rest-interface
+    check: 1
+    expect: fail
+    codes: [incomplete_rest_interface]
+    note: >-
+      A conceived card names its method and leaves the path for later. With no path there is nothing
+      to compare with the inventory; skipped in silence, the card would drop out of check 1, so the
+      interface is an error until it is complete. The one route served is excluded, so nothing else
+      is reported.
 
   - dir: code-root-missing
     check: 3
@@ -277,6 +336,65 @@ cases:
       since dropping an index is a cost decision taken far from the card. Naming an index is a
       promise that removing it breaks this operation, and this is the check that keeps the
       promise falsifiable.
+  - dir: no-storage-inventory
+    check: 4
+    expect: fail
+    codes: [storage_inventory_missing]
+    note: >-
+      The storage-clean card, and no `storage_inventory` in the config. Check 4 is not run, never
+      passed: the card's claim about its store is left unjudged, not confirmed.
+  - dir: storage-inventory-absent
+    check: 4
+    expect: fail
+    codes: [storage_inventory_missing]
+    note: >-
+      The config names a storage inventory that is not on disk — the describe step did not run, or
+      wrote somewhere else. The same finding as no key at all: a path that leads nowhere is no
+      inventory.
+  - dir: storage-inventory-empty
+    check: 4
+    expect: fail
+    codes: [storage_inventory_empty]
+    note: >-
+      Zero stores, against a card that claims none yet. Nothing else here can fail — no claim to
+      miss, no store left undescribed — so without this rule a failed dump passes check 4 in
+      silence. Almost always a failed dump rather than a system without storage.
+  - dir: storage-inventory-unversioned
+    check: 4
+    expect: fail
+    codes: [storage_inventory_malformed]
+    warnings: [undescribed_store]
+    note: >-
+      The storage-clean inventory without `usedesign_storage_inventory: 1`. The card still agrees
+      with every store it claims; nothing says the file is a storage inventory at all, and a dump of
+      something else with a `stores` key would be read as one.
+  - dir: storage-inventory-no-produced-by
+    check: 4
+    expect: fail
+    codes: [storage_inventory_malformed]
+    warnings: [undescribed_store]
+    note: >-
+      The storage-clean inventory with no `produced_by`. A describe call against the live store and
+      a list typed by hand deserve different trust, and check 4 is only as good as its input — the
+      storage twin of no-produced-by.
+  - dir: store-key-mismatch
+    check: 4
+    expect: fail
+    codes: [store_key_mismatch]
+    warnings: [undescribed_store]
+    note: >-
+      The store was rebuilt with a composite key, and the card still says it is keyed by `LoanId`
+      alone. The keys are compared whole: a card true of yesterday's table describes a table that is
+      gone.
+  - dir: unknown-store
+    check: 4
+    expect: fail
+    codes: [unknown_store]
+    warnings: [undescribed_store]
+    note: >-
+      The card claims `library-loan-*`, a letter short of the store that exists. A pattern that
+      matches no store is a claim about nothing, whether a typo or a store dropped since; the store
+      it meant is then described by nobody, and says so.
 
   # ── Check 5 — the form matches its contract (the reference is authored, not measured) ─────────
   - dir: form-clean
@@ -295,6 +413,91 @@ cases:
       Three ordinary drifts at once: a required element vanished from its state, a control
       leaked into a state outside its shown_when, and a control the owner removed came back.
       Each is a separate finding — a checker that collapses them teaches the wrong lesson.
+  - dir: no-form-contracts
+    check: 5
+    expect: fail
+    codes: [form_contracts_missing]
+    note: >-
+      `checks: [5]` opts into check 5, and no `forms` patterns say where the contracts are. Within
+      the declared scope "cannot run" means "not passed" (SPEC §7.6): check 5 is not run, never
+      passed — not a screen with nothing to check.
+  - dir: form-contracts-not-found
+    check: 5
+    expect: fail
+    codes: [form_contracts_missing]
+    warnings: [form_uncontracted_screen]
+    note: >-
+      The form-clean contract moved into `forms/`, and the config still reads `./*.contract.md`: the
+      patterns match no contract. Check 5 is not run, never passed, and the screen that does render
+      is reported as described by no contract.
+  - dir: no-form-inventory
+    check: 5
+    expect: fail
+    codes: [form_inventory_missing]
+    note: >-
+      The form-clean contract and card, and no `form_inventory` in the config. Check 5 is not run,
+      never passed: without a rendering to hold the contract against, its lines are unjudged, not
+      met.
+  - dir: form-inventory-absent
+    check: 5
+    expect: fail
+    codes: [form_inventory_missing]
+    note: >-
+      The config names a form inventory that is not on disk — the test that renders the screens did
+      not run, or wrote somewhere else. The same finding as no key at all.
+  - dir: form-inventory-unversioned
+    check: 5
+    expect: fail
+    codes: [form_inventory_malformed]
+    warnings: [undescribed_element]
+    note: >-
+      The form-clean inventory without `usedesign_form_inventory: 1`. The contract still holds
+      against it; nothing says the file is a form inventory, and a dump of something else with a
+      `forms` key would be read as one.
+  - dir: form-inventory-no-produced-by
+    check: 5
+    expect: fail
+    codes: [form_inventory_malformed]
+    warnings: [undescribed_element]
+    note: >-
+      The form-clean inventory with no `produced_by`. A test that rendered the real components and a
+      list typed by hand deserve different trust — the forms twin of no-produced-by.
+  - dir: form-screen-missing
+    check: 5
+    expect: fail
+    codes: [form_screen_missing]
+    warnings: [form_uncontracted_screen]
+    absent_warnings: [form_not_yet_built]
+    note: >-
+      The form-clean contract with its `screen:` misspelt, `SesionPanel`. It carries no `maturity`,
+      so it is implemented, and a screen nothing rendered is an error — not the warning a contract
+      designed ahead of its screen earns. The screen that does render is then described by no
+      contract, and says so.
+  - dir: form-state-missing
+    check: 5
+    expect: fail
+    codes: [form_state_missing]
+    warnings: [undescribed_element]
+    note: >-
+      The contract requires `main-progress` in `active` and `paused`; the test that renders the
+      screen never rendered `paused`. A state nobody rendered is reported, not skipped — skipped,
+      every line about it would pass unread.
+  - dir: form-family-state-missing
+    check: 5
+    expect: fail
+    codes: [form_state_missing]
+    note: >-
+      The family line of form-family, required in `loading` as well, which the inventory never
+      rendered. A family is held to the states it names as a single anchor is; an implementation
+      that counts the floor only in the states it finds passes here and must not.
+  - dir: form-control-state-missing
+    check: 5
+    expect: fail
+    codes: [form_state_missing]
+    warnings: [undescribed_element]
+    note: >-
+      A control shown only in `paused`, which the inventory never rendered. Reported as a state
+      nobody rendered: the control may well be there, and the rendering that would show it is not.
   - dir: route-designed-ahead
     check: 1
     expect: pass

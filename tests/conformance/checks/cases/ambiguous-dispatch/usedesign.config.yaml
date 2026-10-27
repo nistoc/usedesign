@@ -1,0 +1,5 @@
+# dispatch-distinct with one dispatch value copied: both cards claim `op=delete`.
+usedesign_config: 1
+cards:
+  - cards/*.op.md
+inventory: route-inventory.json

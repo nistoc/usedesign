@@ -1,0 +1,5 @@
+# The storage-clean inventory with no `produced_by`.
+usedesign_config: 1
+cards:
+  - ./*.op.md
+storage_inventory: storage-inventory.json

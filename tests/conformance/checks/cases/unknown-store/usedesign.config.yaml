@@ -1,0 +1,5 @@
+# The card's store pattern matches no store in the inventory.
+usedesign_config: 1
+cards:
+  - ./*.op.md
+storage_inventory: storage-inventory.json
