@@ -1,0 +1,12 @@
+routes:     7 served, read from openapi.json
+drafts:     5 to write into drafts
+skipped:    1 already declared by a card
+              POST /v1/loans/{}/return → sample.loan.return
+            1 excluded by the config
+              GET /health → Liveness probe.
+            → 5 + 1 + 1 = 7 ✓
+
+existing:   1 draft(s) already on disk — left untouched
+
+written:    4, kept 1 existing
+Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.

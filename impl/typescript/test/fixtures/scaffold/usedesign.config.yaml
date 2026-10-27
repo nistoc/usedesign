@@ -1,0 +1,6 @@
+usedesign_config: 1
+cards:
+  - cards/*.op.md
+exclude:
+  - path: /health
+    reason: Liveness probe.

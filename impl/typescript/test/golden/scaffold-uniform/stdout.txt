@@ -1,0 +1,9 @@
+  warning  statuses_uniform: every one of the 3 routes declares the same statuses (200) — a framework default rather than a description; each draft says so
+routes:     3 served, read from openapi-uniform.json
+drafts:     3 to write into drafts
+skipped:    0 already declared by a card
+            0 excluded by the config
+            → 3 + 0 + 0 = 3 ✓
+
+written:    3
+Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.
