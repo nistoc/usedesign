@@ -408,7 +408,10 @@ function main(argv: string[]): number {
     }
 
     case "preview": {
-      const out = rest[rest.indexOf("--out") + 1];
+      // An absent `--out` is absent. Up to 1.7.1 its index was -1, `rest[0]` — the config itself —
+      // became the page, and `preview <config>` wrote HTML over the config and exited 0.
+      const at = rest.indexOf("--out");
+      const out = at === -1 ? undefined : rest[at + 1];
       const free = rest.filter((a, i) => !a.startsWith("--") && rest[i - 1] !== "--out");
       if (free.length !== 1 || !out || out.startsWith("--")) {
         console.error("usedesign preview: usage — usedesign preview <usedesign.config.yaml> --out <file.html>");

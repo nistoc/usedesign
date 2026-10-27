@@ -42,10 +42,10 @@ jobs:
       - name: Both corpora
         run: node dist/cli.js conformance
 
-      # scaffold and gen live in this implementation alone, so no corpus holds them (the corpus
-      # README says why): golden files do — a draft, a derived contract and the arithmetic, byte
-      # for byte, against fixtures of their own.
-      - name: scaffold and gen, against golden files
+      # scaffold, gen and preview live in this implementation alone, so no corpus holds them (the
+      # corpus README says why): tests of their own do — a draft, a derived contract and the
+      # arithmetic byte for byte against golden files, and preview writing nowhere it was not told.
+      - name: scaffold, gen and preview, against fixtures of their own
         run: npm run test:unit
 
       - name: The rotten fixture must still fail
