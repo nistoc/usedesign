@@ -1,0 +1,7 @@
+# The contract moved into `forms/`; the config's `forms` pattern still reads `./*.contract.md`.
+usedesign_config: 1
+cards:
+  - ./*.op.md
+forms:
+  - ./*.contract.md
+form_inventory: form-inventory.json

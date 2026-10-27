@@ -1,0 +1,5 @@
+# The storage-clean inventory without `usedesign_storage_inventory: 1`.
+usedesign_config: 1
+cards:
+  - ./*.op.md
+storage_inventory: storage-inventory.json

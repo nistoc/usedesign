@@ -1,0 +1,5 @@
+# The store's key changed; the card's `keyed_by` did not.
+usedesign_config: 1
+cards:
+  - ./*.op.md
+storage_inventory: storage-inventory.json

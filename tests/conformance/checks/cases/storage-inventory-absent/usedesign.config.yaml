@@ -1,0 +1,5 @@
+# The config names a storage inventory that is not on disk.
+usedesign_config: 1
+cards:
+  - ./*.op.md
+storage_inventory: storage-inventory.json

@@ -1,0 +1,5 @@
+# An inventory with zero stores, against a card that claims none.
+usedesign_config: 1
+cards:
+  - ./*.op.md
+storage_inventory: storage-inventory.json

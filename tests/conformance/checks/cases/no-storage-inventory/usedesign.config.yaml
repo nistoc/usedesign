@@ -1,0 +1,4 @@
+# No `storage_inventory` key: check 4 cannot run, and is reported as not run, never as passed.
+usedesign_config: 1
+cards:
+  - ./*.op.md

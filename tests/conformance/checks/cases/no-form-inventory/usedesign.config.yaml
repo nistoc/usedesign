@@ -1,0 +1,6 @@
+# No `form_inventory` key: check 5 cannot run, and is reported as not run, never as passed.
+usedesign_config: 1
+cards:
+  - ./*.op.md
+forms:
+  - ./*.contract.md

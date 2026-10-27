@@ -1,0 +1,4 @@
+# `checks: [5]` opts into check 5, and no `forms` patterns say where the contracts are.
+usedesign_config: 1
+checks: [5]
+form_inventory: form-inventory.json
