@@ -98,13 +98,15 @@ test("gen openapi: cards without a REST interface derive nothing (exit 1)", (t) 
   assert.ok(!fs.existsSync(path.join(dir, "openapi.json")), "an output file was written");
 });
 
-// NOTE: `gen openapi <config>` with no `--out` at all is not a usage error today: the parser reads
-// `rest[rest.indexOf("--out") + 1]`, which is `rest[0]` when `--out` is absent, so the word
-// `openapi` becomes the output file name (cli.ts, case "gen"). That is a defect rather than a
-// decision, so it is not pinned here; the two forms below are the ones that do exit 2.
-test("gen openapi: a missing --out is a usage error (exit 2)", (t) => {
+// Up to 1.7.1 `gen openapi <config>` with no `--out` read `rest[0]` as the output, and wrote the
+// document into a file named `openapi` (exit 0); the first form below pins that it no longer does.
+test("gen openapi: a missing --out is a usage error (exit 2), and nothing is written", (t) => {
   const dir = sandbox(t);
-  for (const args of [["gen", "openapi"], ["gen", "openapi", "usedesign.config.yaml", "--out"]]) {
+  for (const args of [
+    ["gen", "openapi", "usedesign.config.yaml"],
+    ["gen", "openapi"],
+    ["gen", "openapi", "usedesign.config.yaml", "--out"],
+  ]) {
     const r = run(dir, ...args);
     assert.equal(r.status, 2, `${args.join(" ")}\n${r.stdout}`);
     assert.ok(r.stderr.includes("usage"), r.stderr);

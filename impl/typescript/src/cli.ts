@@ -327,6 +327,17 @@ function commandScaffold(openapiPath: string, outDir: string, configPath: string
   return 0;
 }
 
+/**
+ * The value written after `flag`, or undefined when the flag is absent. Up to 1.7.1 `gen` and
+ * `preview` read `rest[rest.indexOf("--out") + 1]`, and an absent flag's index is -1: `rest[0]`
+ * became the output. `preview <config>` wrote its page over the config, `gen openapi <config>` a
+ * file named `openapi`, and both exited 0.
+ */
+function valueAfter(args: string[], flag: string): string | undefined {
+  const at = args.indexOf(flag);
+  return at === -1 ? undefined : args[at + 1];
+}
+
 function main(argv: string[]): number {
   const args = argv.slice(2);
   if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
@@ -393,7 +404,7 @@ function main(argv: string[]): number {
     }
 
     case "gen": {
-      const out = rest[rest.indexOf("--out") + 1];
+      const out = valueAfter(rest, "--out");
       const free = rest.filter((a, i) => !a.startsWith("--") && rest[i - 1] !== "--out");
       if (free.length !== 2 || free[0] !== "openapi" || !out || out.startsWith("--")) {
         console.error("usedesign gen: usage — usedesign gen openapi <usedesign.config.yaml> --out <file.json>");
@@ -403,10 +414,7 @@ function main(argv: string[]): number {
     }
 
     case "preview": {
-      // An absent `--out` is absent. Up to 1.7.1 its index was -1, `rest[0]` — the config itself —
-      // became the page, and `preview <config>` wrote HTML over the config and exited 0.
-      const at = rest.indexOf("--out");
-      const out = at === -1 ? undefined : rest[at + 1];
+      const out = valueAfter(rest, "--out");
       const free = rest.filter((a, i) => !a.startsWith("--") && rest[i - 1] !== "--out");
       if (free.length !== 1 || !out || out.startsWith("--")) {
         console.error("usedesign preview: usage — usedesign preview <usedesign.config.yaml> --out <file.html>");

@@ -44,7 +44,8 @@ jobs:
 
       # scaffold, gen and preview live in this implementation alone, so no corpus holds them (the
       # corpus README says why): tests of their own do — a draft, a derived contract and the
-      # arithmetic byte for byte against golden files, and preview writing nowhere it was not told.
+      # arithmetic byte for byte against golden files, and gen and preview writing nowhere they
+      # were not told to.
       - name: scaffold, gen and preview, against fixtures of their own
         run: npm run test:unit
 
