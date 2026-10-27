@@ -1,0 +1,22 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Widget service", "version": "1.0.0" },
+  "paths": {
+    "/v1/widgets": {
+      "get": {
+        "summary": "List widgets",
+        "responses": { "200": { "description": "OK" } }
+      },
+      "post": {
+        "operationId": "createWidget",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/v1/widgets/{widgetId}:archive": {
+      "post": {
+        "parameters": [{ "name": "widgetId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" } }
+      }
+    }
+  }
+}

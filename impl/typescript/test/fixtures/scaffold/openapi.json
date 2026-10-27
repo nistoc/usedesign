@@ -1,0 +1,61 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Library service", "version": "1.0.0" },
+  "paths": {
+    "/v1/members/{id}": {
+      "get": {
+        "summary": "Fetch one member",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "No such member" } }
+      }
+    },
+    "/v1/loans/{loanId}/return": {
+      "post": {
+        "operationId": "returnLoan",
+        "parameters": [{ "name": "loanId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "OK" }, "404": { "description": "No such loan" }, "409": { "description": "Already returned" } }
+      }
+    },
+    "/health": {
+      "get": {
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/v1/copies/{copyId}:checkout": {
+      "post": {
+        "summary": "Check out a copy to a member",
+        "parameters": [{ "name": "copyId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK" },
+          "403": { "description": "Member blocked" },
+          "409": { "description": "Copy not available" },
+          "412": { "description": "Stale copy revision" }
+        }
+      }
+    },
+    "/v1/copies/{copyId}": {
+      "post": {
+        "parameters": [
+          { "name": "copyId", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "expand", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "OK" }, "409": { "description": "Conflict" }, "422": { "description": "Invalid copy" } }
+      },
+      "get": {
+        "summary": "Fetch one copy",
+        "operationId": "getCopy",
+        "parameters": [{ "name": "copyId", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": {
+          "200": { "description": "OK" },
+          "404": { "description": "No such copy" },
+          "default": { "description": "Unexpected error" }
+        }
+      }
+    },
+    "/v1/members": {
+      "get": {
+        "responses": { "default": { "description": "Whatever the framework answers" } }
+      }
+    }
+  }
+}

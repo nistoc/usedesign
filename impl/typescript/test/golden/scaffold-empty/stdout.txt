@@ -1,0 +1,9 @@
+  ERROR    openapi_empty: openapi-empty.json: no routes — almost always a failed dump rather than an application with no routes
+routes:     0 served, read from openapi-empty.json
+drafts:     0 to write into drafts
+skipped:    0 already declared by a card
+            0 excluded by the config
+            → 0 + 0 + 0 = 0 ✓
+
+written:    0
+Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.
