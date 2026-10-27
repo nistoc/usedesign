@@ -254,6 +254,22 @@ export function planScaffold(
   return plan;
 }
 
+/**
+ * The arithmetic `scaffold` prints, checked: drafts + skipped-as-declared + skipped-as-excluded
+ * must equal the routes served. `planScaffold` puts every route in exactly one of the three lists,
+ * so on its own plans this never fires — it is the guard that a later change to `planScaffold`,
+ * dropping a route or counting one twice, does not print a sum that merely looks right. It takes
+ * the plan rather than recomputing one, so a test can hand it a plan `planScaffold` would not make.
+ */
+export function unaccountedRoutes(plan: Pick<ScaffoldPlan, "drafts" | "skippedDeclared" | "skippedExcluded" | "total">): Finding | null {
+  const accounted = plan.drafts.length + plan.skippedDeclared.length + plan.skippedExcluded.length;
+  if (accounted === plan.total) return null;
+  return new Finding(
+    "routes_unaccounted",
+    `${plan.total} routes served but ${accounted} accounted for — ${plan.total - accounted} vanished without a reason`,
+  );
+}
+
 /** Write the planned drafts. Existing files are left alone unless `force` — a half-filled draft
  * is somebody's work, and silently replacing it is the one failure this command could cause that
  * nobody would notice until the writing was gone. */

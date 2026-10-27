@@ -11,6 +11,9 @@
  * Fixtures: test/fixtures/scaffold/ (openapi.json, usedesign.config.yaml, cards/, and two small
  * documents for the uniform-statuses and the empty case). Goldens: the test/golden/scaffold
  * directories, one per case.
+ *
+ * One test is not black box: `routes_unaccounted` cannot be reached through the CLI, so the check
+ * behind it, unaccountedRoutes in dist/scaffold.js, is called with plans made by hand.
  */
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -23,6 +26,9 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cli = path.join(here, "..", "dist", "cli.js");
 assert.ok(fs.existsSync(cli), "build first: npm run build");
+// The check behind `routes_unaccounted` is called directly: no input makes the CLI reach it.
+const { planScaffold, unaccountedRoutes } = await import("../dist/scaffold.js");
+const { loadConfig } = await import("../dist/core.js");
 
 const UPDATE = process.env.UPDATE_GOLDEN === "1";
 
@@ -72,10 +78,9 @@ test("scaffold: drafts, stdout and the arithmetic match the golden files", (t) =
   const drafts = goldenTree("scaffold/drafts", path.join(dir, "drafts"));
 
   // The arithmetic line `→ d + s + e = total ✓` is the observable half of the invariant behind the
-  // `routes_unaccounted` finding (cli.ts, commandScaffold). Every route ends in exactly one of
-  // drafts / skippedDeclared / skippedExcluded (planScaffold), so the finding itself cannot be
-  // produced from any input, and commandScaffold is not exported: it is unreachable from outside
-  // and is deliberately not triggered here. What can be pinned is the line that states the sum.
+  // `routes_unaccounted` finding. Every route ends in exactly one of drafts / skippedDeclared /
+  // skippedExcluded (planScaffold), so no input makes the CLI print the finding; the check itself,
+  // unaccountedRoutes, is handed the plans planScaffold would not make in the test below.
   assert.ok(r.stdout.includes("→ 5 + 1 + 1 = 7 ✓"), r.stdout);
   assert.ok(!r.stdout.includes("routes_unaccounted"), r.stdout);
 
@@ -99,6 +104,42 @@ test("scaffold: drafts, stdout and the arithmetic match the golden files", (t) =
     }
     assert.match(body, /^actors: \[FILL_ME\]$/m, file);
     assert.match(body, /^data:\n {2}entities: \[FILL_ME\]$/m, file);
+  }
+});
+
+test("scaffold: a route lost or counted twice is routes_unaccounted", (t) => {
+  // commandScaffold prints `routes_unaccounted` and exits 1 when unaccountedRoutes (scaffold.ts)
+  // returns a finding, and the ✓ line when it returns null. planScaffold never gives it a plan that
+  // fails, so the plan it makes on the fixture is the one that must pass, and the two that must fail
+  // are made from it by hand: one with the excluded route lost, one with a draft counted again as
+  // declared. Without this test, a guard that quietly stopped guarding would pass every other one.
+  const dir = sandbox(t);
+  const { config, base } = loadConfig(path.join(dir, "usedesign.config.yaml"));
+  const planned = planScaffold(path.join(dir, "openapi.json"), path.join(dir, "drafts"), config, base);
+  assert.deepEqual([planned.drafts.length, planned.skippedDeclared.length, planned.skippedExcluded.length, planned.total], [5, 1, 1, 7]);
+
+  const draft = planned.drafts[0];
+  const plans = {
+    "as planned": planned,
+    lost: { ...planned, skippedExcluded: [] },
+    "counted twice": {
+      ...planned,
+      skippedDeclared: [...planned.skippedDeclared, { route: `${draft.method} ${draft.path}`, by: ["sample.twice"] }],
+    },
+  };
+  const verdicts = Object.entries(plans).map(([name, plan]) => [name, unaccountedRoutes(plan)]);
+
+  // `-1 vanished` for a route counted twice is the message as it is, pinned, not as a decision.
+  golden(
+    "scaffold-unaccounted/findings.txt",
+    verdicts.map(([name, f]) => `${`${name}:`.padEnd(15)}${f ? `${f.severity} ${f}` : "null"}\n`).join(""),
+  );
+  const [asPlanned, lost, twice] = verdicts.map(([, f]) => f);
+  assert.equal(asPlanned, null);
+  for (const f of [lost, twice]) {
+    assert.ok(f, "an unbalanced plan passed");
+    assert.equal(f.code, "routes_unaccounted");
+    assert.equal(f.severity, "error");
   }
 });
 
