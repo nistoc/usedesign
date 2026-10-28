@@ -244,7 +244,7 @@ test("scaffold: an OpenAPI document without routes is openapi_empty, exit 1, and
     assert.ok(r.stdout.startsWith("  ERROR    openapi_empty: openapi-empty.json: no routes"), r.stdout);
     assert.ok(r.stdout.includes("routes:     0 served, read from openapi-empty.json\n"), r.stdout);
     assert.ok(r.stdout.includes("→ 0 + 0 + 0 = 0 ✓"), r.stdout);
-    assert.ok(r.stdout.endsWith("nothing written: an ERROR above — fix the document, then run again.\n"), r.stdout);
+    assert.ok(r.stdout.endsWith("nothing written: an ERROR above — fix what it names, then run again.\n"), r.stdout);
     assert.ok(!fs.existsSync(path.join(dir, "drafts")), "the out dir was created");
   }
 });
@@ -259,10 +259,34 @@ test("scaffold: path parameters declared on the path item reach the draft", (t) 
   assert.deepEqual(drafts, ["TODO.v1-loans-notes.get.op.md", "TODO.v1-loans.delete.op.md", "TODO.v1-loans.get.op.md"]);
 
   const said = (file) => fs.readFileSync(path.join(dir, "drafts", file), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
-  // On the path item alone; on both, named once; one on each, the path item's first.
+  // On the path item alone; on both, named once; one on each, in the order of the path.
   assert.equal(said("TODO.v1-loans.get.op.md"), "loan");
   assert.equal(said("TODO.v1-loans.delete.op.md"), "loan");
   assert.equal(said("TODO.v1-loans-notes.get.op.md"), "loan, note");
+});
+
+test("scaffold: a path parameter given by $ref, in parameters that is not a list, or not declared is still named", (t) => {
+  // The names come from the path's `{…}` segments. Up to 1.7.1 only inline `in: path` entries of
+  // the operation were read: a `$ref` or an undeclared parameter was named nowhere, and `parameters`
+  // that is not a list ended `scaffold` with exit 2.
+  const dir = sandbox(t);
+  const r = run(dir, "scaffold", "openapi-path-template.json", "--out", "drafts");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.ok(!r.stdout.includes("warning") && !r.stdout.includes("ERROR"), r.stdout);
+  const drafts = goldenTree("scaffold-path-template/drafts", path.join(dir, "drafts"));
+  assert.deepEqual(drafts, [
+    "TODO.v1-loans-notes.get.op.md",
+    "TODO.v1-loans-payments.get.op.md",
+    "TODO.v1-loans.delete.op.md",
+    "TODO.v1-loans.get.op.md",
+  ]);
+
+  const said = (file) => fs.readFileSync(path.join(dir, "drafts", file), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
+  // `$ref` on the path item; `$ref` on the operation; objects, not lists, on both; declared nowhere.
+  assert.equal(said("TODO.v1-loans.get.op.md"), "loan");
+  assert.equal(said("TODO.v1-loans.delete.op.md"), "loan");
+  assert.equal(said("TODO.v1-loans-notes.get.op.md"), "loan, note");
+  assert.equal(said("TODO.v1-loans-payments.get.op.md"), "loan, payment");
 });
 
 test("scaffold: no --out is a usage error (exit 2)", (t) => {

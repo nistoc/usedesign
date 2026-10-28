@@ -87,21 +87,19 @@ function statusesAreDegenerate(routes: { operation: any }[]): boolean {
 }
 
 /**
- * Path parameters a route takes. OpenAPI lets them stand on the path item, for every operation
- * under it, as well as on the operation; up to 1.7.1 only the operation's were read, and a route
- * whose `{id}` was declared once for the whole path got a draft that named none.
+ * Path parameters a route takes, read from its `{…}` segments, as `gen` writes them. Up to 1.7.1
+ * only inline `in: path` entries of the operation's own `parameters` were read, and a draft named
+ * nothing for a parameter declared on the path item, given by `$ref`, or declared in `parameters`
+ * that is not a list (where 1.7.1 failed with exit 2). OpenAPI requires every `{…}` to be declared,
+ * so the template is the full list on a valid document and still names them on one that is not.
  */
-function pathParameterNames(shared: any, own: any): string[] {
-  const names: string[] = [];
-  for (const p of [...(Array.isArray(shared) ? shared : []), ...(Array.isArray(own) ? own : [])]) {
-    if (p?.in === "path" && p?.name && !names.includes(String(p.name))) names.push(String(p.name));
-  }
-  return names;
+function pathParameterNames(path: string): string[] {
+  return [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]!);
 }
 
-function draftBody(id: string, method: string, path: string, operation: any, shared: any, source: string, degenerate: boolean): string {
+function draftBody(id: string, method: string, path: string, operation: any, source: string, degenerate: boolean): string {
   const responses = responsesOf(operation);
-  const parameters = pathParameterNames(shared, operation?.parameters);
+  const parameters = pathParameterNames(path);
 
   // What the document says about itself goes in the prose, attributed, never into a field. A
   // summary copied into `title` would fill a human's field with a machine's guess, and the next
@@ -200,10 +198,10 @@ export function planScaffold(
     }
   }
 
-  const routes: { method: string; path: string; operation: any; shared: any }[] = [];
+  const routes: { method: string; path: string; operation: any }[] = [];
   for (const [path, operations] of Object.entries<any>(doc.paths ?? {})) {
     for (const [verb, operation] of Object.entries<any>(operations ?? {})) {
-      if (VERBS.includes(verb.toLowerCase())) routes.push({ method: verb.toUpperCase(), path, operation, shared: operations?.parameters });
+      if (VERBS.includes(verb.toLowerCase())) routes.push({ method: verb.toUpperCase(), path, operation });
     }
   }
   routes.sort((a, b) => (a.path === b.path ? a.method.localeCompare(b.method) : a.path.localeCompare(b.path)));
@@ -235,7 +233,7 @@ export function planScaffold(
     );
   }
 
-  for (const { method, path, operation, shared } of routes) {
+  for (const { method, path, operation } of routes) {
     const key = normalise(method, path);
     const shape = key.slice(key.indexOf(" ") + 1);
 
@@ -259,7 +257,7 @@ export function planScaffold(
     taken.add(id);
     const file = join(outDir, `${id}.op.md`);
     if (existsSync(file)) plan.existing.push(file);
-    plan.drafts.push({ id, file, method, path, body: draftBody(id, method, path, operation, shared, source, degenerate) });
+    plan.drafts.push({ id, file, method, path, body: draftBody(id, method, path, operation, source, degenerate) });
   }
 
   return plan;

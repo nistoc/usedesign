@@ -29,9 +29,10 @@ Fixes in `preview`, `gen` and `scaffold`, the commands that write files; the for
   and `check`, with `--dry-run` too.
 - `scaffold` creates the `--out` directory only when it has a draft to write: with every route
   declared or excluded, 1.7.1 left an empty one behind.
-- `scaffold` reads the path parameters declared on the path item, for every operation under it, as
-  well as the operation's own, and the draft names each once. Up to 1.7.1 the draft of
-  `GET /v1/loans/{loan}`, with `loan` declared on the path, named no parameter.
+- `scaffold` names a route's path parameters from its `{…}` segments, as `gen` writes them. Up to
+  1.7.1 it read only inline `in: path` entries of the operation's own `parameters`: the draft of
+  `GET /v1/loans/{loan}` named no parameter when `loan` was declared on the path item, given by
+  `$ref` or not declared at all, and `parameters` that is not a list ended `scaffold` with exit 2.
 - `routes_unaccounted`, the guard behind the arithmetic `scaffold` prints, words a route counted
   twice as "1 counted more than once"; 1.7.1 said "-1 vanished without a reason". No input
   reaches it.

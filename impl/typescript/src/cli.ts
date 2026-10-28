@@ -316,7 +316,7 @@ function commandScaffold(openapiPath: string, outDir: string, configPath: string
   // document with no routes, almost always a failed dump — was printed as ERROR and exited 0, and
   // a pipeline that read the exit code went on as if the routes had been drafted.
   if (errors(plan.findings).length > 0) {
-    console.log("\nnothing written: an ERROR above — fix the document, then run again.");
+    console.log("\nnothing written: an ERROR above — fix what it names, then run again.");
     return 1;
   }
 
