@@ -11,9 +11,14 @@
       "get": { "summary": "Read the plain one", "responses": { "200": { "description": "ok" } } }
     },
     "/v2/plain": { "$ref": "#/paths/~1v1~1plain" },
-    "/v1/elsewhere": { "$ref": "shared.json#/components/pathItems/Elsewhere" },
+    "/v1/elsewhere": {
+      "$ref": "shared.json#/components/pathItems/Elsewhere",
+      "get": { "summary": "Read what is written here", "responses": { "200": { "description": "ok" } } }
+    },
     "/v1/missing": { "$ref": "#/components/pathItems/Missing" },
-    "/v1/chained": { "$ref": "#/components/pathItems/Chained" }
+    "/v1/chained": { "$ref": "#/components/pathItems/Chained" },
+    "/v1/operation": { "$ref": "#/components/pathItems/Account/get" },
+    "/v1/root": { "$ref": "#" }
   },
   "components": {
     "pathItems": {

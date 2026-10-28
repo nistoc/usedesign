@@ -279,7 +279,9 @@ test("scaffold: a path item given by $ref inside the document is a route; any ot
   // OpenAPI 3.1 lets a whole path item be a `$ref`. Up to 1.7.2 its routes were neither drafted
   // nor counted, exit 0, and the sum added up without them. Now an address inside the document is
   // followed one level, the fields beside `$ref` winning over the target's; another document, an
-  // address with nothing at it and a `$ref` to a `$ref` are a warning each, with the path.
+  // address with nothing at it, a `$ref` to a `$ref` and a target with no operation — an operation,
+  // the document itself — are a warning each, with the path. The fields beside a `$ref` not read
+  // are still read: `/v1/elsewhere` has a `get` of its own, drafted and counted.
   const dir = sandbox(t);
   const r = run(dir, "scaffold", "openapi-path-item-ref.json", "--out", "drafts");
   assert.equal(r.status, 0, r.stdout + r.stderr);
@@ -288,16 +290,28 @@ test("scaffold: a path item given by $ref inside the document is a route; any ot
   const warned = r.stdout.split("\n").filter((line) => line.startsWith(prefix));
   assert.deepEqual(
     warned.map((line) => line.slice(prefix.length).split(": ")[0]),
-    ["/v1/elsewhere", "/v1/missing", "/v1/chained"],
+    ["/v1/elsewhere", "/v1/missing", "/v1/chained", "/v1/operation", "/v1/root"],
   );
+  assert.deepEqual(
+    warned.map((line) => line.slice(line.indexOf(" — ") + 3, line.indexOf("; not read"))),
+    [
+      "not an address inside this document",
+      "nothing at that address",
+      "what stands there is another `$ref`, and only one level is followed",
+      "what stands there has no operation",
+      "what stands there has no operation",
+    ],
+  );
+  assert.ok(warned.every((line) => line.endsWith("; not read, so the routes at that address are neither drafted nor counted")), r.stdout);
   // The target's `parameters` is not a list, the path item's own is: the path item's is read.
   assert.ok(!r.stdout.includes("openapi_parameters_not_list"), r.stdout);
-  assert.ok(r.stdout.includes("routes:     5 served"), r.stdout);
+  assert.ok(r.stdout.includes("routes:     6 served"), r.stdout);
   const drafts = goldenTree("scaffold-path-item-ref/drafts", path.join(dir, "drafts"));
   assert.deepEqual(drafts, [
     "TODO.v1-accounts-holds.post.op.md",
     "TODO.v1-accounts.delete.op.md",
     "TODO.v1-accounts.get.op.md",
+    "TODO.v1-elsewhere.get.op.md",
     "TODO.v1-plain.get.op.md",
     "TODO.v2-plain.get.op.md",
   ]);
@@ -306,6 +320,7 @@ test("scaffold: a path item given by $ref inside the document is a route; any ot
   assert.ok(body("TODO.v1-accounts.get.op.md").includes("summary: Read one account · параметры пути: account."));
   assert.ok(body("TODO.v1-accounts-holds.post.op.md").includes("параметры пути: account."));
   assert.ok(body("TODO.v2-plain.get.op.md").includes("summary: Read the plain one."));
+  assert.ok(body("TODO.v1-elsewhere.get.op.md").includes("summary: Read what is written here."));
 });
 
 test("scaffold: a path parameter given by $ref, in parameters that is not a list, or not declared is still named", (t) => {

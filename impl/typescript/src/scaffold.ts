@@ -124,8 +124,9 @@ function parametersNotList(where: string, parameters: any): Finding | null {
  * drafted nor counted and nothing said so: the sum still added up, without it. An address inside
  * this document is followed one level, and the fields written beside `$ref` win over the target's.
  * Anything else — another document, an address with nothing at it, a target that is itself a
- * `$ref` — is not read, and `openapi_path_item_ref_not_read` names the path, so that a route the
- * server answers is never dropped from the count unseen.
+ * `$ref`, a target with no operation, such as an operation or the document itself — is not read,
+ * and `openapi_path_item_ref_not_read` names the path, so that a route the server answers is never
+ * dropped from the count unseen. The fields written beside a `$ref` not read are still read.
  */
 function resolvePathItem(doc: any, path: string, item: any): { item: any; notRead: Finding | null } {
   const ref = item?.$ref;
@@ -135,13 +136,13 @@ function resolvePathItem(doc: any, path: string, item: any): { item: any; notRea
     item: own,
     notRead: new Finding(
       "openapi_path_item_ref_not_read",
-      `${path}: the path item is given by \`$ref\` ${JSON.stringify(ref)} — ${why}; not read, so its routes are neither drafted nor counted`,
+      `${path}: the path item is given by \`$ref\` ${JSON.stringify(ref)} — ${why}; not read, so the routes at that address are neither drafted nor counted`,
       "warning",
     ),
   });
-  if (typeof ref !== "string" || !ref.startsWith("#/")) return notRead("not an address inside this document");
+  if (typeof ref !== "string" || !(ref === "#" || ref.startsWith("#/"))) return notRead("not an address inside this document");
   let target: any = doc;
-  for (const token of ref.slice(2).split("/")) {
+  for (const token of ref === "#" ? [] : ref.slice(2).split("/")) {
     let key: string;
     try {
       // A JSON Pointer in a URI fragment: percent-decoding first, then `~1` → `/` and `~0` → `~`.
@@ -156,6 +157,10 @@ function resolvePathItem(doc: any, path: string, item: any): { item: any; notRea
   }
   if (target === null || typeof target !== "object" || Array.isArray(target)) return notRead("what stands there is not a path item");
   if (target.$ref !== undefined) return notRead("what stands there is another `$ref`, and only one level is followed");
+  // An operation (`…/X/get`) or the document itself is an object too, and taken for a path item it
+  // would drop its route as silently as 1.7.2 did. A path item written in place with no operation
+  // is lawful and stays as it was; one given by `$ref` names an address that holds no route.
+  if (!Object.keys(target).some((key) => VERBS.includes(key.toLowerCase()))) return notRead("what stands there has no operation");
   return { item: { ...target, ...own }, notRead: null };
 }
 
