@@ -20,10 +20,11 @@ a day.
   document is followed one level, and the fields written beside `$ref` win over the target's; the
   routes under it are drafted and counted. Up to 1.7.2 the path item's one key, `$ref`, was not a
   verb: its routes were neither drafted nor counted, `scaffold` exited 0, and the sum it printed
-  added up without them. A `$ref` to another document, to an address with nothing at it, or to
-  another `$ref` is a warning, `openapi_path_item_ref_not_read`, with the path; those routes are
-  still not counted, and the warning says so. A golden test of its own holds every case
-  (`scaffold-path-item-ref`).
+  added up without them. A `$ref` to another document, to an address with nothing at it, to
+  another `$ref`, or to something with no operation — an operation, the document itself — is a
+  warning, `openapi_path_item_ref_not_read`, with the path; the routes at that address are still
+  not counted, and the warning says so. The fields written beside such a `$ref` are read as they
+  stand. A golden test of its own holds every case (`scaffold-path-item-ref`).
 - Tests only, the tools do not change: the draft keeps path parameters in the order the operation
   declares them, and the route that shows it is now `/v1/loans/{loan}/rates/{rate}`, declared
   `rate, loan` — neither the path's order nor the alphabet's. Its 1.7.2 predecessor,

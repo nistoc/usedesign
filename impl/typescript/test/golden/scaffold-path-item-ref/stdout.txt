@@ -1,11 +1,13 @@
-  warning  openapi_path_item_ref_not_read: /v1/elsewhere: the path item is given by `$ref` "shared.json#/components/pathItems/Elsewhere" — not an address inside this document; not read, so its routes are neither drafted nor counted
-  warning  openapi_path_item_ref_not_read: /v1/missing: the path item is given by `$ref` "#/components/pathItems/Missing" — nothing at that address; not read, so its routes are neither drafted nor counted
-  warning  openapi_path_item_ref_not_read: /v1/chained: the path item is given by `$ref` "#/components/pathItems/Chained" — what stands there is another `$ref`, and only one level is followed; not read, so its routes are neither drafted nor counted
-routes:     5 served, read from openapi-path-item-ref.json
-drafts:     5 to write into drafts
+  warning  openapi_path_item_ref_not_read: /v1/elsewhere: the path item is given by `$ref` "shared.json#/components/pathItems/Elsewhere" — not an address inside this document; not read, so the routes at that address are neither drafted nor counted
+  warning  openapi_path_item_ref_not_read: /v1/missing: the path item is given by `$ref` "#/components/pathItems/Missing" — nothing at that address; not read, so the routes at that address are neither drafted nor counted
+  warning  openapi_path_item_ref_not_read: /v1/chained: the path item is given by `$ref` "#/components/pathItems/Chained" — what stands there is another `$ref`, and only one level is followed; not read, so the routes at that address are neither drafted nor counted
+  warning  openapi_path_item_ref_not_read: /v1/operation: the path item is given by `$ref` "#/components/pathItems/Account/get" — what stands there has no operation; not read, so the routes at that address are neither drafted nor counted
+  warning  openapi_path_item_ref_not_read: /v1/root: the path item is given by `$ref` "#" — what stands there has no operation; not read, so the routes at that address are neither drafted nor counted
+routes:     6 served, read from openapi-path-item-ref.json
+drafts:     6 to write into drafts
 skipped:    0 already declared by a card
             0 excluded by the config
-            → 5 + 0 + 0 = 5 ✓
+            → 6 + 0 + 0 = 6 ✓
 
-written:    5
+written:    6
 Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.
