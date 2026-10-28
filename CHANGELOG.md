@@ -11,15 +11,35 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
-## Unreleased
+## 1.7.2
 
-*not yet released*
+*2026-10-28 · the tools change, the format does not (SPEC v1.7)*
+
+Fixes in `preview`, `gen` and `scaffold`, the commands that write files; the format, `validate` and
+`check` do not change.
 
 - `preview <config>` and `gen openapi <config>` without `--out` are a usage error: exit 2, and
   nothing is written. Up to 1.7.1 both took the first argument after the command for the output
   when `--out` was absent, and exited 0: `preview` wrote its page over the config, `gen` wrote the
   document into a file named `openapi`. `--out` without a value was refused already.
   `test/preview.test.mjs` and `test/gen.test.mjs` pin every form, and that no file is written.
+- `scaffold` on an OpenAPI document with no routes exits 1 and writes nothing. Up to 1.7.1 it
+  printed `openapi_empty` as an ERROR and exited 0, and a pipeline that read the exit code went on
+  as if the routes had been drafted. An ERROR line is exit 1 in `scaffold` now, as in `validate`
+  and `check`, with `--dry-run` too.
+- `scaffold` creates the `--out` directory only when it has a draft to write: with every route
+  declared or excluded, 1.7.1 left an empty one behind.
+- `scaffold` reads the path parameters declared on the path item, for every operation under it, as
+  well as the operation's own, and the draft names each once. Up to 1.7.1 the draft of
+  `GET /v1/loans/{loan}`, with `loan` declared on the path, named no parameter.
+- `routes_unaccounted`, the guard behind the arithmetic `scaffold` prints, words a route counted
+  twice as "1 counted more than once"; 1.7.1 said "-1 vanished without a reason". No input
+  reaches it.
+- `gen openapi`: an operation several cards share (the dispatch idiom) is as mature as the least
+  mature of them, and its `summary` names every card. Up to 1.7.1 both came from the first card by
+  id, so a route a `conceived` card shares with a `tested` one could read `tested`. A `deprecated`
+  card leaves the route to the others; only a route whose cards are all deprecated reads
+  `deprecated`.
 - Tests only, the tools do not change: 31 cases for codes that no case pinned, 8 in the card
   corpus and 23 in the checks corpus, and both implementations agree on all of them — 101 + 95
   cases, 196 (it was 93 + 72). `scaffold` and `gen` live in the reference implementation alone,
