@@ -15,6 +15,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { Config, Finding, loadCardFiles } from "./core.js";
+import { MATURITY } from "./validate.js";
 
 interface GenCounts {
   cards: number;
@@ -44,10 +45,25 @@ function pathParameters(path: string): any[] {
   return params;
 }
 
+/**
+ * The maturity of an operation several cards share: the least mature of theirs, since the route
+ * is no further along than its weakest card. A value outside the ladder — absent or unknown — is
+ * below every rung and wins. `deprecated` is not a rung: a deprecated card leaves the route to the
+ * others, and only a route all of whose cards are deprecated is `deprecated`.
+ */
+function leastMature(maturities: string[]): string {
+  const ladder = MATURITY.filter((m) => m !== "deprecated");
+  const live = maturities.filter((m) => m !== "deprecated");
+  if (live.length === 0) return "deprecated";
+  return live.reduce((low, m) => (ladder.indexOf(m) < ladder.indexOf(low) ? m : low));
+}
+
 export function buildOpenApi(config: Config, base: string): { doc: any; counts: GenCounts; findings: Finding[] } {
   const { cards, findings } = loadCardFiles(config, base);
   const paths: Record<string, any> = {};
   const merged: string[] = [];
+  // Per operation, the titles and maturities of the cards merged into it (the dispatch idiom).
+  const merges = new Map<any, { titles: string[]; maturities: string[] }>();
   let rest = 0;
 
   for (const [id, card] of [...cards].sort(([a], [b]) => a.localeCompare(b))) {
@@ -64,6 +80,15 @@ export function buildOpenApi(config: Config, base: string): { doc: any; counts: 
         const operation = route[method];
         operation["x-usedesign-operations"].push(id);
         merged.push(`${String(iface.method).toUpperCase()} ${iface.path} ← ${operation["x-usedesign-operations"].join(", ")}`);
+        // Up to 1.7.1 the summary and the maturity were the first card's alone: a route a
+        // `conceived` card shares with a `tested` one could read `tested`. Now the summary names
+        // every card and the maturity is the least mature of them.
+        const sources = merges.get(operation)!;
+        const title = String(card["title"] ?? id);
+        if (!sources.titles.includes(title)) sources.titles.push(title);
+        sources.maturities.push(String(card["maturity"] ?? ""));
+        operation.summary = sources.titles.join("; ");
+        operation["x-usedesign-maturity"] = leastMature(sources.maturities);
         for (const code of declared) {
           const existing = operation.responses[String(code)];
           const names = namesFor(card, code);
@@ -88,6 +113,7 @@ export function buildOpenApi(config: Config, base: string): { doc: any; counts: 
         ...(pathParameters(String(iface.path)).length ? { parameters: pathParameters(String(iface.path)) } : {}),
         responses,
       };
+      merges.set(route[method], { titles: [String(card["title"] ?? id)], maturities: [String(card["maturity"] ?? "")] });
     }
   }
 

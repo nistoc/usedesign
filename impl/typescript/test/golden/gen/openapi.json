@@ -40,7 +40,7 @@
     "/v1/things:batch": {
       "post": {
         "operationId": "sample.batch.delete-many",
-        "summary": "Delete a list of things",
+        "summary": "Delete a list of things; Publish a list of things",
         "x-usedesign-operations": [
           "sample.batch.delete-many",
           "sample.batch.publish-many"

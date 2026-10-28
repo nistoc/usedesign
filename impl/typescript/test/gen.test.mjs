@@ -74,6 +74,8 @@ test("gen openapi: stdout and the derived document match the golden files, and a
   assert.deepEqual(Object.keys(doc.paths), ["/v1/loans/{loanId}", "/v1/things:batch"], "paths are sorted");
   const merged = doc.paths["/v1/things:batch"].post;
   assert.deepEqual(merged["x-usedesign-operations"], ["sample.batch.delete-many", "sample.batch.publish-many"]);
+  // The summary names both cards (up to 1.7.1, the first card's title alone).
+  assert.equal(merged.summary, "Delete a list of things; Publish a list of things");
   assert.deepEqual(
     Object.fromEntries(Object.entries(merged.responses).map(([code, response]) => [code, response.description])),
     {
@@ -88,6 +90,32 @@ test("gen openapi: stdout and the derived document match the golden files, and a
   assert.deepEqual(loan.parameters, [{ name: "loanId", in: "path", required: true, schema: { type: "string" } }]);
   assert.equal(loan.responses["410"].description, "loan_closed", "a status named by outcomes[] alone");
   assert.equal(JSON.stringify(doc).includes("sample.loans.screen"), false, "the ui-only card adds no route");
+});
+
+test("gen openapi: a route several cards share is as mature as the least mature of them", (t) => {
+  // Up to 1.7.1 the merged operation took the first card's maturity: with the first card (by id)
+  // `designed` and its sibling `conceived`, the route read `designed`. The fixture gives both
+  // `conceived`, so each case below rewrites the maturities of the two cards on the route.
+  const cases = [
+    [["designed", "conceived"], "conceived"],
+    [["conceived", "tested"], "conceived"],
+    [["in_production", "implemented"], "implemented"],
+    [["deprecated", "tested"], "tested"],
+    [["deprecated", "deprecated"], "deprecated"],
+  ];
+  for (const [[first, second], expected] of cases) {
+    const dir = sandbox(t);
+    for (const [card, maturity] of [["sample.batch.delete-many", first], ["sample.batch.publish-many", second]]) {
+      const file = path.join(dir, "cards", `${card}.op.md`);
+      const body = fs.readFileSync(file, "utf8");
+      assert.match(body, /^maturity: conceived$/m, `${card}: the fixture changed`);
+      fs.writeFileSync(file, body.replace(/^maturity: conceived$/m, `maturity: ${maturity}`));
+    }
+    const r = run(dir, "gen", "openapi", "usedesign.config.yaml", "--out", "openapi.json");
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const merged = JSON.parse(fs.readFileSync(path.join(dir, "openapi.json"), "utf8")).paths["/v1/things:batch"].post;
+    assert.equal(merged["x-usedesign-maturity"], expected, `${first} + ${second}`);
+  }
 });
 
 test("gen openapi: cards without a REST interface derive nothing (exit 1)", (t) => {
@@ -131,6 +159,6 @@ test("gen, then scaffold: the loop closes — zero drafts, every route declared"
   assert.ok(r.stdout.includes(`→ 0 + ${routes} + 0 = ${routes} ✓`), r.stdout);
   assert.ok(r.stdout.includes("GET /v1/loans/{} → sample.loans.get-one\n"), r.stdout);
   assert.ok(r.stdout.includes("POST /v1/things:batch → sample.batch.delete-many, sample.batch.publish-many\n"), r.stdout);
-  const drafts = path.join(dir, "drafts");
-  assert.deepEqual(fs.existsSync(drafts) ? fs.readdirSync(drafts) : [], [], "a draft was written");
+  // Zero drafts: no draft and no `--out` directory (up to 1.7.1 an empty one was created).
+  assert.ok(!fs.existsSync(path.join(dir, "drafts")), "the out dir was created with nothing to write");
 });
