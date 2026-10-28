@@ -8,8 +8,8 @@
  *                                        then READ every changed file: a golden file is a claim,
  *                                        not a recording.
  *
- * Fixtures: test/fixtures/scaffold/ (openapi.json, usedesign.config.yaml, cards/, and two small
- * documents for the uniform-statuses and the empty case). Goldens: the test/golden/scaffold
+ * Fixtures: test/fixtures/scaffold/ (openapi.json, usedesign.config.yaml, cards/, and small
+ * documents for the uniform-statuses, the empty, the path-item and the path-template cases). Goldens: the test/golden/scaffold
  * directories, one per case.
  *
  * One test is not black box: `routes_unaccounted` cannot be reached through the CLI, so the check
@@ -256,23 +256,37 @@ test("scaffold: path parameters declared on the path item reach the draft", (t) 
   const r = run(dir, "scaffold", "openapi-path-item.json", "--out", "drafts");
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const drafts = goldenTree("scaffold-path-item/drafts", path.join(dir, "drafts"));
-  assert.deepEqual(drafts, ["TODO.v1-loans-notes.get.op.md", "TODO.v1-loans.delete.op.md", "TODO.v1-loans.get.op.md"]);
+  assert.deepEqual(drafts, [
+    "TODO.v1-loans-fees.get.op.md",
+    "TODO.v1-loans-notes.get.op.md",
+    "TODO.v1-loans.delete.op.md",
+    "TODO.v1-loans.get.op.md",
+  ]);
 
   const said = (file) => fs.readFileSync(path.join(dir, "drafts", file), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
-  // On the path item alone; on both, named once; one on each, in the order of the path.
+  // On the path item alone; on both, named once; one on each, the path item's first; on the
+  // operation in an order of its own, which the draft keeps.
   assert.equal(said("TODO.v1-loans.get.op.md"), "loan");
   assert.equal(said("TODO.v1-loans.delete.op.md"), "loan");
   assert.equal(said("TODO.v1-loans-notes.get.op.md"), "loan, note");
+  assert.equal(said("TODO.v1-loans-fees.get.op.md"), "fee, loan");
 });
 
 test("scaffold: a path parameter given by $ref, in parameters that is not a list, or not declared is still named", (t) => {
-  // The names come from the path's `{…}` segments. Up to 1.7.1 only inline `in: path` entries of
-  // the operation were read: a `$ref` or an undeclared parameter was named nowhere, and `parameters`
-  // that is not a list ended `scaffold` with exit 2.
+  // Names the path's `{…}` segments carry are added to the declared ones. Up to 1.7.1 only inline
+  // `in: path` entries of the operation were read: a `$ref` or an undeclared parameter was named
+  // nowhere, and `parameters` that is not a list ended `scaffold` with exit 2. Now that is a warning
+  // on each level it stands on, and every route still gets its draft.
   const dir = sandbox(t);
   const r = run(dir, "scaffold", "openapi-path-template.json", "--out", "drafts");
   assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.ok(!r.stdout.includes("warning") && !r.stdout.includes("ERROR"), r.stdout);
+  golden("scaffold-path-template/stdout.txt", r.stdout);
+  const warned = r.stdout.split("\n").filter((line) => line.startsWith("  warning  openapi_parameters_not_list: "));
+  assert.deepEqual(
+    warned.map((line) => line.slice("  warning  openapi_parameters_not_list: ".length).split(":")[0]),
+    ["/v1/loans/{loan}/notes/{note} (the path item)", "GET /v1/loans/{loan}/notes/{note}"],
+  );
+  assert.ok(!r.stdout.includes("ERROR"), r.stdout);
   const drafts = goldenTree("scaffold-path-template/drafts", path.join(dir, "drafts"));
   assert.deepEqual(drafts, [
     "TODO.v1-loans-notes.get.op.md",

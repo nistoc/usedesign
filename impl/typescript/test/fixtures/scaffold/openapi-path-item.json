@@ -16,6 +16,15 @@
         "responses": { "204": { "description": "gone" } }
       }
     },
+    "/v1/loans/{loan}/fees/{fee}": {
+      "get": {
+        "parameters": [
+          { "name": "fee", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "loan", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" }, "410": { "description": "waived" } }
+      }
+    },
     "/v1/loans/{loan}/notes/{note}": {
       "parameters": [{ "name": "loan", "in": "path", "required": true, "schema": { "type": "string" } }],
       "get": {

@@ -87,19 +87,40 @@ function statusesAreDegenerate(routes: { operation: any }[]): boolean {
 }
 
 /**
- * Path parameters a route takes, read from its `{…}` segments, as `gen` writes them. Up to 1.7.1
- * only inline `in: path` entries of the operation's own `parameters` were read, and a draft named
- * nothing for a parameter declared on the path item, given by `$ref`, or declared in `parameters`
- * that is not a list (where 1.7.1 failed with exit 2). OpenAPI requires every `{…}` to be declared,
- * so the template is the full list on a valid document and still names them on one that is not.
+ * Path parameters a route takes: the inline `in: path` entries declared on the path item, for every
+ * operation under it, then the operation's own, then the names of the path's `{…}` segments not
+ * declared inline, as `gen` writes them — each once. Up to 1.7.1 only the operation's inline entries
+ * were read, and a draft named nothing for a parameter declared on the path item, given by `$ref`,
+ * or not declared at all. `parameters` that is not a list is not read; `parametersNotList` says so.
  */
-function pathParameterNames(path: string): string[] {
-  return [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]!);
+function pathParameterNames(path: string, shared: any, own: any): string[] {
+  const names: string[] = [];
+  for (const p of [...(Array.isArray(shared) ? shared : []), ...(Array.isArray(own) ? own : [])]) {
+    if (p?.in === "path" && p?.name && !names.includes(String(p.name))) names.push(String(p.name));
+  }
+  for (const match of path.matchAll(/\{([^}]+)\}/g)) {
+    if (!names.includes(match[1]!)) names.push(match[1]!);
+  }
+  return names;
 }
 
-function draftBody(id: string, method: string, path: string, operation: any, source: string, degenerate: boolean): string {
+/**
+ * `parameters` that is not a list, on a path item or an operation, is a broken document: 1.7.1
+ * failed on it with exit 2. It is not read, and the draft still names the path's `{…}` segments, so
+ * this is a warning rather than an ERROR — every route still gets its draft.
+ */
+function parametersNotList(where: string, parameters: any): Finding | null {
+  if (parameters == null || Array.isArray(parameters)) return null;
+  return new Finding(
+    "openapi_parameters_not_list",
+    `${where}: \`parameters\` is not a list — not read; the draft names the path parameters from the path itself`,
+    "warning",
+  );
+}
+
+function draftBody(id: string, method: string, path: string, operation: any, shared: any, source: string, degenerate: boolean): string {
   const responses = responsesOf(operation);
-  const parameters = pathParameterNames(path);
+  const parameters = pathParameterNames(path, shared, operation?.parameters);
 
   // What the document says about itself goes in the prose, attributed, never into a field. A
   // summary copied into `title` would fill a human's field with a machine's guess, and the next
@@ -198,10 +219,15 @@ export function planScaffold(
     }
   }
 
-  const routes: { method: string; path: string; operation: any }[] = [];
+  const routes: { method: string; path: string; operation: any; shared: any }[] = [];
   for (const [path, operations] of Object.entries<any>(doc.paths ?? {})) {
+    const onPathItem = parametersNotList(`${path} (the path item)`, operations?.parameters);
+    if (onPathItem) findings.push(onPathItem);
     for (const [verb, operation] of Object.entries<any>(operations ?? {})) {
-      if (VERBS.includes(verb.toLowerCase())) routes.push({ method: verb.toUpperCase(), path, operation });
+      if (!VERBS.includes(verb.toLowerCase())) continue;
+      const onOperation = parametersNotList(`${verb.toUpperCase()} ${path}`, operation?.parameters);
+      if (onOperation) findings.push(onOperation);
+      routes.push({ method: verb.toUpperCase(), path, operation, shared: operations?.parameters });
     }
   }
   routes.sort((a, b) => (a.path === b.path ? a.method.localeCompare(b.method) : a.path.localeCompare(b.path)));
@@ -233,7 +259,7 @@ export function planScaffold(
     );
   }
 
-  for (const { method, path, operation } of routes) {
+  for (const { method, path, operation, shared } of routes) {
     const key = normalise(method, path);
     const shape = key.slice(key.indexOf(" ") + 1);
 
@@ -257,7 +283,7 @@ export function planScaffold(
     taken.add(id);
     const file = join(outDir, `${id}.op.md`);
     if (existsSync(file)) plan.existing.push(file);
-    plan.drafts.push({ id, file, method, path, body: draftBody(id, method, path, operation, source, degenerate) });
+    plan.drafts.push({ id, file, method, path, body: draftBody(id, method, path, operation, shared, source, degenerate) });
   }
 
   return plan;
