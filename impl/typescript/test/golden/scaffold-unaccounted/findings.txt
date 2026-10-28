@@ -1,3 +1,3 @@
 as planned:    null
 lost:          error routes_unaccounted: 7 routes served but 6 accounted for — 1 vanished without a reason
-counted twice: error routes_unaccounted: 7 routes served but 8 accounted for — -1 vanished without a reason
+counted twice: error routes_unaccounted: 7 routes served but 8 accounted for — 1 counted more than once

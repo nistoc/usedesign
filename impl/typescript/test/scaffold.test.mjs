@@ -129,7 +129,8 @@ test("scaffold: a route lost or counted twice is routes_unaccounted", (t) => {
   };
   const verdicts = Object.entries(plans).map(([name, plan]) => [name, unaccountedRoutes(plan)]);
 
-  // `-1 vanished` for a route counted twice is the message as it is, pinned, not as a decision.
+  // A route lost "vanished"; a route counted twice is "counted more than once" (up to 1.7.1 it
+  // read "-1 vanished"). Both lines are in the golden file.
   golden(
     "scaffold-unaccounted/findings.txt",
     verdicts.map(([name, f]) => `${`${name}:`.padEnd(15)}${f ? `${f.severity} ${f}` : "null"}\n`).join(""),
@@ -141,6 +142,9 @@ test("scaffold: a route lost or counted twice is routes_unaccounted", (t) => {
     assert.equal(f.code, "routes_unaccounted");
     assert.equal(f.severity, "error");
   }
+  assert.ok(lost.detail.endsWith("— 1 vanished without a reason"), lost.detail);
+  assert.ok(twice.detail.endsWith("— 1 counted more than once"), twice.detail);
+  assert.ok(!twice.detail.includes("-1"), twice.detail);
 });
 
 test("scaffold: every written draft fails validate", (t) => {
@@ -229,19 +233,36 @@ test("scaffold: statuses identical across every route are flagged in stdout and 
   }
 });
 
-test("scaffold: an OpenAPI document without routes is reported as openapi_empty", (t) => {
+test("scaffold: an OpenAPI document without routes is openapi_empty, exit 1, and nothing is written", (t) => {
+  // Up to 1.7.1 the ERROR line came with exit 0, and an empty `--out` directory was left behind.
+  for (const extra of [[], ["--dry-run"]]) {
+    const dir = sandbox(t);
+    const r = run(dir, "scaffold", "openapi-empty.json", "--out", "drafts", ...extra);
+    assert.equal(r.status, 1, `${extra.join(" ")}\n${r.stdout}${r.stderr}`);
+
+    if (extra.length === 0) golden("scaffold-empty/stdout.txt", r.stdout);
+    assert.ok(r.stdout.startsWith("  ERROR    openapi_empty: openapi-empty.json: no routes"), r.stdout);
+    assert.ok(r.stdout.includes("routes:     0 served, read from openapi-empty.json\n"), r.stdout);
+    assert.ok(r.stdout.includes("→ 0 + 0 + 0 = 0 ✓"), r.stdout);
+    assert.ok(r.stdout.endsWith("nothing written: an ERROR above — fix the document, then run again.\n"), r.stdout);
+    assert.ok(!fs.existsSync(path.join(dir, "drafts")), "the out dir was created");
+  }
+});
+
+test("scaffold: path parameters declared on the path item reach the draft", (t) => {
+  // OpenAPI lets `parameters` stand on the path item, for every operation under it. Up to 1.7.1
+  // only the operation's own were read: the draft of `GET /v1/loans/{loan}` named no parameter.
   const dir = sandbox(t);
-  const r = run(dir, "scaffold", "openapi-empty.json", "--out", "drafts");
+  const r = run(dir, "scaffold", "openapi-path-item.json", "--out", "drafts");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const drafts = goldenTree("scaffold-path-item/drafts", path.join(dir, "drafts"));
+  assert.deepEqual(drafts, ["TODO.v1-loans-notes.get.op.md", "TODO.v1-loans.delete.op.md", "TODO.v1-loans.get.op.md"]);
 
-  // 1.7.1 exits 0 here although the finding is an ERROR — pinned as it is, not as a decision.
-  assert.equal(r.status, 0, r.stderr);
-
-  golden("scaffold-empty/stdout.txt", r.stdout);
-  assert.ok(r.stdout.startsWith("  ERROR    openapi_empty: openapi-empty.json: no routes"), r.stdout);
-  assert.ok(r.stdout.includes("routes:     0 served, read from openapi-empty.json\n"), r.stdout);
-  assert.ok(r.stdout.includes("→ 0 + 0 + 0 = 0 ✓"), r.stdout);
-  const drafts = path.join(dir, "drafts");
-  assert.deepEqual(fs.existsSync(drafts) ? fs.readdirSync(drafts) : [], [], "a draft was written");
+  const said = (file) => fs.readFileSync(path.join(dir, "drafts", file), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
+  // On the path item alone; on both, named once; one on each, the path item's first.
+  assert.equal(said("TODO.v1-loans.get.op.md"), "loan");
+  assert.equal(said("TODO.v1-loans.delete.op.md"), "loan");
+  assert.equal(said("TODO.v1-loans-notes.get.op.md"), "loan, note");
 });
 
 test("scaffold: no --out is a usage error (exit 2)", (t) => {

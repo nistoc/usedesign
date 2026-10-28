@@ -312,6 +312,14 @@ function commandScaffold(openapiPath: string, outDir: string, configPath: string
   }
   console.log(`            → ${plan.drafts.length} + ${plan.skippedDeclared.length} + ${plan.skippedExcluded.length} = ${plan.total} ✓`);
 
+  // An ERROR line is exit 1 here as in `validate` and `check`. Up to 1.7.1 `openapi_empty` — a
+  // document with no routes, almost always a failed dump — was printed as ERROR and exited 0, and
+  // a pipeline that read the exit code went on as if the routes had been drafted.
+  if (errors(plan.findings).length > 0) {
+    console.log("\nnothing written: an ERROR above — fix the document, then run again.");
+    return 1;
+  }
+
   if (plan.existing.length > 0) {
     console.log(`\nexisting:   ${plan.existing.length} draft(s) already on disk — ${force ? "OVERWRITTEN (--force)" : "left untouched"}`);
   }

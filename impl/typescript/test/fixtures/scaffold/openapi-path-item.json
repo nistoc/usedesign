@@ -1,0 +1,27 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "path-item parameters", "version": "1" },
+  "paths": {
+    "/v1/loans/{loan}": {
+      "parameters": [{ "name": "loan", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "summary": "Read one loan",
+        "responses": { "200": { "description": "ok" }, "404": { "description": "no such loan" } }
+      },
+      "delete": {
+        "parameters": [
+          { "name": "loan", "in": "path", "required": true, "description": "the operation's own copy", "schema": { "type": "string" } },
+          { "name": "reason", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": { "204": { "description": "gone" } }
+      }
+    },
+    "/v1/loans/{loan}/notes/{note}": {
+      "parameters": [{ "name": "loan", "in": "path", "required": true, "schema": { "type": "string" } }],
+      "get": {
+        "parameters": [{ "name": "note", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "ok" } }
+      }
+    }
+  }
+}

@@ -5,5 +5,4 @@ skipped:    0 already declared by a card
             0 excluded by the config
             → 0 + 0 + 0 = 0 ✓
 
-written:    0
-Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.
+nothing written: an ERROR above — fix the document, then run again.

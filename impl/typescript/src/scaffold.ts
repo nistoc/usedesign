@@ -86,11 +86,22 @@ function statusesAreDegenerate(routes: { operation: any }[]): boolean {
   return sets.size === 1;
 }
 
-function draftBody(id: string, method: string, path: string, operation: any, source: string, degenerate: boolean): string {
+/**
+ * Path parameters a route takes. OpenAPI lets them stand on the path item, for every operation
+ * under it, as well as on the operation; up to 1.7.1 only the operation's were read, and a route
+ * whose `{id}` was declared once for the whole path got a draft that named none.
+ */
+function pathParameterNames(shared: any, own: any): string[] {
+  const names: string[] = [];
+  for (const p of [...(Array.isArray(shared) ? shared : []), ...(Array.isArray(own) ? own : [])]) {
+    if (p?.in === "path" && p?.name && !names.includes(String(p.name))) names.push(String(p.name));
+  }
+  return names;
+}
+
+function draftBody(id: string, method: string, path: string, operation: any, shared: any, source: string, degenerate: boolean): string {
   const responses = responsesOf(operation);
-  const parameters: string[] = (operation?.parameters ?? [])
-    .filter((p: any) => p?.in === "path" && p?.name)
-    .map((p: any) => String(p.name));
+  const parameters = pathParameterNames(shared, operation?.parameters);
 
   // What the document says about itself goes in the prose, attributed, never into a field. A
   // summary copied into `title` would fill a human's field with a machine's guess, and the next
@@ -189,10 +200,10 @@ export function planScaffold(
     }
   }
 
-  const routes: { method: string; path: string; operation: any }[] = [];
+  const routes: { method: string; path: string; operation: any; shared: any }[] = [];
   for (const [path, operations] of Object.entries<any>(doc.paths ?? {})) {
     for (const [verb, operation] of Object.entries<any>(operations ?? {})) {
-      if (VERBS.includes(verb.toLowerCase())) routes.push({ method: verb.toUpperCase(), path, operation });
+      if (VERBS.includes(verb.toLowerCase())) routes.push({ method: verb.toUpperCase(), path, operation, shared: operations?.parameters });
     }
   }
   routes.sort((a, b) => (a.path === b.path ? a.method.localeCompare(b.method) : a.path.localeCompare(b.path)));
@@ -224,7 +235,7 @@ export function planScaffold(
     );
   }
 
-  for (const { method, path, operation } of routes) {
+  for (const { method, path, operation, shared } of routes) {
     const key = normalise(method, path);
     const shape = key.slice(key.indexOf(" ") + 1);
 
@@ -248,7 +259,7 @@ export function planScaffold(
     taken.add(id);
     const file = join(outDir, `${id}.op.md`);
     if (existsSync(file)) plan.existing.push(file);
-    plan.drafts.push({ id, file, method, path, body: draftBody(id, method, path, operation, source, degenerate) });
+    plan.drafts.push({ id, file, method, path, body: draftBody(id, method, path, operation, shared, source, degenerate) });
   }
 
   return plan;
@@ -264,17 +275,20 @@ export function planScaffold(
 export function unaccountedRoutes(plan: Pick<ScaffoldPlan, "drafts" | "skippedDeclared" | "skippedExcluded" | "total">): Finding | null {
   const accounted = plan.drafts.length + plan.skippedDeclared.length + plan.skippedExcluded.length;
   if (accounted === plan.total) return null;
-  return new Finding(
-    "routes_unaccounted",
-    `${plan.total} routes served but ${accounted} accounted for — ${plan.total - accounted} vanished without a reason`,
-  );
+  // Up to 1.7.1 a route counted twice read "-1 vanished without a reason": the surplus has its own words.
+  const gap =
+    accounted < plan.total
+      ? `${plan.total - accounted} vanished without a reason`
+      : `${accounted - plan.total} counted more than once`;
+  return new Finding("routes_unaccounted", `${plan.total} routes served but ${accounted} accounted for — ${gap}`);
 }
 
 /** Write the planned drafts. Existing files are left alone unless `force` — a half-filled draft
  * is somebody's work, and silently replacing it is the one failure this command could cause that
- * nobody would notice until the writing was gone. */
+ * nobody would notice until the writing was gone. With no draft to write, `outDir` is not created:
+ * up to 1.7.1 an empty one was left behind. */
 export function writeScaffold(plan: ScaffoldPlan, outDir: string, force: boolean): { written: number; kept: number } {
-  mkdirSync(outDir, { recursive: true });
+  if (plan.drafts.length > 0) mkdirSync(outDir, { recursive: true });
   let written = 0;
   let kept = 0;
   for (const draft of plan.drafts) {
