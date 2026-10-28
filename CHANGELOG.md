@@ -15,6 +15,16 @@ a day.
 
 *not yet released*
 
+- `preview <config>` and `gen openapi <config>` without `--out` are a usage error: exit 2, and
+  nothing is written. Up to 1.7.1 both took the first argument after the command for the output
+  when `--out` was absent, and exited 0: `preview` wrote its page over the config, `gen` wrote the
+  document into a file named `openapi`. `--out` without a value was refused already.
+  `test/preview.test.mjs` and `test/gen.test.mjs` pin every form, and that no file is written.
+- Tests only, the tools do not change: 31 cases for codes that no case pinned, 8 in the card
+  corpus and 23 in the checks corpus, and both implementations agree on all of them — 101 + 95
+  cases, 196 (it was 93 + 72). `scaffold` and `gen` live in the reference implementation alone,
+  so no corpus holds them; 13 golden tests do — the built CLI on fixtures of its own, its output,
+  the drafts and the derived document byte for byte (`npm run test:unit`, a step of CI).
 - Tests only, the tools do not change: the sum `scaffold` prints is checked by `unaccountedRoutes`,
   which a golden test hands a plan with a route lost and one with a route counted twice
   (`routes_unaccounted` cannot be reached from any input); `undescribed_counterpart` and
