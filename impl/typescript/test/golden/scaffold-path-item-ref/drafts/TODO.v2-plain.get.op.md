@@ -4,7 +4,7 @@
 # Это сделано намеренно: заготовка, прошедшая проверку, выглядела бы описанием, не будучи им.
 #
 # Дозаполнив, ПЕРЕНЕСИТЕ файл в cards/ — переезд и есть слово «я за это отвечаю».
-id: TODO.v1-loans-fees.get
+id: TODO.v2-plain.get
 title: FILL_ME
 scenario: FILL_ME          # либо serves_step, если операция служит шагу другой
 actors: [FILL_ME]
@@ -24,8 +24,8 @@ interfaces:
   rest:
     transport: http_rest
     method: GET
-    path: /v1/loans/{loan}/fees/{fee}
-    responses: [200, 410]
+    path: /v2/plain
+    responses: [200]
 
 data:
   entities: [FILL_ME]
@@ -33,9 +33,9 @@ provenance: FILL_ME        # none для чтения, либо объект с 
 reversibility: FILL_ME     # reversible | irreversible | not_applicable | {reversible_via: …}
 ---
 
-Заготовка для маршрута `GET /v1/loans/{loan}/fees/{fee}`, снятого из `openapi-path-item.json`.
+Заготовка для маршрута `GET /v2/plain`, снятого из `openapi-path-item-ref.json`.
 
-Документ говорит о себе: параметры пути: fee, loan.
+Документ говорит о себе: summary: Read the plain one.
 
 Машина не знает, зачем эта операция существует, какие проверки она делает и чем доказана её
 зрелость. Эти поля ждут человека, и до него описание не является описанием.

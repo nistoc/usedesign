@@ -1,0 +1,32 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "path items given by $ref", "version": "1" },
+  "paths": {
+    "/v1/accounts/{account}": { "$ref": "#/components/pathItems/Account" },
+    "/v1/accounts/{account}/holds": {
+      "$ref": "#/components/pathItems/Holds",
+      "parameters": [{ "name": "account", "in": "path", "required": true, "schema": { "type": "string" } }]
+    },
+    "/v1/plain": {
+      "get": { "summary": "Read the plain one", "responses": { "200": { "description": "ok" } } }
+    },
+    "/v2/plain": { "$ref": "#/paths/~1v1~1plain" },
+    "/v1/elsewhere": { "$ref": "shared.json#/components/pathItems/Elsewhere" },
+    "/v1/missing": { "$ref": "#/components/pathItems/Missing" },
+    "/v1/chained": { "$ref": "#/components/pathItems/Chained" }
+  },
+  "components": {
+    "pathItems": {
+      "Account": {
+        "parameters": [{ "name": "account", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "get": { "summary": "Read one account", "responses": { "200": { "description": "ok" }, "404": { "description": "no such account" } } },
+        "delete": { "responses": { "204": { "description": "closed" } } }
+      },
+      "Holds": {
+        "parameters": "not a list",
+        "post": { "responses": { "201": { "description": "held" } } }
+      },
+      "Chained": { "$ref": "#/components/pathItems/Account" }
+    }
+  }
+}

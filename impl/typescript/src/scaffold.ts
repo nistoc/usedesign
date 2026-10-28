@@ -118,6 +118,47 @@ function parametersNotList(where: string, parameters: any): Finding | null {
   );
 }
 
+/**
+ * A path item given whole by `$ref` — `"/v1/x/{id}": { "$ref": "#/components/pathItems/X" }`, as
+ * OpenAPI 3.1 allows. Up to 1.7.2 its one key, `$ref`, was not a verb, so the route was neither
+ * drafted nor counted and nothing said so: the sum still added up, without it. An address inside
+ * this document is followed one level, and the fields written beside `$ref` win over the target's.
+ * Anything else — another document, an address with nothing at it, a target that is itself a
+ * `$ref` — is not read, and `openapi_path_item_ref_not_read` names the path, so that a route the
+ * server answers is never dropped from the count unseen.
+ */
+function resolvePathItem(doc: any, path: string, item: any): { item: any; notRead: Finding | null } {
+  const ref = item?.$ref;
+  if (ref === undefined) return { item, notRead: null };
+  const { $ref: _ref, ...own } = item;
+  const notRead = (why: string) => ({
+    item: own,
+    notRead: new Finding(
+      "openapi_path_item_ref_not_read",
+      `${path}: the path item is given by \`$ref\` ${JSON.stringify(ref)} — ${why}; not read, so its routes are neither drafted nor counted`,
+      "warning",
+    ),
+  });
+  if (typeof ref !== "string" || !ref.startsWith("#/")) return notRead("not an address inside this document");
+  let target: any = doc;
+  for (const token of ref.slice(2).split("/")) {
+    let key: string;
+    try {
+      // A JSON Pointer in a URI fragment: percent-decoding first, then `~1` → `/` and `~0` → `~`.
+      key = decodeURIComponent(token).replace(/~1/g, "/").replace(/~0/g, "~");
+    } catch {
+      return notRead("not a valid address");
+    }
+    if (target === null || typeof target !== "object" || !Object.prototype.hasOwnProperty.call(target, key)) {
+      return notRead("nothing at that address");
+    }
+    target = target[key];
+  }
+  if (target === null || typeof target !== "object" || Array.isArray(target)) return notRead("what stands there is not a path item");
+  if (target.$ref !== undefined) return notRead("what stands there is another `$ref`, and only one level is followed");
+  return { item: { ...target, ...own }, notRead: null };
+}
+
 function draftBody(id: string, method: string, path: string, operation: any, shared: any, source: string, degenerate: boolean): string {
   const responses = responsesOf(operation);
   const parameters = pathParameterNames(path, shared, operation?.parameters);
@@ -220,7 +261,9 @@ export function planScaffold(
   }
 
   const routes: { method: string; path: string; operation: any; shared: any }[] = [];
-  for (const [path, operations] of Object.entries<any>(doc.paths ?? {})) {
+  for (const [path, given] of Object.entries<any>(doc.paths ?? {})) {
+    const { item: operations, notRead } = resolvePathItem(doc, path, given);
+    if (notRead) findings.push(notRead);
     const onPathItem = parametersNotList(`${path} (the path item)`, operations?.parameters);
     if (onPathItem) findings.push(onPathItem);
     for (const [verb, operation] of Object.entries<any>(operations ?? {})) {
