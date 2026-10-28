@@ -1,0 +1,10 @@
+  warning  openapi_parameters_not_list: /v1/loans/{loan}/notes/{note} (the path item): `parameters` is not a list — not read; the draft names the path parameters from the path itself
+  warning  openapi_parameters_not_list: GET /v1/loans/{loan}/notes/{note}: `parameters` is not a list — not read; the draft names the path parameters from the path itself
+routes:     4 served, read from openapi-path-template.json
+drafts:     4 to write into drafts
+skipped:    0 already declared by a card
+            0 excluded by the config
+            → 4 + 0 + 0 = 4 ✓
+
+written:    4
+Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.
