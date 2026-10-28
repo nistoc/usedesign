@@ -16,13 +16,13 @@
         "responses": { "204": { "description": "gone" } }
       }
     },
-    "/v1/loans/{loan}/fees/{fee}": {
+    "/v1/loans/{loan}/rates/{rate}": {
       "get": {
         "parameters": [
-          { "name": "fee", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "rate", "in": "path", "required": true, "schema": { "type": "string" } },
           { "name": "loan", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
-        "responses": { "200": { "description": "ok" }, "410": { "description": "waived" } }
+        "responses": { "200": { "description": "ok" }, "410": { "description": "withdrawn" } }
       }
     },
     "/v1/loans/{loan}/notes/{note}": {

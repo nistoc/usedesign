@@ -11,6 +11,25 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## Unreleased
+
+*the tools change, the format does not (SPEC v1.7)*
+
+- `scaffold` reads a path item given whole by `$ref`, as OpenAPI 3.1 allows:
+  `"/v1/accounts/{account}": { "$ref": "#/components/pathItems/Account" }`. An address inside the
+  document is followed one level, and the fields written beside `$ref` win over the target's; the
+  routes under it are drafted and counted. Up to 1.7.2 the path item's one key, `$ref`, was not a
+  verb: its routes were neither drafted nor counted, `scaffold` exited 0, and the sum it printed
+  added up without them. A `$ref` to another document, to an address with nothing at it, or to
+  another `$ref` is a warning, `openapi_path_item_ref_not_read`, with the path; those routes are
+  still not counted, and the warning says so. A golden test of its own holds every case
+  (`scaffold-path-item-ref`).
+- Tests only, the tools do not change: the draft keeps path parameters in the order the operation
+  declares them, and the route that shows it is now `/v1/loans/{loan}/rates/{rate}`, declared
+  `rate, loan` — neither the path's order nor the alphabet's. Its 1.7.2 predecessor,
+  `/v1/loans/{loan}/fees/{fee}` declared `fee, loan`, was in the alphabet's order, and a draft that
+  sorted the names passed.
+
 ## 1.7.2
 
 *2026-10-28 · the tools change, the format does not (SPEC v1.7)*

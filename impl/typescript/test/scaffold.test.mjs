@@ -9,7 +9,7 @@
  *                                        not a recording.
  *
  * Fixtures: test/fixtures/scaffold/ (openapi.json, usedesign.config.yaml, cards/, and small
- * documents for the uniform-statuses, the empty, the path-item and the path-template cases). Goldens: the test/golden/scaffold
+ * documents for the uniform-statuses, the empty, the path-item, the path-item-ref and the path-template cases). Goldens: the test/golden/scaffold
  * directories, one per case.
  *
  * One test is not black box: `routes_unaccounted` cannot be reached through the CLI, so the check
@@ -257,19 +257,55 @@ test("scaffold: path parameters declared on the path item reach the draft", (t) 
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const drafts = goldenTree("scaffold-path-item/drafts", path.join(dir, "drafts"));
   assert.deepEqual(drafts, [
-    "TODO.v1-loans-fees.get.op.md",
     "TODO.v1-loans-notes.get.op.md",
+    "TODO.v1-loans-rates.get.op.md",
     "TODO.v1-loans.delete.op.md",
     "TODO.v1-loans.get.op.md",
   ]);
 
   const said = (file) => fs.readFileSync(path.join(dir, "drafts", file), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
   // On the path item alone; on both, named once; one on each, the path item's first; on the
-  // operation in an order of its own, which the draft keeps.
+  // operation in an order of its own, which the draft keeps. That order — `rate, loan` — is neither
+  // the path's `{loan}…{rate}` nor the alphabet's, so a draft that sorted the names or took them
+  // from the path would read `loan, rate` here. Up to 1.7.2 the route was `fees/{fee}`, declared
+  // `fee, loan`: the alphabet's order too, and a sort passed.
   assert.equal(said("TODO.v1-loans.get.op.md"), "loan");
   assert.equal(said("TODO.v1-loans.delete.op.md"), "loan");
   assert.equal(said("TODO.v1-loans-notes.get.op.md"), "loan, note");
-  assert.equal(said("TODO.v1-loans-fees.get.op.md"), "fee, loan");
+  assert.equal(said("TODO.v1-loans-rates.get.op.md"), "rate, loan");
+});
+
+test("scaffold: a path item given by $ref inside the document is a route; any other $ref is a warning that names the path", (t) => {
+  // OpenAPI 3.1 lets a whole path item be a `$ref`. Up to 1.7.2 its routes were neither drafted
+  // nor counted, exit 0, and the sum added up without them. Now an address inside the document is
+  // followed one level, the fields beside `$ref` winning over the target's; another document, an
+  // address with nothing at it and a `$ref` to a `$ref` are a warning each, with the path.
+  const dir = sandbox(t);
+  const r = run(dir, "scaffold", "openapi-path-item-ref.json", "--out", "drafts");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  golden("scaffold-path-item-ref/stdout.txt", r.stdout);
+  const prefix = "  warning  openapi_path_item_ref_not_read: ";
+  const warned = r.stdout.split("\n").filter((line) => line.startsWith(prefix));
+  assert.deepEqual(
+    warned.map((line) => line.slice(prefix.length).split(": ")[0]),
+    ["/v1/elsewhere", "/v1/missing", "/v1/chained"],
+  );
+  // The target's `parameters` is not a list, the path item's own is: the path item's is read.
+  assert.ok(!r.stdout.includes("openapi_parameters_not_list"), r.stdout);
+  assert.ok(r.stdout.includes("routes:     5 served"), r.stdout);
+  const drafts = goldenTree("scaffold-path-item-ref/drafts", path.join(dir, "drafts"));
+  assert.deepEqual(drafts, [
+    "TODO.v1-accounts-holds.post.op.md",
+    "TODO.v1-accounts.delete.op.md",
+    "TODO.v1-accounts.get.op.md",
+    "TODO.v1-plain.get.op.md",
+    "TODO.v2-plain.get.op.md",
+  ]);
+
+  const body = (file) => fs.readFileSync(path.join(dir, "drafts", file), "utf8");
+  assert.ok(body("TODO.v1-accounts.get.op.md").includes("summary: Read one account · параметры пути: account."));
+  assert.ok(body("TODO.v1-accounts-holds.post.op.md").includes("параметры пути: account."));
+  assert.ok(body("TODO.v2-plain.get.op.md").includes("summary: Read the plain one."));
 });
 
 test("scaffold: a path parameter given by $ref, in parameters that is not a list, or not declared is still named", (t) => {
