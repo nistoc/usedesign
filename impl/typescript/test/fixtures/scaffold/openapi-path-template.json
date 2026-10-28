@@ -1,0 +1,33 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "path parameters not spelled out inline", "version": "1" },
+  "components": {
+    "parameters": {
+      "Loan": { "name": "loan", "in": "path", "required": true, "schema": { "type": "string" } }
+    }
+  },
+  "paths": {
+    "/v1/loans/{loan}": {
+      "parameters": [{ "$ref": "#/components/parameters/Loan" }],
+      "get": {
+        "responses": { "200": { "description": "ok" }, "404": { "description": "no such loan" } }
+      },
+      "delete": {
+        "parameters": [{ "$ref": "#/components/parameters/Loan" }],
+        "responses": { "204": { "description": "gone" } }
+      }
+    },
+    "/v1/loans/{loan}/notes/{note}": {
+      "parameters": { "loan": { "name": "loan", "in": "path", "required": true } },
+      "get": {
+        "parameters": { "note": { "name": "note", "in": "path", "required": true } },
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/loans/{loan}/payments/{payment}": {
+      "get": {
+        "responses": { "200": { "description": "ok" }, "410": { "description": "refunded" } }
+      }
+    }
+  }
+}

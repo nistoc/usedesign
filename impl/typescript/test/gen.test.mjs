@@ -102,6 +102,12 @@ test("gen openapi: a route several cards share is as mature as the least mature 
     [["in_production", "implemented"], "implemented"],
     [["deprecated", "tested"], "tested"],
     [["deprecated", "deprecated"], "deprecated"],
+    // A value outside the ladder is below every rung, whichever card carries it: the first card's
+    // value is where the comparison starts, so each case is tried in both orders.
+    [["bogus", "designed"], "bogus"],
+    [["designed", "bogus"], "bogus"],
+    [["", "in_production"], ""],
+    [["tested", ""], ""],
   ];
   for (const [[first, second], expected] of cases) {
     const dir = sandbox(t);
@@ -116,6 +122,18 @@ test("gen openapi: a route several cards share is as mature as the least mature 
     const merged = JSON.parse(fs.readFileSync(path.join(dir, "openapi.json"), "utf8")).paths["/v1/things:batch"].post;
     assert.equal(merged["x-usedesign-maturity"], expected, `${first} + ${second}`);
   }
+});
+
+test("gen openapi: the summary of a shared route names a title the cards share once", (t) => {
+  const dir = sandbox(t);
+  const file = path.join(dir, "cards", "sample.batch.publish-many.op.md");
+  const body = fs.readFileSync(file, "utf8");
+  assert.match(body, /^title: Publish a list of things$/m, "the fixture changed");
+  fs.writeFileSync(file, body.replace(/^title: Publish a list of things$/m, "title: Delete a list of things"));
+  const r = run(dir, "gen", "openapi", "usedesign.config.yaml", "--out", "openapi.json");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const merged = JSON.parse(fs.readFileSync(path.join(dir, "openapi.json"), "utf8")).paths["/v1/things:batch"].post;
+  assert.equal(merged.summary, "Delete a list of things");
 });
 
 test("gen openapi: cards without a REST interface derive nothing (exit 1)", (t) => {

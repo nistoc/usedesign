@@ -5,4 +5,4 @@ skipped:    0 already declared by a card
             0 excluded by the config
             → 0 + 0 + 0 = 0 ✓
 
-nothing written: an ERROR above — fix the document, then run again.
+nothing written: an ERROR above — fix what it names, then run again.
