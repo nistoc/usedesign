@@ -11,6 +11,28 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## Unreleased
+
+*the tools change, the format does not (SPEC v1.7)*
+
+- `scaffold` keeps a path parameter given by `$ref` where it is declared:
+  `"parameters": [{ "$ref": "#/components/parameters/Y" }, { "$ref": "#/components/parameters/X" }]`
+  on `/v1/a/{x}/b/{y}` reads `y, x` in the draft, as the same parameters written inline do. Up to
+  1.7.3 an entry given by `$ref` had no `in`, so its name came from the path — at the end, in the
+  path's order — and the draft read `x, y`: one API, written two ways, gave two drafts. A `$ref`
+  inside the document is followed one level, on the path item and on the operation, the way a
+  path item is. A `$ref` to another document, an empty one, one with nothing at its address, one to
+  another `$ref`, or one to something that is not a parameter is a warning,
+  `openapi_parameter_ref_not_read`, with the route; if it was a path parameter, the draft names it
+  from the path, after the declared ones. A golden test of its own holds every case
+  (`scaffold-parameter-ref`).
+- `scaffold` names a `trace` operation instead of dropping it. OpenAPI 3.0 and 3.1 allow `trace` on
+  a path item; the card format, the route inventory and `check` take seven methods, and `check`
+  calls TRACE an unknown method. Up to 1.7.3 the route fell out of the count with nothing said,
+  exit 0, and a `$ref` to a path item with only a `trace` was said to have no operation. Now each
+  `trace` is a warning, `openapi_method_unknown`, with the route written as `check` writes it —
+  `TRACE /v1/echo` — and it is still neither drafted nor counted (`scaffold-trace`).
+
 ## 1.7.3
 
 *2026-10-30 · the tools change, the format does not (SPEC v1.7)*

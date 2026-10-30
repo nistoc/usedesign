@@ -9,7 +9,8 @@
  *                                        not a recording.
  *
  * Fixtures: test/fixtures/scaffold/ (openapi.json, usedesign.config.yaml, cards/, and small
- * documents for the uniform-statuses, the empty, the path-item, the path-item-ref and the path-template cases). Goldens: the test/golden/scaffold
+ * documents for the uniform-statuses, the empty, the path-item, the path-item-ref, the path-template, the parameter-ref and
+ * the trace cases). Goldens: the test/golden/scaffold
  * directories, one per case.
  *
  * One test is not black box: `routes_unaccounted` cannot be reached through the CLI, so the check
@@ -352,6 +353,95 @@ test("scaffold: a path parameter given by $ref, in parameters that is not a list
   assert.equal(said("TODO.v1-loans.delete.op.md"), "loan");
   assert.equal(said("TODO.v1-loans-notes.get.op.md"), "loan, note");
   assert.equal(said("TODO.v1-loans-payments.get.op.md"), "loan, payment");
+});
+
+test("scaffold: a path parameter given by $ref inside the document stands where it is declared; any other $ref is a warning that names the route", (t) => {
+  // The probes P17, P17b and P17c of BE (note #1078): one route, its parameters declared `y, x`
+  // inline, by `$ref`, and one of each. Up to 1.7.3 an entry given by `$ref` had no `in`, its name
+  // came from the path, at the end, and the three drafts read `y, x`, `x, y` and `x, y` — one API,
+  // written two ways, gave two drafts. Now a `$ref` inside the document is followed one level, the
+  // way a path item is, on the path item and on the operation, with `~1` and `~0` read as in a
+  // pointer, and all of them read `y, x`. A `$ref` to another document, an empty one, one with
+  // nothing at its address, one to another `$ref`, one to a schema and one to the document itself
+  // are a warning each, with the route; the draft names `y` from the path, after the declared `x`.
+  const dir = sandbox(t);
+  const r = run(dir, "scaffold", "openapi-parameter-ref.json", "--out", "drafts");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  golden("scaffold-parameter-ref/stdout.txt", r.stdout);
+  const prefix = "  warning  openapi_parameter_ref_not_read: ";
+  const warned = r.stdout.split("\n").filter((line) => line.startsWith(prefix));
+  assert.deepEqual(
+    warned.map((line) => line.slice(prefix.length, line.indexOf(": a parameter"))),
+    [
+      "GET /v1/elsewhere/{x}/b/{y}",
+      "GET /v1/empty/{x}/b/{y}",
+      "GET /v1/missing/{x}/b/{y}",
+      "GET /v1/chained/{x}/b/{y}",
+      "GET /v1/schema/{x}/b/{y}",
+      "GET /v1/root/{x}/b/{y}",
+      "/v1/shared-missing/{x}/b/{y} (the path item)",
+    ],
+  );
+  assert.deepEqual(
+    warned.map((line) => line.slice(line.indexOf(" — ") + 3, line.indexOf("; not read"))),
+    [
+      "not an address inside this document",
+      "not an address inside this document",
+      "nothing at that address",
+      "what stands there is another `$ref`, and only one level is followed",
+      "what stands there is not a parameter",
+      "what stands there is not a parameter",
+      "nothing at that address",
+    ],
+  );
+  assert.ok(
+    warned.every((line) => line.endsWith("; not read, so if it is a path parameter the draft names it from the path, after the declared ones")),
+    r.stdout,
+  );
+  // A `$ref` to a query parameter is read, and is no path parameter: no warning, and no name.
+  assert.equal(warned.length, 7, r.stdout);
+  assert.ok(r.stdout.includes("routes:     12 served"), r.stdout);
+  const drafts = goldenTree("scaffold-parameter-ref/drafts", path.join(dir, "drafts"));
+  assert.equal(drafts.length, 12);
+
+  const said = (file) => fs.readFileSync(path.join(dir, "drafts", file), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
+  for (const route of ["p17", "p17b", "p17c", "shared", "tilde"]) assert.equal(said(`TODO.v1-${route}-b.get.op.md`), "y, x", route);
+  for (const route of ["elsewhere", "empty", "missing", "chained", "schema", "root", "shared-missing"]) {
+    assert.equal(said(`TODO.v1-${route}-b.get.op.md`), "x, y", route);
+  }
+});
+
+test("scaffold: a trace operation is a warning that names the route, as check names it; a $ref path item with only a trace has one", (t) => {
+  // OpenAPI 3.0 and 3.1 allow `trace` on a path item; the card format, the route inventory and
+  // `check` take seven methods, and `check` calls TRACE in an inventory an unknown method. Up to
+  // 1.7.3 `scaffold` skipped the key with nothing said: the route fell out of the count, exit 0, and
+  // a `$ref` to a path item with only a `trace` was said to have no operation. Now each `trace` is
+  // `openapi_method_unknown`, with the route written as `check` writes it, and it is not counted.
+  const dir = sandbox(t);
+  const r = run(dir, "scaffold", "openapi-trace.json", "--out", "drafts");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  golden("scaffold-trace/stdout.txt", r.stdout);
+  const prefix = "  warning  openapi_method_unknown: ";
+  const warned = r.stdout.split("\n").filter((line) => line.startsWith(prefix));
+  assert.deepEqual(
+    warned.map((line) => line.slice(prefix.length, line.indexOf(": `trace`"))),
+    ["TRACE /v1/echo", "TRACE /v1/only-trace", "TRACE /v1/traced"],
+  );
+  assert.ok(warned.every((line) => line.includes("an unknown method to the card format and to `check`")), r.stdout);
+  assert.ok(!r.stdout.includes("openapi_path_item_ref_not_read"), r.stdout);
+  assert.ok(r.stdout.includes("routes:     2 served"), r.stdout);
+  assert.deepEqual(goldenTree("scaffold-trace/drafts", path.join(dir, "drafts")), ["TODO.v1-echo.get.op.md", "TODO.v1-plain.get.op.md"]);
+
+  // `check` on an inventory that serves the same route: the same words, the same route.
+  fs.writeFileSync(path.join(dir, "check.config.yaml"), "usedesign_config: 1\ncards:\n  - cards/*.op.md\ninventory: route-inventory.json\n");
+  fs.writeFileSync(
+    path.join(dir, "route-inventory.json"),
+    JSON.stringify({ usedesign_inventory: 1, produced_by: "written by hand for the test", routes: [{ method: "TRACE", path: "/v1/echo" }] }),
+  );
+  const c = run(dir, "check", "check.config.yaml");
+  assert.equal(c.status, 1, c.stdout + c.stderr);
+  assert.ok(c.stdout.includes("inventory_malformed: route-inventory.json: unknown method `TRACE`"), c.stdout);
+  assert.ok(c.stdout.includes("wild_endpoint: TRACE /v1/echo is served"), c.stdout);
 });
 
 test("scaffold: no --out is a usage error (exit 2)", (t) => {
