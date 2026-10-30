@@ -158,15 +158,31 @@ function followLocalRef(doc: any, ref: unknown): { target: any } | { why: string
  * to another document, to an address with nothing at it, to another `$ref`, or to something that is
  * not a parameter — no `name` or no `in`, such as a schema or the document itself — is not read, and
  * `openapi_parameter_ref_not_read` names where it stands; if it was a path parameter, the draft
- * still names it from the path, after the declared ones. `parameters` that is not a list gives no
- * entries; `parametersNotList` says so.
+ * still names it from the path, after the declared ones. An `in: path` entry, written in place or
+ * reached by `$ref`, whose `name` is missing, empty or not a string is not read either, and
+ * `openapi_path_parameter_unnamed` says so with the same consequence. `parameters` that is not a
+ * list gives no entries; `parametersNotList` says so.
  */
 function readParameters(doc: any, where: string, parameters: any, findings: Finding[]): any[] {
   if (!Array.isArray(parameters)) return [];
   const read: any[] = [];
+  const keep = (p: any) => {
+    const unnamed = pathParameterUnnamed(p);
+    if (unnamed === null) {
+      read.push(p);
+      return;
+    }
+    findings.push(
+      new Finding(
+        "openapi_path_parameter_unnamed",
+        `${where}: a path parameter ${unnamed} — not read, so the draft names it from the path, after the declared ones`,
+        "warning",
+      ),
+    );
+  };
   for (const entry of parameters) {
     if (entry?.$ref === undefined) {
-      read.push(entry);
+      keep(entry);
       continue;
     }
     const notRead = (why: string) =>
@@ -191,9 +207,25 @@ function readParameters(doc: any, where: string, parameters: any, findings: Find
       notRead("what stands there is not a parameter");
       continue;
     }
-    read.push(target);
+    keep(target);
   }
   return read;
+}
+
+/**
+ * Why an `in: path` entry has no name the draft can use, or null. Up to 1.7.4 such an entry was
+ * passed over with nothing said — a missing `name` — or, a `name` that is not a string, written into
+ * the draft as it stood: `5` became a parameter `5`. Either way the path's own segment came after the
+ * declared ones, and the draft's order parted from the document's in silence. Only `in: path` is
+ * asked: a query, header or cookie parameter with no name does not touch the draft, and `scaffold`
+ * is not a check of the OpenAPI document.
+ */
+function pathParameterUnnamed(p: any): string | null {
+  if (p === null || typeof p !== "object" || Array.isArray(p) || p.in !== "path") return null;
+  if (p.name === undefined) return "has no `name`";
+  if (typeof p.name !== "string") return `has \`name\` ${JSON.stringify(p.name)}, which is not a string`;
+  if (p.name === "") return "has an empty `name`";
+  return null;
 }
 
 /**

@@ -11,6 +11,20 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## Unreleased
+
+*the tools change, the format does not (SPEC v1.7)*
+
+- `scaffold` names an `in: path` parameter it cannot use instead of passing over it. Up to 1.7.4 an
+  `in: path` entry with no `name` was skipped with nothing said, and one whose `name` is not a
+  string went into the draft as it stood — `5` became a parameter `5`; either way the path's own
+  segment came after the declared ones, and the draft's order parted from the document's in
+  silence. Now an `in: path` entry whose `name` is missing, empty or not a string — written in
+  place, on the path item, or reached by `$ref` — is a warning, `openapi_path_parameter_unnamed`,
+  with the route, and is not read; the draft names the segment from the path, after the declared
+  ones. A query, header or cookie parameter with no name does not touch the draft and is not named
+  (`scaffold-path-unnamed`).
+
 ## 1.7.4
 
 *2026-10-30 · the tools change, the format does not (SPEC v1.7)*
