@@ -11,9 +11,12 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
-## Unreleased
+## 1.7.3
 
-*the tools change, the format does not (SPEC v1.7)*
+*2026-10-30 · the tools change, the format does not (SPEC v1.7)*
+
+A fix in `scaffold`, the command that drafts cards from an OpenAPI document; the format,
+`validate`, `check`, `preview` and `gen` do not change.
 
 - `scaffold` reads a path item given whole by `$ref`, as OpenAPI 3.1 allows:
   `"/v1/accounts/{account}": { "$ref": "#/components/pathItems/Account" }`. An address inside the
