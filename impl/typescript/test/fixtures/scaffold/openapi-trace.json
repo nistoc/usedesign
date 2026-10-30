@@ -1,0 +1,24 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "routes with a trace operation", "version": "1" },
+  "components": {
+    "pathItems": {
+      "Traced": {
+        "trace": { "responses": { "200": { "description": "the request, echoed" } } }
+      }
+    }
+  },
+  "paths": {
+    "/v1/echo": {
+      "get": { "summary": "Read the echo", "responses": { "200": { "description": "ok" } } },
+      "trace": { "responses": { "200": { "description": "the request, echoed" } } }
+    },
+    "/v1/only-trace": {
+      "trace": { "responses": { "200": { "description": "the request, echoed" } } }
+    },
+    "/v1/traced": { "$ref": "#/components/pathItems/Traced" },
+    "/v1/plain": {
+      "get": { "responses": { "200": { "description": "ok" }, "404": { "description": "no such thing" } } }
+    }
+  }
+}

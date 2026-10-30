@@ -1,0 +1,15 @@
+  warning  openapi_parameter_ref_not_read: GET /v1/elsewhere/{x}/b/{y}: a parameter is given by `$ref` "common.json#/components/parameters/Y" — not an address inside this document; not read, so if it is a path parameter the draft names it from the path, after the declared ones
+  warning  openapi_parameter_ref_not_read: GET /v1/empty/{x}/b/{y}: a parameter is given by `$ref` "" — not an address inside this document; not read, so if it is a path parameter the draft names it from the path, after the declared ones
+  warning  openapi_parameter_ref_not_read: GET /v1/missing/{x}/b/{y}: a parameter is given by `$ref` "#/components/parameters/Z" — nothing at that address; not read, so if it is a path parameter the draft names it from the path, after the declared ones
+  warning  openapi_parameter_ref_not_read: GET /v1/chained/{x}/b/{y}: a parameter is given by `$ref` "#/components/parameters/Alias" — what stands there is another `$ref`, and only one level is followed; not read, so if it is a path parameter the draft names it from the path, after the declared ones
+  warning  openapi_parameter_ref_not_read: GET /v1/schema/{x}/b/{y}: a parameter is given by `$ref` "#/components/schemas/Thing" — what stands there is not a parameter; not read, so if it is a path parameter the draft names it from the path, after the declared ones
+  warning  openapi_parameter_ref_not_read: GET /v1/root/{x}/b/{y}: a parameter is given by `$ref` "#" — what stands there is not a parameter; not read, so if it is a path parameter the draft names it from the path, after the declared ones
+  warning  openapi_parameter_ref_not_read: /v1/shared-missing/{x}/b/{y} (the path item): a parameter is given by `$ref` "#/components/parameters/Z" — nothing at that address; not read, so if it is a path parameter the draft names it from the path, after the declared ones
+routes:     12 served, read from openapi-parameter-ref.json
+drafts:     12 to write into drafts
+skipped:    0 already declared by a card
+            0 excluded by the config
+            → 12 + 0 + 0 = 12 ✓
+
+written:    12
+Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.

@@ -1,0 +1,123 @@
+{
+  "openapi": "3.1.0",
+  "info": { "title": "path parameters given by $ref keep the order they are declared in", "version": "1" },
+  "components": {
+    "parameters": {
+      "X": { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } },
+      "Y": { "name": "y", "in": "path", "required": true, "schema": { "type": "string" } },
+      "Y/alt": { "name": "y", "in": "path", "required": true, "schema": { "type": "string" } },
+      "Q": { "name": "q", "in": "query", "schema": { "type": "string" } },
+      "Alias": { "$ref": "#/components/parameters/Y" }
+    },
+    "schemas": {
+      "Thing": { "type": "string" }
+    }
+  },
+  "paths": {
+    "/v1/p17/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "name": "y", "in": "path", "required": true, "schema": { "type": "string" } },
+          { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/p17b/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "#/components/parameters/Y" },
+          { "$ref": "#/components/parameters/X" },
+          { "$ref": "#/components/parameters/Q" }
+        ],
+        "responses": { "200": { "description": "ok" }, "404": { "description": "no such b" } }
+      }
+    },
+    "/v1/p17c/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "#/components/parameters/Y" },
+          { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/shared/{x}/b/{y}": {
+      "parameters": [{ "$ref": "#/components/parameters/Y" }],
+      "get": {
+        "parameters": [{ "$ref": "#/components/parameters/X" }],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/tilde/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "#/components/parameters/Y~1alt" },
+          { "$ref": "#/components/parameters/X" }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/elsewhere/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "common.json#/components/parameters/Y" },
+          { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/empty/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "" },
+          { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/missing/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "#/components/parameters/Z" },
+          { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/chained/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "#/components/parameters/Alias" },
+          { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/schema/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "#/components/schemas/Thing" },
+          { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/root/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          { "$ref": "#" },
+          { "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": { "200": { "description": "ok" } }
+      }
+    },
+    "/v1/shared-missing/{x}/b/{y}": {
+      "parameters": [{ "$ref": "#/components/parameters/Z" }],
+      "get": {
+        "parameters": [{ "name": "x", "in": "path", "required": true, "schema": { "type": "string" } }],
+        "responses": { "200": { "description": "ok" } }
+      }
+    }
+  }
+}

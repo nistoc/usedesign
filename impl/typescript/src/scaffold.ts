@@ -25,6 +25,14 @@ import { normalise } from "./checks.js";
 
 const VERBS = ["get", "post", "put", "patch", "delete", "head", "options"];
 
+/**
+ * Operations OpenAPI 3.0 and 3.1 allow on a path item that the card format does not name: the route
+ * inventory and `check` take the seven `VERBS` and call any other method unknown. Such a route
+ * cannot become a card that passes, so it is not drafted — but it is a route the server answers,
+ * and up to 1.7.3 it fell out of the count with nothing said. Now `openapi_method_unknown` names it.
+ */
+const UNKNOWN_TO_THE_FORMAT = ["trace"];
+
 export interface ScaffoldPlan {
   drafts: { id: string; file: string; method: string; path: string; body: string }[];
   skippedDeclared: { route: string; by: string[] }[];
@@ -87,15 +95,17 @@ function statusesAreDegenerate(routes: { operation: any }[]): boolean {
 }
 
 /**
- * Path parameters a route takes: the inline `in: path` entries declared on the path item, for every
- * operation under it, then the operation's own, then the names of the path's `{…}` segments not
- * declared inline, as `gen` writes them — each once. Up to 1.7.1 only the operation's inline entries
- * were read, and a draft named nothing for a parameter declared on the path item, given by `$ref`,
- * or not declared at all. `parameters` that is not a list is not read; `parametersNotList` says so.
+ * Path parameters a route takes: the `in: path` entries declared on the path item, for every
+ * operation under it, then the operation's own, in the order declared, then the names of the path's
+ * `{…}` segments not declared, as `gen` writes them — each once. `shared` and `own` come from
+ * `readParameters`, so an entry given by `$ref` inside the document stands where it was declared. Up
+ * to 1.7.1 only the operation's inline entries were read; up to 1.7.3 an entry given by `$ref` had no
+ * `in`, and its name came from the path — at the end, in the path's order — so one API written two
+ * ways gave two drafts.
  */
-function pathParameterNames(path: string, shared: any, own: any): string[] {
+function pathParameterNames(path: string, shared: any[], own: any[]): string[] {
   const names: string[] = [];
-  for (const p of [...(Array.isArray(shared) ? shared : []), ...(Array.isArray(own) ? own : [])]) {
+  for (const p of [...shared, ...own]) {
     if (p?.in === "path" && p?.name && !names.includes(String(p.name))) names.push(String(p.name));
   }
   for (const match of path.matchAll(/\{([^}]+)\}/g)) {
@@ -116,6 +126,73 @@ function parametersNotList(where: string, parameters: any): Finding | null {
     `${where}: \`parameters\` is not a list — not read; the draft names the path parameters from the path itself`,
     "warning",
   );
+}
+
+/**
+ * What a `$ref` inside this document points at: `#` is the document, `#/a/b` a JSON Pointer in a URI
+ * fragment — percent-decoding first, then `~1` → `/` and `~0` → `~`. One level only: the caller
+ * decides what may stand there. Anything else is the reason it is not read.
+ */
+function followLocalRef(doc: any, ref: unknown): { target: any } | { why: string } {
+  if (typeof ref !== "string" || !(ref === "#" || ref.startsWith("#/"))) return { why: "not an address inside this document" };
+  let target: any = doc;
+  for (const token of ref === "#" ? [] : ref.slice(2).split("/")) {
+    let key: string;
+    try {
+      key = decodeURIComponent(token).replace(/~1/g, "/").replace(/~0/g, "~");
+    } catch {
+      return { why: "not a valid address" };
+    }
+    if (target === null || typeof target !== "object" || !Object.prototype.hasOwnProperty.call(target, key)) {
+      return { why: "nothing at that address" };
+    }
+    target = target[key];
+  }
+  return { target };
+}
+
+/**
+ * The entries of a `parameters` list, each one given by `$ref` inside this document followed one
+ * level, the way a path item is (1.7.3), so that it keeps its place in the declared order. A `$ref`
+ * to another document, to an address with nothing at it, to another `$ref`, or to something that is
+ * not a parameter — no `name` or no `in`, such as a schema or the document itself — is not read, and
+ * `openapi_parameter_ref_not_read` names where it stands; if it was a path parameter, the draft
+ * still names it from the path, after the declared ones. `parameters` that is not a list gives no
+ * entries; `parametersNotList` says so.
+ */
+function readParameters(doc: any, where: string, parameters: any, findings: Finding[]): any[] {
+  if (!Array.isArray(parameters)) return [];
+  const read: any[] = [];
+  for (const entry of parameters) {
+    if (entry?.$ref === undefined) {
+      read.push(entry);
+      continue;
+    }
+    const notRead = (why: string) =>
+      findings.push(
+        new Finding(
+          "openapi_parameter_ref_not_read",
+          `${where}: a parameter is given by \`$ref\` ${JSON.stringify(entry.$ref)} — ${why}; not read, so if it is a path parameter the draft names it from the path, after the declared ones`,
+          "warning",
+        ),
+      );
+    const found = followLocalRef(doc, entry.$ref);
+    if ("why" in found) {
+      notRead(found.why);
+      continue;
+    }
+    const target = found.target;
+    if (target !== null && typeof target === "object" && !Array.isArray(target) && target.$ref !== undefined) {
+      notRead("what stands there is another `$ref`, and only one level is followed");
+      continue;
+    }
+    if (target === null || typeof target !== "object" || Array.isArray(target) || !target.name || !target.in) {
+      notRead("what stands there is not a parameter");
+      continue;
+    }
+    read.push(target);
+  }
+  return read;
 }
 
 /**
@@ -140,33 +217,33 @@ function resolvePathItem(doc: any, path: string, item: any): { item: any; notRea
       "warning",
     ),
   });
-  if (typeof ref !== "string" || !(ref === "#" || ref.startsWith("#/"))) return notRead("not an address inside this document");
-  let target: any = doc;
-  for (const token of ref === "#" ? [] : ref.slice(2).split("/")) {
-    let key: string;
-    try {
-      // A JSON Pointer in a URI fragment: percent-decoding first, then `~1` → `/` and `~0` → `~`.
-      key = decodeURIComponent(token).replace(/~1/g, "/").replace(/~0/g, "~");
-    } catch {
-      return notRead("not a valid address");
-    }
-    if (target === null || typeof target !== "object" || !Object.prototype.hasOwnProperty.call(target, key)) {
-      return notRead("nothing at that address");
-    }
-    target = target[key];
-  }
+  const found = followLocalRef(doc, ref);
+  if ("why" in found) return notRead(found.why);
+  const target = found.target;
   if (target === null || typeof target !== "object" || Array.isArray(target)) return notRead("what stands there is not a path item");
   if (target.$ref !== undefined) return notRead("what stands there is another `$ref`, and only one level is followed");
   // An operation (`…/X/get`) or the document itself is an object too, and taken for a path item it
   // would drop its route as silently as 1.7.2 did. A path item written in place with no operation
-  // is lawful and stays as it was; one given by `$ref` names an address that holds no route.
-  if (!Object.keys(target).some((key) => VERBS.includes(key.toLowerCase()))) return notRead("what stands there has no operation");
+  // is lawful and stays as it was; one given by `$ref` names an address that holds no route. A
+  // `trace` is an operation, though not one the format names: up to 1.7.3 a path item with only a
+  // `trace` was said to have none.
+  const operationKeys = [...VERBS, ...UNKNOWN_TO_THE_FORMAT];
+  if (!Object.keys(target).some((key) => operationKeys.includes(key.toLowerCase()))) return notRead("what stands there has no operation");
   return { item: { ...target, ...own }, notRead: null };
 }
 
-function draftBody(id: string, method: string, path: string, operation: any, shared: any, source: string, degenerate: boolean): string {
+function draftBody(
+  id: string,
+  method: string,
+  path: string,
+  operation: any,
+  shared: any[],
+  own: any[],
+  source: string,
+  degenerate: boolean,
+): string {
   const responses = responsesOf(operation);
-  const parameters = pathParameterNames(path, shared, operation?.parameters);
+  const parameters = pathParameterNames(path, shared, own);
 
   // What the document says about itself goes in the prose, attributed, never into a field. A
   // summary copied into `title` would fill a human's field with a machine's guess, and the next
@@ -265,17 +342,30 @@ export function planScaffold(
     }
   }
 
-  const routes: { method: string; path: string; operation: any; shared: any }[] = [];
+  const routes: { method: string; path: string; operation: any; shared: any[]; own: any[] }[] = [];
   for (const [path, given] of Object.entries<any>(doc.paths ?? {})) {
     const { item: operations, notRead } = resolvePathItem(doc, path, given);
     if (notRead) findings.push(notRead);
     const onPathItem = parametersNotList(`${path} (the path item)`, operations?.parameters);
     if (onPathItem) findings.push(onPathItem);
+    const shared = readParameters(doc, `${path} (the path item)`, operations?.parameters, findings);
     for (const [verb, operation] of Object.entries<any>(operations ?? {})) {
+      const method = verb.toUpperCase();
+      if (UNKNOWN_TO_THE_FORMAT.includes(verb.toLowerCase())) {
+        findings.push(
+          new Finding(
+            "openapi_method_unknown",
+            `${method} ${path}: \`${verb}\` is an operation OpenAPI allows, but an unknown method to the card format and to \`check\`, which take ${VERBS.map((v) => v.toUpperCase()).join(", ")} — not drafted, and not counted among the routes served`,
+            "warning",
+          ),
+        );
+        continue;
+      }
       if (!VERBS.includes(verb.toLowerCase())) continue;
-      const onOperation = parametersNotList(`${verb.toUpperCase()} ${path}`, operation?.parameters);
+      const onOperation = parametersNotList(`${method} ${path}`, operation?.parameters);
       if (onOperation) findings.push(onOperation);
-      routes.push({ method: verb.toUpperCase(), path, operation, shared: operations?.parameters });
+      const own = readParameters(doc, `${method} ${path}`, operation?.parameters, findings);
+      routes.push({ method, path, operation, shared, own });
     }
   }
   routes.sort((a, b) => (a.path === b.path ? a.method.localeCompare(b.method) : a.path.localeCompare(b.path)));
@@ -307,7 +397,7 @@ export function planScaffold(
     );
   }
 
-  for (const { method, path, operation, shared } of routes) {
+  for (const { method, path, operation, shared, own } of routes) {
     const key = normalise(method, path);
     const shape = key.slice(key.indexOf(" ") + 1);
 
@@ -331,7 +421,7 @@ export function planScaffold(
     taken.add(id);
     const file = join(outDir, `${id}.op.md`);
     if (existsSync(file)) plan.existing.push(file);
-    plan.drafts.push({ id, file, method, path, body: draftBody(id, method, path, operation, shared, source, degenerate) });
+    plan.drafts.push({ id, file, method, path, body: draftBody(id, method, path, operation, shared, own, source, degenerate) });
   }
 
   return plan;
