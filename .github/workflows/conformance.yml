@@ -77,6 +77,13 @@ jobs:
       - name: Repository corpus
         run: python check.py --conformance
 
+      # The starter kit's script is copied into a repository whole, so its test lives outside the
+      # kit: what it leaves out of the inventory it names, and it counts the routes `scaffold`
+      # counts on scaffold's own fixtures.
+      - name: starter-kit's inventory-from-openapi.py
+        working-directory: .
+        run: python tests/starter-kit/test_inventory_from_openapi.py
+
   agreement:
     name: the two implementations agree
     needs: [typescript, python]

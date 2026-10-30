@@ -43,6 +43,10 @@ curl -fsS http://localhost:8080/openapi/v1.json -o /tmp/openapi.json
 python3 usedesign/tools/inventory-from-openapi.py /tmp/openapi.json usedesign/route-inventory.json
 ```
 
+То, что в документе есть, а в перечень не попало, скрипт называет в stderr строкой с маршрутом:
+методы `trace` и `query` и методы из `additionalOperations` (OpenAPI 3.2) — перечень и `check`
+берут семь методов, — а также path item через `$ref`, который не удалось прочитать.
+
 **Шаг 3. Отчёт тестов.** Прогоните тесты с JUnit-выводом — его умеют почти все раннеры
 (`dotnet test --logger junit`, `jest --reporters=jest-junit`, `pytest --junitxml=...`).
 ⚠️ **Зелёный прогон — ещё не свежий отчёт**: обычный `npm test` / `vitest run` файл JUnit НЕ

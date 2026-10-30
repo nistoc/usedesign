@@ -10,7 +10,7 @@
  *
  * Fixtures: test/fixtures/scaffold/ (openapi.json, usedesign.config.yaml, cards/, and small
  * documents for the uniform-statuses, the empty, the path-item, the path-item-ref, the path-template, the parameter-ref,
- * the trace and the path-unnamed cases). Goldens: the test/golden/scaffold
+ * the trace, the path-unnamed and the query-ops cases). Goldens: the test/golden/scaffold
  * directories, one per case.
  *
  * One test is not black box: `routes_unaccounted` cannot be reached through the CLI, so the check
@@ -477,6 +477,57 @@ test("scaffold: an in: path parameter with no name the draft can use is a warnin
     fs.readFileSync(path.join(dir, "drafts", `TODO.v1-${route}-b.get.op.md`), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
   for (const route of ["control", "query"]) assert.equal(said(route), "y, x", route);
   for (const route of ["no-name", "number", "empty", "shared", "by-ref"]) assert.equal(said(route), "x, y", route);
+});
+
+test("scaffold: a query operation and each method in additionalOperations is a warning that names the route; a key that has a field of its own, or no map, is not read", (t) => {
+  // BE's question 3 in note #1155 (card #333). OpenAPI 3.2 gives `query` a field on a path item and
+  // puts any other method — `COPY`, `LINK` — in the map `additionalOperations`, keyed as the request
+  // sends it; a key for a method with a field of its own the map MUST NOT hold. Up to 1.7.4 neither
+  // was a verb: the routes fell out of the count with nothing said, and a `$ref` to a path item with
+  // only these was said to have no operation. Now a `query` is `openapi_method_unknown`, as a `trace`
+  // is; so is each key of the map, the route written with the key as given. A key such as `POST` or
+  // `post`, and a map that is not one, are `openapi_additional_operation_not_read`.
+  const dir = sandbox(t);
+  const r = run(dir, "scaffold", "openapi-query-ops.json", "--out", "drafts");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  golden("scaffold-query-ops/stdout.txt", r.stdout);
+  const routesNamed = (code) => {
+    const prefix = `  warning  ${code}: `;
+    return r.stdout
+      .split("\n")
+      .filter((line) => line.startsWith(prefix))
+      .map((line) => line.slice(prefix.length, line.indexOf(": ", prefix.length)));
+  };
+  assert.deepEqual(routesNamed("openapi_method_unknown"), [
+    "QUERY /v1/search",
+    "QUERY /v1/only-query",
+    "QUERY /v1/queried",
+    "COPY /v1/files/{id}",
+    "LINK /v1/files/{id}",
+    "COPY /v1/copied",
+  ]);
+  assert.deepEqual(routesNamed("openapi_additional_operation_not_read"), ["POST /v1/dup", "post /v1/dup-missing", "/v1/bad-map"]);
+  assert.ok(r.stdout.includes("the route is read from the path item's `post`"), r.stdout);
+  assert.ok(r.stdout.includes("the route is neither drafted nor counted, and its place is the path item's `post`"), r.stdout);
+  assert.deepEqual(routesNamed("openapi_path_item_ref_not_read"), ["/v1/empty-extra"]);
+  assert.ok(r.stdout.includes("routes:     5 served"), r.stdout);
+  assert.deepEqual(goldenTree("scaffold-query-ops/drafts", path.join(dir, "drafts")), [
+    "TODO.v1-bad-map.get.op.md",
+    "TODO.v1-dup.post.op.md",
+    "TODO.v1-files.get.op.md",
+    "TODO.v1-plain.get.op.md",
+    "TODO.v1-search.get.op.md",
+  ]);
+
+  // `check` on an inventory that serves QUERY: the same words as for TRACE.
+  fs.writeFileSync(path.join(dir, "check.config.yaml"), "usedesign_config: 1\ncards:\n  - cards/*.op.md\ninventory: route-inventory.json\n");
+  fs.writeFileSync(
+    path.join(dir, "route-inventory.json"),
+    JSON.stringify({ usedesign_inventory: 1, produced_by: "written by hand for the test", routes: [{ method: "QUERY", path: "/v1/search" }] }),
+  );
+  const c = run(dir, "check", "check.config.yaml");
+  assert.equal(c.status, 1, c.stdout + c.stderr);
+  assert.ok(c.stdout.includes("inventory_malformed: route-inventory.json: unknown method `QUERY`"), c.stdout);
 });
 
 test("scaffold: no --out is a usage error (exit 2)", (t) => {

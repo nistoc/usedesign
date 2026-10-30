@@ -1,0 +1,57 @@
+{
+  "openapi": "3.2.0",
+  "info": { "title": "routes with a query operation and additionalOperations", "version": "1" },
+  "components": {
+    "pathItems": {
+      "Queried": {
+        "query": { "responses": { "200": { "description": "what the query found" } } }
+      },
+      "Copied": {
+        "additionalOperations": {
+          "COPY": { "responses": { "201": { "description": "copied" } } }
+        }
+      },
+      "EmptyExtra": {
+        "summary": "an additionalOperations with nothing in it",
+        "additionalOperations": {}
+      }
+    }
+  },
+  "paths": {
+    "/v1/search": {
+      "get": { "summary": "Search", "responses": { "200": { "description": "ok" }, "400": { "description": "a bad term" } } },
+      "query": { "responses": { "200": { "description": "what the query found" } } }
+    },
+    "/v1/only-query": {
+      "query": { "responses": { "200": { "description": "what the query found" } } }
+    },
+    "/v1/queried": { "$ref": "#/components/pathItems/Queried" },
+    "/v1/files/{id}": {
+      "get": { "responses": { "200": { "description": "the file" }, "404": { "description": "no such file" } } },
+      "additionalOperations": {
+        "COPY": { "responses": { "201": { "description": "copied" } } },
+        "LINK": { "responses": { "204": { "description": "linked" } } }
+      }
+    },
+    "/v1/copied": { "$ref": "#/components/pathItems/Copied" },
+    "/v1/dup": {
+      "post": { "responses": { "201": { "description": "made" }, "400": { "description": "a bad body" } } },
+      "additionalOperations": {
+        "POST": { "responses": { "201": { "description": "made" } } }
+      }
+    },
+    "/v1/dup-missing": {
+      "additionalOperations": {
+        "post": { "responses": { "201": { "description": "made" } } }
+      }
+    },
+    "/v1/bad-map": {
+      "get": { "responses": { "200": { "description": "ok" } } },
+      "additionalOperations": [{ "COPY": { "responses": { "201": { "description": "copied" } } } }]
+    },
+    "/v1/empty-extra": { "$ref": "#/components/pathItems/EmptyExtra" },
+    "/v1/plain": {
+      "get": { "responses": { "200": { "description": "ok" }, "404": { "description": "no such thing" } } }
+    }
+  }
+}
