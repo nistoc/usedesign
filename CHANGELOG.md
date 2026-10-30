@@ -31,10 +31,11 @@ a day.
   with only these was said to have no operation. Now a `query` is `openapi_method_unknown`, as a
   `trace` is since 1.7.4, and so is each key of the map, with the route written with the key as
   given — `COPY /v1/files/{id}`; none is drafted or counted. A key for one of the nine methods with
-  a field of their own — `POST` or `post` — is one OpenAPI 3.2 says the map MUST NOT hold, and it is
-  not read; nor is an `additionalOperations` that is not a map. Both are a warning,
-  `openapi_additional_operation_not_read`, which says whether the route is read from the path
-  item's own field (`scaffold-query-ops`).
+  a field of their own is not read: `POST` is one OpenAPI 3.2 says the map MUST NOT hold, and
+  `post`, which the text does not name, differs from it only in case, and usedesign takes a method
+  in any case. Nor is an `additionalOperations` that is not a map. Both are a warning,
+  `openapi_additional_operation_not_read`, which says which of the two a key is and whether the
+  route is read from the path item's own field (`scaffold-query-ops`).
 - `starter-kit/tools/inventory-from-openapi.py`, the script the starter kit puts in a repository to
   build the route inventory from OpenAPI, names on stderr, with the route, what it leaves out: a
   `trace`, a `query`, each method in `additionalOperations`, a key there with a field of its own,
