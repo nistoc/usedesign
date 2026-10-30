@@ -28,10 +28,11 @@ a day.
   (`scaffold-parameter-ref`).
 - `scaffold` names a `trace` operation instead of dropping it. OpenAPI 3.0 and 3.1 allow `trace` on
   a path item; the route inventory, the config's `exclude.method` and `check` take seven methods —
-  a card's own `method` is any string — and `check` calls TRACE an unknown method. Up to 1.7.3 the route fell out of the count with nothing said,
-  exit 0, and a `$ref` to a path item with only a `trace` was said to have no operation. Now each
-  `trace` is a warning, `openapi_method_unknown`, with the route written as `check` writes it —
-  `TRACE /v1/echo` — and it is still neither drafted nor counted (`scaffold-trace`).
+  a card's own `method` is any string — and `check` calls TRACE an unknown method. Up to 1.7.3 the
+  route fell out of the count with nothing said, exit 0, and a `$ref` to a path item with only a
+  `trace` was said to have no operation. Now each `trace` is a warning, `openapi_method_unknown`,
+  with the route written as `check` writes it — `TRACE /v1/echo` — and it is still neither
+  drafted nor counted (`scaffold-trace`).
 
 ## 1.7.3
 
