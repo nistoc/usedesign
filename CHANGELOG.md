@@ -46,6 +46,12 @@ a day.
   checks that the script counts the routes `scaffold` counts on each of `scaffold`'s fixtures
   (`tests/starter-kit/`). A repository with a copy of the script takes the new one by copying it
   again.
+- SPEC, in words only — no rule, schema or code changes. §8 says what the promise has always
+  covered: the keys a version defines. The top level of a card is open, and a key written there
+  before any version defined it is read once a round does — a card that carried a `variant_of` of
+  its own before round 26 is checked under 1.1. §5.8 says that `reversible_via` may name the card
+  itself: an operation that undoes itself, such as a PATCH sent again with the values it replaced,
+  is reversed by the same operation; round 25 met such cards, and the document was silent.
 
 ## 1.7.4
 
