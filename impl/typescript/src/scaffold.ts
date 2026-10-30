@@ -160,7 +160,7 @@ function followLocalRef(doc: any, ref: unknown): { target: any } | { why: string
  * The entries of a `parameters` list, each one given by `$ref` inside this document followed one
  * level, the way a path item is (1.7.3), so that it keeps its place in the declared order. A `$ref`
  * to another document, to an address with nothing at it, to another `$ref`, or to something that is
- * not a parameter — no `name` or no `in`, such as a schema or the document itself — is not read, and
+ * not a parameter — no `in`, such as a schema or the document itself — is not read, and
  * `openapi_parameter_ref_not_read` names where it stands; if it was a path parameter, the draft
  * still names it from the path, after the declared ones. An `in: path` entry, written in place or
  * reached by `$ref`, whose `name` is missing, empty or not a string is not read either, and
@@ -207,7 +207,10 @@ function readParameters(doc: any, where: string, parameters: any, findings: Find
       notRead("what stands there is another `$ref`, and only one level is followed");
       continue;
     }
-    if (target === null || typeof target !== "object" || Array.isArray(target) || !target.name || !target.in) {
+    // A parameter is what has an `in`. One with `in` and no usable `name` is still a parameter, and
+    // `keep` names it as it names the same entry written in place: up to 1.7.4 it was "not a
+    // parameter" (DOMES's finding 1 in note #1218).
+    if (target === null || typeof target !== "object" || Array.isArray(target) || !target.in) {
       notRead("what stands there is not a parameter");
       continue;
     }
@@ -284,11 +287,14 @@ function methodUnknown(route: string, what: string): Finding {
  * `additionalOperations` (OpenAPI 3.2): a map from a method, written as the request sends it, to
  * an operation, for a method with no field of its own — `COPY`, `LINK`. None is a method the route
  * inventory or `check` takes, so each is `openapi_method_unknown`, the route written with the key
- * as the document gives it. A key that names one of the nine methods with a field of their own —
- * `POST` or `post` — is one OpenAPI 3.2 says the map MUST NOT hold, and it is not read: that
- * route's place is the field. So is a value that is not a map. Either way
- * `openapi_additional_operation_not_read` names it. Up to 1.7.4 the field was not a verb, and every
- * route in it fell out of the count with nothing said.
+ * as the document gives it. A key that names one of the nine methods with a field of their own is
+ * not read: that route's place is the field. `POST` is one OpenAPI 3.2 says the map MUST NOT hold;
+ * `post` the text does not forbid — an HTTP method is case-sensitive — but it differs from `POST`
+ * only in case, and usedesign, which takes a method in any case, reads it as the same method, so it
+ * is not read here either, and the warning says which of the two it is (DOMES's finding 4 in note
+ * #1218). A value that is not a map is not read. Either way `openapi_additional_operation_not_read`
+ * names it. Up to 1.7.4 the field was not a verb, and every route in it fell out of the count with
+ * nothing said.
  */
 function additionalOperations(path: string, item: any, given: any): Finding[] {
   if (!isMap(given)) {
@@ -304,9 +310,14 @@ function additionalOperations(path: string, item: any, given: any): Finding[] {
     const field = key.toLowerCase();
     if (!FIELD_METHODS.includes(field)) return methodUnknown(`${key} ${path}`, `\`${key}\` in \`additionalOperations\` is an operation OpenAPI 3.2 allows`);
     const fieldHere = Object.keys(item).some((k) => k.toLowerCase() === field);
+    const method = field.toUpperCase();
+    const why =
+      key === method
+        ? `\`${key}\` in \`additionalOperations\` names a method with a field of its own, which OpenAPI 3.2 says this map MUST NOT hold`
+        : `\`${key}\` in \`additionalOperations\` differs only in case from \`${method}\`, which OpenAPI 3.2 says this map MUST NOT hold, and usedesign takes a method in any case`;
     return new Finding(
       "openapi_additional_operation_not_read",
-      `${key} ${path}: \`${key}\` in \`additionalOperations\` names a method with a field of its own, which OpenAPI 3.2 says this map MUST NOT hold — not read; ${fieldHere ? `the route is read from the path item's \`${field}\`` : `the route is neither drafted nor counted, and its place is the path item's \`${field}\``}`,
+      `${key} ${path}: ${why} — not read; ${fieldHere ? `the route is read from the path item's \`${field}\`` : `the route is neither drafted nor counted, and its place is the path item's \`${field}\``}`,
       "warning",
     );
   });

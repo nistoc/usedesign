@@ -451,8 +451,10 @@ test("scaffold: an in: path parameter with no name the draft can use is a warnin
   // stood — `5` became a parameter `5`. Either way the path's own segment came after the declared
   // ones, and the draft's order parted from the document's in silence. Now an `in: path` entry with
   // a missing, empty or non-string `name`, written in place, on the path item or reached by `$ref`,
-  // is `openapi_path_parameter_unnamed`, with the route, and is not read. A query, header or cookie
-  // parameter with no name does not touch the draft: `scaffold` is not a check of the document.
+  // is `openapi_path_parameter_unnamed`, with the route, and is not read — a `$ref` target with `in`
+  // and no `name`, or an empty one, too, not "not a parameter" (DOMES's finding 1 in note #1218).
+  // A query, header or cookie parameter with no name does not touch the draft: `scaffold` is not a
+  // check of the document.
   const dir = sandbox(t);
   const r = run(dir, "scaffold", "openapi-path-unnamed.json", "--out", "drafts");
   assert.equal(r.status, 0, r.stdout + r.stderr);
@@ -463,6 +465,8 @@ test("scaffold: an in: path parameter with no name the draft can use is a warnin
     warned.map((line) => line.slice(prefix.length, line.indexOf(" — "))).sort(),
     [
       "/v1/shared/{x}/b/{y} (the path item): a path parameter has no `name`",
+      "GET /v1/by-ref-empty/{x}/b/{y}: a path parameter has an empty `name`",
+      "GET /v1/by-ref-nameless/{x}/b/{y}: a path parameter has no `name`",
       "GET /v1/by-ref/{x}/b/{y}: a path parameter has `name` 7, which is not a string",
       "GET /v1/empty/{x}/b/{y}: a path parameter has an empty `name`",
       "GET /v1/no-name/{x}/b/{y}: a path parameter has no `name`",
@@ -470,13 +474,13 @@ test("scaffold: an in: path parameter with no name the draft can use is a warnin
     ],
   );
   assert.ok(warned.every((line) => line.endsWith(" — not read, so the draft names it from the path, after the declared ones")), r.stdout);
-  assert.ok(r.stdout.includes("routes:     7 served"), r.stdout);
-  assert.equal(goldenTree("scaffold-path-unnamed/drafts", path.join(dir, "drafts")).length, 7);
+  assert.ok(r.stdout.includes("routes:     9 served"), r.stdout);
+  assert.equal(goldenTree("scaffold-path-unnamed/drafts", path.join(dir, "drafts")).length, 9);
 
   const said = (route) =>
     fs.readFileSync(path.join(dir, "drafts", `TODO.v1-${route}-b.get.op.md`), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
   for (const route of ["control", "query"]) assert.equal(said(route), "y, x", route);
-  for (const route of ["no-name", "number", "empty", "shared", "by-ref"]) assert.equal(said(route), "x, y", route);
+  for (const route of ["no-name", "number", "empty", "shared", "by-ref", "by-ref-nameless", "by-ref-empty"]) assert.equal(said(route), "x, y", route);
 });
 
 test("scaffold: a query operation and each method in additionalOperations is a warning that names the route; a key that has a field of its own, or no map, is not read", (t) => {
@@ -509,6 +513,10 @@ test("scaffold: a query operation and each method in additionalOperations is a w
   assert.deepEqual(routesNamed("openapi_additional_operation_not_read"), ["POST /v1/dup", "post /v1/dup-missing", "/v1/bad-map"]);
   assert.ok(r.stdout.includes("the route is read from the path item's `post`"), r.stdout);
   assert.ok(r.stdout.includes("the route is neither drafted nor counted, and its place is the path item's `post`"), r.stdout);
+  // `POST` the text forbids; `post` it does not name, and the warning says it differs only in case
+  // (DOMES's finding 4 in note #1218).
+  assert.ok(r.stdout.includes("`POST` in `additionalOperations` names a method with a field of its own, which OpenAPI 3.2 says this map MUST NOT hold"), r.stdout);
+  assert.ok(r.stdout.includes("`post` in `additionalOperations` differs only in case from `POST`, which OpenAPI 3.2 says this map MUST NOT hold"), r.stdout);
   assert.deepEqual(routesNamed("openapi_path_item_ref_not_read"), ["/v1/empty-extra"]);
   assert.ok(r.stdout.includes("routes:     5 served"), r.stdout);
   assert.deepEqual(goldenTree("scaffold-query-ops/drafts", path.join(dir, "drafts")), [

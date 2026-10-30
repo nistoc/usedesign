@@ -54,6 +54,8 @@ class LeftOut(unittest.TestCase):
                 "не прочитан: /v1/missing",
                 "не прочитан: /v1/chained",
                 "не прочитан: /v1/schema",
+                "не прочитан: /v1/superscript",
+                "не прочитан: /v1/leading-zero",
                 "не прочитан: /v1/nothing",
                 "не прочитан: /v1/empty",
                 "не прочитан: /v1/not-an-object",
@@ -64,19 +66,25 @@ class LeftOut(unittest.TestCase):
         self.assertTrue(said["пропущен: TRACE /v1/echo"].endswith(seven))
         self.assertTrue(said["пропущен: QUERY /v1/search"].endswith(seven))
         self.assertTrue(said["пропущен: COPY /v1/files/{id}"].startswith("метод из additionalOperations (OpenAPI 3.2)"))
-        self.assertTrue(said["не прочитан: POST /v1/dup"].endswith("маршрут взят из поля post"))
+        self.assertTrue(said["не прочитан: POST /v1/dup"].endswith("а OpenAPI 3.2 такого здесь не допускает; маршрут взят из поля post"))
         self.assertTrue(said["не прочитан: post /v1/dup-missing"].endswith("маршрут в перечень не попал, его место — поле post"))
+        # `POST` the text forbids; `post` differs from it only in case, and the line says so (finding 4).
+        self.assertIn("отличается от POST только регистром", said["не прочитан: post /v1/dup-missing"])
         self.assertIn("не словарь", said["не прочитан: /v1/bad-map"])
         for path, why in [
             ("/v1/elsewhere", "это адрес не внутри документа"),
             ("/v1/missing", "по этому адресу ничего нет"),
             ("/v1/chained", "там снова $ref, а читается один уровень"),
             ("/v1/schema", "там не path item"),
+            # A list index is "0" or ASCII digits with no leading zero: "²" passed `isdigit()` and
+            # broke `int()` (DOMES's finding 3 in note #1218).
+            ("/v1/superscript", "по этому адресу ничего нет"),
+            ("/v1/leading-zero", "по этому адресу ничего нет"),
             ("/v1/nothing", "там нет ни одной операции"),
             ("/v1/empty", "там нет ни одной операции"),
         ]:
             self.assertIn(f": {why}; маршруты по этому адресу в перечень не попали", said[f"не прочитан: {path}"], path)
-        self.assertIn("не прочитано или пропущено: 14 — каждое названо выше", lines)
+        self.assertIn("не прочитано или пропущено: 16 — каждое названо выше", lines)
 
         # What gets in: the seven methods, a path item given by `$ref` inside the document followed
         # one level (a pointer with `~1` too), and a field written beside the `$ref` with it.

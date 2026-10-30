@@ -51,6 +51,8 @@
     "/v1/missing": { "$ref": "#/components/pathItems/Missing" },
     "/v1/chained": { "$ref": "#/components/pathItems/Chained" },
     "/v1/schema": { "$ref": "#/components/notAnItem" },
+    "/v1/superscript": { "$ref": "#/components/notAnItem/²" },
+    "/v1/leading-zero": { "$ref": "#/components/notAnItem/01" },
     "/v1/nothing": { "$ref": "#/components/pathItems/Nothing" },
     "/v1/empty": { "$ref": "#/components/pathItems/Empty" },
     "/v1/not-an-object": ["get"]

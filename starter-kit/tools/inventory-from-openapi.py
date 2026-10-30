@@ -22,6 +22,7 @@ EndpointDataSource, отдаваемый служебной ручкой тол�
     python3 usedesign/tools/inventory-from-openapi.py openapi.json usedesign/route-inventory.json
 """
 import json
+import re
 import sys
 from urllib.parse import unquote
 
@@ -45,7 +46,9 @@ def follow_local_ref(doc, ref):
             return None, "адрес записан с ошибкой"
         if isinstance(target, dict) and key in target:
             target = target[key]
-        elif isinstance(target, list) and key.isdigit() and str(int(key)) == key and int(key) < len(target):
+        # Индекс списка — только «0» или цифры ASCII без ведущего нуля: `isdigit()` пускает «²»,
+        # а `int("²")` падает (находка 3 DOMES, записка #1218).
+        elif isinstance(target, list) and re.fullmatch(r"0|[1-9][0-9]*", key) and int(key) < len(target):
             target = target[int(key)]
         else:
             return None, "по этому адресу ничего нет"
@@ -88,12 +91,18 @@ def additional_operations(path, item, given, said):
         if field not in FIELD_METHODS:
             said(f"пропущен: {key} {path} — метод из additionalOperations (OpenAPI 3.2), а перечень маршрутов "
                  f"и check берут семь: {SEVEN}; маршрут в перечень не попал")
-        elif any(own.lower() == field for own in item):
-            said(f"не прочитан: {key} {path} — ключ additionalOperations называет метод со своим полем, "
-                 f"а OpenAPI 3.2 такого здесь не допускает; маршрут взят из поля {field}")
+            continue
+        # OpenAPI 3.2 прямо запрещает здесь `POST`; про `post` текст молчит, а метод HTTP различает
+        # регистр — строка говорит, что именно стоит (находка 4 DOMES, записка #1218).
+        method = field.upper()
+        why = (f"ключ additionalOperations называет метод со своим полем, а OpenAPI 3.2 такого здесь не допускает"
+               if key == method else
+               f"ключ additionalOperations отличается от {method} только регистром, а {method} OpenAPI 3.2 здесь "
+               "не допускает; скрипт берёт метод в любом регистре")
+        if any(own.lower() == field for own in item):
+            said(f"не прочитан: {key} {path} — {why}; маршрут взят из поля {field}")
         else:
-            said(f"не прочитан: {key} {path} — ключ additionalOperations называет метод со своим полем, "
-                 f"а OpenAPI 3.2 такого здесь не допускает; маршрут в перечень не попал, его место — поле {field}")
+            said(f"не прочитан: {key} {path} — {why}; маршрут в перечень не попал, его место — поле {field}")
 
 
 def main(source: str, target: str) -> int:

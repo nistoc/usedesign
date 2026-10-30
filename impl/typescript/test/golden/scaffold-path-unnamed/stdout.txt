@@ -3,11 +3,13 @@
   warning  openapi_path_parameter_unnamed: GET /v1/empty/{x}/b/{y}: a path parameter has an empty `name` — not read, so the draft names it from the path, after the declared ones
   warning  openapi_path_parameter_unnamed: /v1/shared/{x}/b/{y} (the path item): a path parameter has no `name` — not read, so the draft names it from the path, after the declared ones
   warning  openapi_path_parameter_unnamed: GET /v1/by-ref/{x}/b/{y}: a path parameter has `name` 7, which is not a string — not read, so the draft names it from the path, after the declared ones
-routes:     7 served, read from openapi-path-unnamed.json
-drafts:     7 to write into drafts
+  warning  openapi_path_parameter_unnamed: GET /v1/by-ref-nameless/{x}/b/{y}: a path parameter has no `name` — not read, so the draft names it from the path, after the declared ones
+  warning  openapi_path_parameter_unnamed: GET /v1/by-ref-empty/{x}/b/{y}: a path parameter has an empty `name` — not read, so the draft names it from the path, after the declared ones
+routes:     9 served, read from openapi-path-unnamed.json
+drafts:     9 to write into drafts
 skipped:    0 already declared by a card
             0 excluded by the config
-            → 7 + 0 + 0 = 7 ✓
+            → 9 + 0 + 0 = 9 ✓
 
-written:    7
+written:    9
 Every draft fails `usedesign validate` by design. Fill it in, then MOVE it into cards/.

@@ -177,6 +177,56 @@
         }
       }
     },
+    "/v1/by-ref-nameless/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Nameless"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "404": {
+            "description": "no such thing"
+          }
+        }
+      }
+    },
+    "/v1/by-ref-empty/{x}/b/{y}": {
+      "get": {
+        "parameters": [
+          {
+            "name": "x",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/EmptyName"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok"
+          },
+          "404": {
+            "description": "no such thing"
+          }
+        }
+      }
+    },
     "/v1/query/{x}/b/{y}": {
       "get": {
         "parameters": [
@@ -230,6 +280,21 @@
     "parameters": {
       "Numbered": {
         "name": 7,
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Nameless": {
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "EmptyName": {
+        "name": "",
         "in": "path",
         "required": true,
         "schema": {
