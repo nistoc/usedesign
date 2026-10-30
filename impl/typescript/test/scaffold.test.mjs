@@ -9,8 +9,8 @@
  *                                        not a recording.
  *
  * Fixtures: test/fixtures/scaffold/ (openapi.json, usedesign.config.yaml, cards/, and small
- * documents for the uniform-statuses, the empty, the path-item, the path-item-ref, the path-template, the parameter-ref and
- * the trace cases). Goldens: the test/golden/scaffold
+ * documents for the uniform-statuses, the empty, the path-item, the path-item-ref, the path-template, the parameter-ref,
+ * the trace and the path-unnamed cases). Goldens: the test/golden/scaffold
  * directories, one per case.
  *
  * One test is not black box: `routes_unaccounted` cannot be reached through the CLI, so the check
@@ -443,6 +443,40 @@ test("scaffold: a trace operation is a warning that names the route, as check na
   assert.equal(c.status, 1, c.stdout + c.stderr);
   assert.ok(c.stdout.includes("inventory_malformed: route-inventory.json: unknown method `TRACE`"), c.stdout);
   assert.ok(c.stdout.includes("wild_endpoint: TRACE /v1/echo is served"), c.stdout);
+});
+
+test("scaffold: an in: path parameter with no name the draft can use is a warning that names the route; one in query, header or cookie is not", (t) => {
+  // BE's question 2 in note #1155 (card #332). Up to 1.7.4 an `in: path` entry with no `name` was
+  // passed over with nothing said, and one whose `name` is not a string went into the draft as it
+  // stood — `5` became a parameter `5`. Either way the path's own segment came after the declared
+  // ones, and the draft's order parted from the document's in silence. Now an `in: path` entry with
+  // a missing, empty or non-string `name`, written in place, on the path item or reached by `$ref`,
+  // is `openapi_path_parameter_unnamed`, with the route, and is not read. A query, header or cookie
+  // parameter with no name does not touch the draft: `scaffold` is not a check of the document.
+  const dir = sandbox(t);
+  const r = run(dir, "scaffold", "openapi-path-unnamed.json", "--out", "drafts");
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  golden("scaffold-path-unnamed/stdout.txt", r.stdout);
+  const prefix = "  warning  openapi_path_parameter_unnamed: ";
+  const warned = r.stdout.split("\n").filter((line) => line.startsWith(prefix));
+  assert.deepEqual(
+    warned.map((line) => line.slice(prefix.length, line.indexOf(" — "))).sort(),
+    [
+      "/v1/shared/{x}/b/{y} (the path item): a path parameter has no `name`",
+      "GET /v1/by-ref/{x}/b/{y}: a path parameter has `name` 7, which is not a string",
+      "GET /v1/empty/{x}/b/{y}: a path parameter has an empty `name`",
+      "GET /v1/no-name/{x}/b/{y}: a path parameter has no `name`",
+      "GET /v1/number/{x}/b/{y}: a path parameter has `name` 5, which is not a string",
+    ],
+  );
+  assert.ok(warned.every((line) => line.endsWith(" — not read, so the draft names it from the path, after the declared ones")), r.stdout);
+  assert.ok(r.stdout.includes("routes:     7 served"), r.stdout);
+  assert.equal(goldenTree("scaffold-path-unnamed/drafts", path.join(dir, "drafts")).length, 7);
+
+  const said = (route) =>
+    fs.readFileSync(path.join(dir, "drafts", `TODO.v1-${route}-b.get.op.md`), "utf8").match(/параметры пути: ([^·.]*)/)?.[1]?.trim();
+  for (const route of ["control", "query"]) assert.equal(said(route), "y, x", route);
+  for (const route of ["no-name", "number", "empty", "shared", "by-ref"]) assert.equal(said(route), "x, y", route);
 });
 
 test("scaffold: no --out is a usage error (exit 2)", (t) => {
