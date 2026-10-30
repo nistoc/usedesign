@@ -26,12 +26,13 @@ import { normalise } from "./checks.js";
 const VERBS = ["get", "post", "put", "patch", "delete", "head", "options"];
 
 /**
- * Operations OpenAPI 3.0 and 3.1 allow on a path item that the card format does not name: the route
- * inventory and `check` take the seven `VERBS` and call any other method unknown. Such a route
- * cannot become a card that passes, so it is not drafted — but it is a route the server answers,
- * and up to 1.7.3 it fell out of the count with nothing said. Now `openapi_method_unknown` names it.
+ * Operations OpenAPI 3.0 and 3.1 allow on a path item that the route inventory does not: the
+ * inventory, the config's `exclude.method` and `check` take the seven `VERBS` and call any other
+ * method unknown. A card's own `method` is any string, but a card for such a route could never be
+ * checked against an inventory, so it is not drafted — yet it is a route the server answers, and up
+ * to 1.7.3 it fell out of the count with nothing said. Now `openapi_method_unknown` names it.
  */
-const UNKNOWN_TO_THE_FORMAT = ["trace"];
+const UNKNOWN_TO_THE_INVENTORY = ["trace"];
 
 export interface ScaffoldPlan {
   drafts: { id: string; file: string; method: string; path: string; body: string }[];
@@ -225,9 +226,9 @@ function resolvePathItem(doc: any, path: string, item: any): { item: any; notRea
   // An operation (`…/X/get`) or the document itself is an object too, and taken for a path item it
   // would drop its route as silently as 1.7.2 did. A path item written in place with no operation
   // is lawful and stays as it was; one given by `$ref` names an address that holds no route. A
-  // `trace` is an operation, though not one the format names: up to 1.7.3 a path item with only a
+  // `trace` is an operation, though not one the inventory takes: up to 1.7.3 a path item with only a
   // `trace` was said to have none.
-  const operationKeys = [...VERBS, ...UNKNOWN_TO_THE_FORMAT];
+  const operationKeys = [...VERBS, ...UNKNOWN_TO_THE_INVENTORY];
   if (!Object.keys(target).some((key) => operationKeys.includes(key.toLowerCase()))) return notRead("what stands there has no operation");
   return { item: { ...target, ...own }, notRead: null };
 }
@@ -351,11 +352,11 @@ export function planScaffold(
     const shared = readParameters(doc, `${path} (the path item)`, operations?.parameters, findings);
     for (const [verb, operation] of Object.entries<any>(operations ?? {})) {
       const method = verb.toUpperCase();
-      if (UNKNOWN_TO_THE_FORMAT.includes(verb.toLowerCase())) {
+      if (UNKNOWN_TO_THE_INVENTORY.includes(verb.toLowerCase())) {
         findings.push(
           new Finding(
             "openapi_method_unknown",
-            `${method} ${path}: \`${verb}\` is an operation OpenAPI allows, but an unknown method to the card format and to \`check\`, which take ${VERBS.map((v) => v.toUpperCase()).join(", ")} — not drafted, and not counted among the routes served`,
+            `${method} ${path}: \`${verb}\` is an operation OpenAPI allows, but an unknown method to the route inventory and to \`check\`, which take ${VERBS.map((v) => v.toUpperCase()).join(", ")} — not drafted, and not counted among the routes served`,
             "warning",
           ),
         );
