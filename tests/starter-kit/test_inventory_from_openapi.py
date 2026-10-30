@@ -76,7 +76,7 @@ class LeftOut(unittest.TestCase):
             ("/v1/empty", "там нет ни одной операции"),
         ]:
             self.assertIn(f": {why}; маршруты по этому адресу в перечень не попали", said[f"не прочитан: {path}"], path)
-        self.assertIn("не попало в перечень: 14 — каждое названо выше", lines)
+        self.assertIn("не прочитано или пропущено: 14 — каждое названо выше", lines)
 
         # What gets in: the seven methods, a path item given by `$ref` inside the document followed
         # one level (a pointer with `~1` too), and a field written beside the `$ref` with it.
