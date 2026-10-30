@@ -123,7 +123,7 @@ def main(source: str, target: str) -> int:
     routes.sort(key=lambda r: (r["path"], r["method"]))
 
     if left_out:
-        print(f"не попало в перечень: {len(left_out)} — каждое названо выше", file=sys.stderr)
+        print(f"не прочитано или пропущено: {len(left_out)} — каждое названо выше", file=sys.stderr)
 
     if not routes:
         # Пустой перечень почти всегда означает неудавшийся снимок, а не приложение без
