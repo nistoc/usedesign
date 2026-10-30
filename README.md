@@ -86,7 +86,8 @@ which is exactly why migrations end up orphaned everywhere else.
 
 **The format is SPEC v1.7; the tools are 1.7.4.** Since v1.0, declared 13 September 2026, the
 format has been under one promise: the required keys of a card are frozen, so a card with zero
-errors under 1.0 has zero errors under every 1.x. A round adds optional fields, optional artifact
+errors under 1.0 has zero errors under every 1.x — the promise covers the keys a version defines
+([SPEC §8](SPEC.md)). A round adds optional fields, optional artifact
 kinds and new codes, and a new check on existing fields arrives as a warning; renaming or removing
 a field, changing what a required field accepts or turning a warning into an error is 2.0. The package
 follows the format — `1.x.0` adds, `1.x.y` fixes, `2.0.0` breaks. v1.6 wrote down how the text of

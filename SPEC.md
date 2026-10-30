@@ -799,6 +799,12 @@ than in the path, this field is the only place it is visible.
 > written, the operation did something, and `reversible` is a claim about it, not an overstatement
 > (round 21 — the card for logging a set).
 >
+> **`reversible_via` may name the card itself.** An operation that undoes itself — a PATCH sent
+> again with the values it replaced, a reorder sent back in the old order — is reversed by the
+> same operation, and its own `id` is the true answer. It is a description, not a loop: the card
+> is described, so `undescribed_counterpart` does not arise. Round 25 met such cards — patches of
+> an exercise and of a pass's header, reorders — and this document said nothing about them.
+>
 > **Why `sensitivity` matters.** An operation that returns a secret once states one rule for three
 > consumers at the same time: the UI must not show it twice, the gateway must not log it, the test
 > must not print it.
@@ -1335,7 +1341,11 @@ rounds, on three stacks, in which no required field changed. From here the numbe
 - **The required keys of a card are frozen** — `id`, `title`, `actors`, `maturity`, `steps`,
   `concurrency`, `interfaces`, `data`, `provenance`, `reversibility`, and one of `scenario` /
   `serves_step`. A card with zero errors under 1.0 has zero errors under every 1.x. The same
-  freeze covers the form contract, the inventories and the config file.
+  freeze covers the form contract, the inventories and the config file. The promise is about
+  the keys a version defines: the top level of a card is open, and a key written there before
+  any version defined it is read once a round does — a card that carried a `variant_of` of its
+  own before round 26 is checked under 1.1 (on the pilot's two repositories none did, measured
+  2026-09-14).
 - **A round may add** optional fields, optional artifact kinds and new diagnostic codes. A new
   check over fields that already exist arrives as a warning, never as an error.
 - **Renaming or removing a field**, changing what a required field accepts, or promoting a warning
