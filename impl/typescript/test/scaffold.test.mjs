@@ -412,8 +412,9 @@ test("scaffold: a path parameter given by $ref inside the document stands where 
 });
 
 test("scaffold: a trace operation is a warning that names the route, as check names it; a $ref path item with only a trace has one", (t) => {
-  // OpenAPI 3.0 and 3.1 allow `trace` on a path item; the card format, the route inventory and
-  // `check` take seven methods, and `check` calls TRACE in an inventory an unknown method. Up to
+  // OpenAPI 3.0 and 3.1 allow `trace` on a path item; the route inventory, the config's
+  // `exclude.method` and `check` take seven methods — a card's own `method` is any string — and
+  // `check` calls TRACE in an inventory an unknown method. Up to
   // 1.7.3 `scaffold` skipped the key with nothing said: the route fell out of the count, exit 0, and
   // a `$ref` to a path item with only a `trace` was said to have no operation. Now each `trace` is
   // `openapi_method_unknown`, with the route written as `check` writes it, and it is not counted.
@@ -427,7 +428,7 @@ test("scaffold: a trace operation is a warning that names the route, as check na
     warned.map((line) => line.slice(prefix.length, line.indexOf(": `trace`"))),
     ["TRACE /v1/echo", "TRACE /v1/only-trace", "TRACE /v1/traced"],
   );
-  assert.ok(warned.every((line) => line.includes("an unknown method to the card format and to `check`")), r.stdout);
+  assert.ok(warned.every((line) => line.includes("an unknown method to the route inventory and to `check`")), r.stdout);
   assert.ok(!r.stdout.includes("openapi_path_item_ref_not_read"), r.stdout);
   assert.ok(r.stdout.includes("routes:     2 served"), r.stdout);
   assert.deepEqual(goldenTree("scaffold-trace/drafts", path.join(dir, "drafts")), ["TODO.v1-echo.get.op.md", "TODO.v1-plain.get.op.md"]);

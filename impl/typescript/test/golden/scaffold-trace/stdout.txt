@@ -1,6 +1,6 @@
-  warning  openapi_method_unknown: TRACE /v1/echo: `trace` is an operation OpenAPI allows, but an unknown method to the card format and to `check`, which take GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS — not drafted, and not counted among the routes served
-  warning  openapi_method_unknown: TRACE /v1/only-trace: `trace` is an operation OpenAPI allows, but an unknown method to the card format and to `check`, which take GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS — not drafted, and not counted among the routes served
-  warning  openapi_method_unknown: TRACE /v1/traced: `trace` is an operation OpenAPI allows, but an unknown method to the card format and to `check`, which take GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS — not drafted, and not counted among the routes served
+  warning  openapi_method_unknown: TRACE /v1/echo: `trace` is an operation OpenAPI allows, but an unknown method to the route inventory and to `check`, which take GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS — not drafted, and not counted among the routes served
+  warning  openapi_method_unknown: TRACE /v1/only-trace: `trace` is an operation OpenAPI allows, but an unknown method to the route inventory and to `check`, which take GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS — not drafted, and not counted among the routes served
+  warning  openapi_method_unknown: TRACE /v1/traced: `trace` is an operation OpenAPI allows, but an unknown method to the route inventory and to `check`, which take GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS — not drafted, and not counted among the routes served
 routes:     2 served, read from openapi-trace.json
 drafts:     2 to write into drafts
 skipped:    0 already declared by a card
