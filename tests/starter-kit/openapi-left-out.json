@@ -1,0 +1,58 @@
+{
+  "openapi": "3.2.0",
+  "info": { "title": "every way a route can stay out of the inventory, and two ways it gets in", "version": "1" },
+  "components": {
+    "pathItems": {
+      "Read": {
+        "get": { "responses": { "200": { "description": "ok" } } },
+        "delete": { "responses": { "204": { "description": "gone" } } }
+      },
+      "Chained": { "$ref": "#/components/pathItems/Read" },
+      "Nothing": { "summary": "a path item with no operation" },
+      "Empty": { "additionalOperations": {} },
+      "a/b": {
+        "put": { "responses": { "200": { "description": "ok" } } }
+      }
+    },
+    "schemas": {
+      "List": { "type": "array" }
+    },
+    "notAnItem": ["a", "list"]
+  },
+  "paths": {
+    "/v1/echo": {
+      "get": { "responses": { "200": { "description": "ok" } } },
+      "trace": { "responses": { "200": { "description": "the request, echoed" } } }
+    },
+    "/v1/search": {
+      "query": { "responses": { "200": { "description": "what the query found" } } }
+    },
+    "/v1/files/{id}": {
+      "get": { "responses": { "200": { "description": "the file" } } },
+      "additionalOperations": {
+        "COPY": { "responses": { "201": { "description": "copied" } } },
+        "LINK": { "responses": { "204": { "description": "linked" } } }
+      }
+    },
+    "/v1/dup": {
+      "post": { "responses": { "201": { "description": "made" } } },
+      "additionalOperations": { "POST": { "responses": { "201": { "description": "made" } } } }
+    },
+    "/v1/dup-missing": {
+      "additionalOperations": { "post": { "responses": { "201": { "description": "made" } } } }
+    },
+    "/v1/bad-map": {
+      "get": { "responses": { "200": { "description": "ok" } } },
+      "additionalOperations": ["COPY"]
+    },
+    "/v1/read": { "$ref": "#/components/pathItems/Read", "patch": { "responses": { "200": { "description": "changed, beside the $ref" } } } },
+    "/v1/escaped": { "$ref": "#/components/pathItems/a~1b" },
+    "/v1/elsewhere": { "$ref": "other.json#/components/pathItems/Read" },
+    "/v1/missing": { "$ref": "#/components/pathItems/Missing" },
+    "/v1/chained": { "$ref": "#/components/pathItems/Chained" },
+    "/v1/schema": { "$ref": "#/components/notAnItem" },
+    "/v1/nothing": { "$ref": "#/components/pathItems/Nothing" },
+    "/v1/empty": { "$ref": "#/components/pathItems/Empty" },
+    "/v1/not-an-object": ["get"]
+  }
+}

@@ -24,6 +24,28 @@ a day.
   with the route, and is not read; the draft names the segment from the path, after the declared
   ones. A query, header or cookie parameter with no name does not touch the draft and is not named
   (`scaffold-path-unnamed`).
+- `scaffold` names a `query` operation and each method in `additionalOperations` instead of
+  dropping them. OpenAPI 3.2 gives `query` a field on a path item and puts any other method —
+  `COPY`, `LINK` — in the map `additionalOperations`, keyed as the request sends it. Up to 1.7.4
+  neither was read: the routes fell out of the count with nothing said, and a `$ref` to a path item
+  with only these was said to have no operation. Now a `query` is `openapi_method_unknown`, as a
+  `trace` is since 1.7.4, and so is each key of the map, with the route written with the key as
+  given — `COPY /v1/files/{id}`; none is drafted or counted. A key for one of the nine methods with
+  a field of their own — `POST` or `post` — is one OpenAPI 3.2 says the map MUST NOT hold, and it is
+  not read; nor is an `additionalOperations` that is not a map. Both are a warning,
+  `openapi_additional_operation_not_read`, which says whether the route is read from the path
+  item's own field (`scaffold-query-ops`).
+- `starter-kit/tools/inventory-from-openapi.py`, the script the starter kit puts in a repository to
+  build the route inventory from OpenAPI, names on stderr, with the route, what it leaves out: a
+  `trace`, a `query`, each method in `additionalOperations`, a key there with a field of its own,
+  and a path item it cannot read; one more line says how many. It now follows a path item given by
+  `$ref` inside the document one level, as `scaffold` does since 1.7.3 — up to 1.7.4 every route at
+  such a path was left out with nothing said. Apart from those routes, the inventory it writes and
+  its exit code do not change, and on a document with nothing left out it prints what it printed.
+  A test of its own, outside the starter kit so that it is not copied with it, holds every case and
+  checks that the script counts the routes `scaffold` counts on each of `scaffold`'s fixtures
+  (`tests/starter-kit/`). A repository with a copy of the script takes the new one by copying it
+  again.
 
 ## 1.7.4
 

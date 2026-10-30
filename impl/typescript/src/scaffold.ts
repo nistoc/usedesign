@@ -20,19 +20,23 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Config, Finding, globMatches, loadCardFiles } from "./core.js";
+import { Config, Finding, globMatches, isMap, loadCardFiles } from "./core.js";
 import { normalise } from "./checks.js";
 
 const VERBS = ["get", "post", "put", "patch", "delete", "head", "options"];
 
 /**
- * Operations OpenAPI 3.0 and 3.1 allow on a path item that the route inventory does not: the
- * inventory, the config's `exclude.method` and `check` take the seven `VERBS` and call any other
- * method unknown. A card's own `method` is any string, but a card for such a route could never be
- * checked against an inventory, so it is not drafted — yet it is a route the server answers, and up
- * to 1.7.3 it fell out of the count with nothing said. Now `openapi_method_unknown` names it.
+ * Operations OpenAPI allows on a path item that the route inventory does not — `trace` (3.0, 3.1
+ * and 3.2) and `query` (3.2): the inventory, the config's `exclude.method` and `check` take the
+ * seven `VERBS` and call any other method unknown. A card's own `method` is any string, but a card
+ * for such a route could never be checked against an inventory, so it is not drafted — yet it is a
+ * route the server answers, and up to 1.7.3 a `trace` (up to 1.7.4 a `query`) fell out of the count
+ * with nothing said. Now `openapi_method_unknown` names it.
  */
-const UNKNOWN_TO_THE_INVENTORY = ["trace"];
+const UNKNOWN_TO_THE_INVENTORY = ["trace", "query"];
+
+/** The nine methods OpenAPI 3.2 gives a field of its own on a path item. */
+const FIELD_METHODS = [...VERBS, ...UNKNOWN_TO_THE_INVENTORY];
 
 export interface ScaffoldPlan {
   drafts: { id: string; file: string; method: string; path: string; body: string }[];
@@ -259,10 +263,53 @@ function resolvePathItem(doc: any, path: string, item: any): { item: any; notRea
   // would drop its route as silently as 1.7.2 did. A path item written in place with no operation
   // is lawful and stays as it was; one given by `$ref` names an address that holds no route. A
   // `trace` is an operation, though not one the inventory takes: up to 1.7.3 a path item with only a
-  // `trace` was said to have none.
-  const operationKeys = [...VERBS, ...UNKNOWN_TO_THE_INVENTORY];
-  if (!Object.keys(target).some((key) => operationKeys.includes(key.toLowerCase()))) return notRead("what stands there has no operation");
+  // `trace` was said to have none. So is a `query`, and so is anything in `additionalOperations`
+  // (OpenAPI 3.2) — an empty map there holds none.
+  const holdsOperation = ([key, value]: [string, any]) =>
+    key === "additionalOperations" ? !isMap(value) || Object.keys(value).length > 0 : FIELD_METHODS.includes(key.toLowerCase());
+  if (!Object.entries<any>(target).some(holdsOperation)) return notRead("what stands there has no operation");
   return { item: { ...target, ...own }, notRead: null };
+}
+
+/** A route at a method the route inventory and `check` do not take: named, not drafted, not counted. */
+function methodUnknown(route: string, what: string): Finding {
+  return new Finding(
+    "openapi_method_unknown",
+    `${route}: ${what}, but an unknown method to the route inventory and to \`check\`, which take ${VERBS.map((v) => v.toUpperCase()).join(", ")} — not drafted, and not counted among the routes served`,
+    "warning",
+  );
+}
+
+/**
+ * `additionalOperations` (OpenAPI 3.2): a map from a method, written as the request sends it, to
+ * an operation, for a method with no field of its own — `COPY`, `LINK`. None is a method the route
+ * inventory or `check` takes, so each is `openapi_method_unknown`, the route written with the key
+ * as the document gives it. A key that names one of the nine methods with a field of their own —
+ * `POST` or `post` — is one OpenAPI 3.2 says the map MUST NOT hold, and it is not read: that
+ * route's place is the field. So is a value that is not a map. Either way
+ * `openapi_additional_operation_not_read` names it. Up to 1.7.4 the field was not a verb, and every
+ * route in it fell out of the count with nothing said.
+ */
+function additionalOperations(path: string, item: any, given: any): Finding[] {
+  if (!isMap(given)) {
+    return [
+      new Finding(
+        "openapi_additional_operation_not_read",
+        `${path}: \`additionalOperations\` is not a map from a method to an operation — not read, so the routes it holds are neither drafted nor counted`,
+        "warning",
+      ),
+    ];
+  }
+  return Object.keys(given).map((key) => {
+    const field = key.toLowerCase();
+    if (!FIELD_METHODS.includes(field)) return methodUnknown(`${key} ${path}`, `\`${key}\` in \`additionalOperations\` is an operation OpenAPI 3.2 allows`);
+    const fieldHere = Object.keys(item).some((k) => k.toLowerCase() === field);
+    return new Finding(
+      "openapi_additional_operation_not_read",
+      `${key} ${path}: \`${key}\` in \`additionalOperations\` names a method with a field of its own, which OpenAPI 3.2 says this map MUST NOT hold — not read; ${fieldHere ? `the route is read from the path item's \`${field}\`` : `the route is neither drafted nor counted, and its place is the path item's \`${field}\``}`,
+      "warning",
+    );
+  });
 }
 
 function draftBody(
@@ -383,15 +430,13 @@ export function planScaffold(
     if (onPathItem) findings.push(onPathItem);
     const shared = readParameters(doc, `${path} (the path item)`, operations?.parameters, findings);
     for (const [verb, operation] of Object.entries<any>(operations ?? {})) {
+      if (verb === "additionalOperations") {
+        findings.push(...additionalOperations(path, operations, operation));
+        continue;
+      }
       const method = verb.toUpperCase();
       if (UNKNOWN_TO_THE_INVENTORY.includes(verb.toLowerCase())) {
-        findings.push(
-          new Finding(
-            "openapi_method_unknown",
-            `${method} ${path}: \`${verb}\` is an operation OpenAPI allows, but an unknown method to the route inventory and to \`check\`, which take ${VERBS.map((v) => v.toUpperCase()).join(", ")} — not drafted, and not counted among the routes served`,
-            "warning",
-          ),
-        );
+        findings.push(methodUnknown(`${method} ${path}`, `\`${verb}\` is an operation OpenAPI allows`));
         continue;
       }
       if (!VERBS.includes(verb.toLowerCase())) continue;
