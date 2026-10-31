@@ -3,6 +3,9 @@
   warning  openapi_path_item_ref_not_read: /v1/chained: the path item is given by `$ref` "#/components/pathItems/Chained" — what stands there is another `$ref`, and only one level is followed; not read, so the routes at that address are neither drafted nor counted
   warning  openapi_path_item_ref_not_read: /v1/operation: the path item is given by `$ref` "#/components/pathItems/Account/get" — what stands there has no operation; not read, so the routes at that address are neither drafted nor counted
   warning  openapi_path_item_ref_not_read: /v1/root: the path item is given by `$ref` "#" — what stands there has no operation; not read, so the routes at that address are neither drafted nor counted
+  warning  openapi_path_item_ref_not_read: /v1/length: the path item is given by `$ref` "#/components/pathItems/Account/parameters/length" — nothing at that address; not read, so the routes at that address are neither drafted nor counted
+  warning  openapi_path_item_ref_not_read: /v1/past-end: the path item is given by `$ref` "#/components/pathItems/Account/parameters/1" — nothing at that address; not read, so the routes at that address are neither drafted nor counted
+  warning  openapi_path_item_ref_not_read: /v1/leading-zero: the path item is given by `$ref` "#/components/pathItems/Account/parameters/00" — nothing at that address; not read, so the routes at that address are neither drafted nor counted
 routes:     6 served, read from openapi-path-item-ref.json
 drafts:     6 to write into drafts
 skipped:    0 already declared by a card
