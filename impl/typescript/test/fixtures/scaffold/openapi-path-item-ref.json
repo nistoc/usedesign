@@ -18,7 +18,10 @@
     "/v1/missing": { "$ref": "#/components/pathItems/Missing" },
     "/v1/chained": { "$ref": "#/components/pathItems/Chained" },
     "/v1/operation": { "$ref": "#/components/pathItems/Account/get" },
-    "/v1/root": { "$ref": "#" }
+    "/v1/root": { "$ref": "#" },
+    "/v1/length": { "$ref": "#/components/pathItems/Account/parameters/length" },
+    "/v1/past-end": { "$ref": "#/components/pathItems/Account/parameters/1" },
+    "/v1/leading-zero": { "$ref": "#/components/pathItems/Account/parameters/00" }
   },
   "components": {
     "pathItems": {

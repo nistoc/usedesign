@@ -291,7 +291,7 @@ test("scaffold: a path item given by $ref inside the document is a route; any ot
   const warned = r.stdout.split("\n").filter((line) => line.startsWith(prefix));
   assert.deepEqual(
     warned.map((line) => line.slice(prefix.length).split(": ")[0]),
-    ["/v1/elsewhere", "/v1/missing", "/v1/chained", "/v1/operation", "/v1/root"],
+    ["/v1/elsewhere", "/v1/missing", "/v1/chained", "/v1/operation", "/v1/root", "/v1/length", "/v1/past-end", "/v1/leading-zero"],
   );
   assert.deepEqual(
     warned.map((line) => line.slice(line.indexOf(" — ") + 3, line.indexOf("; not read"))),
@@ -301,6 +301,11 @@ test("scaffold: a path item given by $ref inside the document is a route; any ot
       "what stands there is another `$ref`, and only one level is followed",
       "what stands there has no operation",
       "what stands there has no operation",
+      // In a list only an index is an address: `length` was the list's length up to 1.7.4; an index
+      // past the end and one with a leading zero hold nothing (DOMES's remark in note #1222).
+      "nothing at that address",
+      "nothing at that address",
+      "nothing at that address",
     ],
   );
   assert.ok(warned.every((line) => line.endsWith("; not read, so the routes at that address are neither drafted nor counted")), r.stdout);

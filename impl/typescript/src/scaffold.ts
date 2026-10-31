@@ -148,9 +148,15 @@ function followLocalRef(doc: any, ref: unknown): { target: any } | { why: string
     } catch {
       return { why: "not a valid address" };
     }
-    if (target === null || typeof target !== "object" || !Object.prototype.hasOwnProperty.call(target, key)) {
-      return { why: "nothing at that address" };
-    }
+    // In a list only an index is an address — "0" or ASCII digits with no leading zero, as the
+    // starter kit's script reads it; `length` is the list's, not an entry (DOMES's remark in note #1222).
+    const here =
+      target !== null &&
+      typeof target === "object" &&
+      (Array.isArray(target)
+        ? /^(0|[1-9][0-9]*)$/.test(key) && Number(key) < target.length
+        : Object.prototype.hasOwnProperty.call(target, key));
+    if (!here) return { why: "nothing at that address" };
     target = target[key];
   }
   return { target };

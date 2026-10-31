@@ -190,6 +190,9 @@
           },
           {
             "$ref": "#/components/parameters/Nameless"
+          },
+          {
+            "$ref": "#/components/parameters/QueryNameless"
           }
         ],
         "responses": {
@@ -297,6 +300,12 @@
         "name": "",
         "in": "path",
         "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "QueryNameless": {
+        "in": "query",
         "schema": {
           "type": "string"
         }

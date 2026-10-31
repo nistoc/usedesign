@@ -22,8 +22,9 @@ a day.
   silence. Now an `in: path` entry whose `name` is missing, empty or not a string — written in
   place, on the path item, or reached by `$ref` — is a warning, `openapi_path_parameter_unnamed`,
   with the route, and is not read; the draft names the segment from the path, after the declared
-  ones. A query, header or cookie parameter with no name does not touch the draft and is not named
-  (`scaffold-path-unnamed`).
+  ones. A query, header or cookie parameter with no name does not touch the draft and is not named,
+  written in place or reached by `$ref` — up to 1.7.4 a `$ref` to one was
+  `openapi_parameter_ref_not_read` (`scaffold-path-unnamed`).
 - `scaffold` names a `query` operation and each method in `additionalOperations` instead of
   dropping them. OpenAPI 3.2 gives `query` a field on a path item and puts any other method —
   `COPY`, `LINK` — in the map `additionalOperations`, keyed as the request sends it. Up to 1.7.4
@@ -36,6 +37,12 @@ a day.
   in any case. Nor is an `additionalOperations` that is not a map. Both are a warning,
   `openapi_additional_operation_not_read`, which says which of the two a key is and whether the
   route is read from the path item's own field (`scaffold-query-ops`).
+- `scaffold` follows a `$ref` into a list only by an index: `0`, or ASCII digits with no leading
+  zero, short of the list's end. Since 1.7.3 any own property of a list was taken for an address —
+  `…/parameters/length` was the list's length, turned down for what stood there. Now it, an index
+  past the end and one such as `00` are "nothing at that address", the reason
+  `inventory-from-openapi.py` gives; what is read and counted does not change
+  (`scaffold-path-item-ref`).
 - `starter-kit/tools/inventory-from-openapi.py`, the script the starter kit puts in a repository to
   build the route inventory from OpenAPI, names on stderr, with the route, what it leaves out: a
   `trace`, a `query`, each method in `additionalOperations`, a key there with a field of its own,
