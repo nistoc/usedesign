@@ -11,9 +11,13 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
-## Unreleased
+## 1.7.5
 
-*the tools change, the format does not (SPEC v1.7)*
+*2026-10-31 · the tools change, the format does not (SPEC v1.7)*
+
+Fixes in `scaffold` and in the starter kit's `inventory-from-openapi.py`: a route or a parameter
+the OpenAPI document gives and they do not read is named, with the route. SPEC says in words two
+things the format already held. The format, `validate`, `check`, `preview` and `gen` do not change.
 
 - `scaffold` names an `in: path` parameter it cannot use instead of passing over it. Up to 1.7.4 an
   `in: path` entry with no `name` was skipped with nothing said, and one whose `name` is not a
