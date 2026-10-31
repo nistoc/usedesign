@@ -20,10 +20,10 @@
 **Шаг 0. Инструмент не ставится — он зовётся:**
 
 ```bash
-npx usedesign@1.7.4 --help
+npx usedesign@1.7.5 --help
 ```
 
-Версию закрепляйте (`@1.7.4`, не `latest`): проверка, которая молча меняет своё поведение
+Версию закрепляйте (`@1.7.5`, не `latest`): проверка, которая молча меняет своё поведение
 без правки в вашем репозитории, — сама по себе класс дефекта.
 
 **Шаг 1. Каталог и конфиг.** Создайте в корне репозитория `usedesign/`, положите туда
@@ -60,13 +60,13 @@ python3 usedesign/tools/inventory-from-openapi.py /tmp/openapi.json usedesign/ro
 нём.** Проверьте себя:
 
 ```bash
-npx usedesign@1.7.4 validate usedesign/cards/
-npx usedesign@1.7.4 check usedesign/usedesign.config.yaml
+npx usedesign@1.7.5 validate usedesign/cards/
+npx usedesign@1.7.5 check usedesign/usedesign.config.yaml
 ```
 
 Сотни строк «маршрут не описан никем» в первом прогоне — это норма и есть смысл: теперь
 неописанное ВИДНО. Заготовки для остальных маршрутов генерируются командой
-`npx usedesign@1.7.4 scaffold <openapi.json> --out usedesign/drafts` — каждая заготовка
+`npx usedesign@1.7.5 scaffold <openapi.json> --out usedesign/drafts` — каждая заготовка
 нарочно не проходит валидацию, пока человек её не дозаполнит и не перенесёт в `cards/`.
 
 С конфигом из этой папки `check` печатает и проверку №4: пока в конфиге нет `storage_inventory`,
@@ -104,7 +104,7 @@ npx usedesign@1.7.4 check usedesign/usedesign.config.yaml
   в CI, гейт фронта забирает соседний репозиторий вторым `checkout` (закомментированный шаг в
   [usedesign-gate.yml](usedesign-gate.yml)) и добавляет его карточки в `cards:`. Замерено на двух
   наших репозиториях: три предупреждения → ноль.
-- **Превью контрактов**: `npx usedesign@1.7.4 preview usedesign/usedesign.config.yaml --out
+- **Превью контрактов**: `npx usedesign@1.7.5 preview usedesign/usedesign.config.yaml --out
   preview.html` — страница с деревом форм, текстом контракта и грубым каркасом, где у каждого
   элемента вердикт «есть / нет в коде / вне контракта».
 

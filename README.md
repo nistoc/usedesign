@@ -84,7 +84,7 @@ which is exactly why migrations end up orphaned everywhere else.
 
 ## Status
 
-**The format is SPEC v1.7; the tools are 1.7.4.** Since v1.0, declared 13 September 2026, the
+**The format is SPEC v1.7; the tools are 1.7.5.** Since v1.0, declared 13 September 2026, the
 format has been under one promise: the required keys of a card are frozen, so a card with zero
 errors under 1.0 has zero errors under every 1.x — the promise covers the keys a version defines
 ([SPEC §8](SPEC.md)). A round adds optional fields, optional artifact

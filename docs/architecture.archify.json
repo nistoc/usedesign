@@ -83,7 +83,7 @@
       "id": "npm",
       "type": "cloud",
       "label": "npm registry",
-      "sublabel": "1.7.4 · build provenance",
+      "sublabel": "1.7.5 · build provenance",
       "pos": [
         640,
         330
