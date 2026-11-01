@@ -15,6 +15,19 @@
 # с доверенным издателем пакета на npmjs (nistoc/usedesign, publish.yml). Раньше здесь был ключ
 # в secret, но ключ на запись живёт не дольше 90 дней: прежний, от 10.08.2026, истекал 08.11.2026,
 # и с истёкшим ключом выпуск падал бы на последнем шаге. Без ключа истекать нечему.
+#
+# Цена: OIDC-токен может попросить любой шаг работы с `id-token: write`, а с доверенным издателем
+# этот токен — право публиковать usedesign. Ключ стоял в одном шаге; токен виден всем шагам
+# работы. Поэтому работ три, и право есть только у средней, где нет чужого кода:
+#
+#   build    — без права: зависимости, сборка, корпуса, барьер версии, «коробка». Отдаёт дальше
+#              ровно тот архив, который проверила;
+#   publish  — с правом: только setup-node, npm точной версии и этот архив. Ни `npm ci`, ни
+#              сборки, ни скриптов пакета (у `npm publish <архив>` их нет);
+#   registry — без права: ждёт, пока коробка ответит из реестра. `npx` здесь ставит пакет и его
+#              зависимости из реестра, поэтому и эта работа отделена от права.
+#
+# Actions в работе publish закреплены по sha: у неё право публиковать.
 
 name: publish
 
@@ -30,21 +43,22 @@ on:
 
 permissions:
   contents: read
-  id-token: write   # вход в npm по OIDC (trusted publishing) и подпись --provenance
 
 jobs:
-  publish:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: impl/typescript
+    outputs:
+      version: ${{ steps.box.outputs.version }}
+      sha256: ${{ steps.box.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
 
       - run: npm ci
       - run: npm run build
@@ -71,14 +85,20 @@ jobs:
       # опубликованная 0.3.0 представилась как 0.2.0: строка была захардкожена, и никто её ни с
       # чем не сравнивал. Инструмент, который проверяет чужие заявления против кода, обязан
       # выдерживать ту же проверку сам — иначе всякая будущая диагностика начинается со лжи.
+      #
+      # Этот же архив и уходит в реестр: работа publish получает его, а не собирает свой.
       - name: Коробка работает у постороннего
+        id: box
         run: |
           set -euo pipefail
           PKG="$(node -p "require('./package.json').version")"
-          npm pack --pack-destination /tmp
+          BOX="$RUNNER_TEMP/box"
+          mkdir -p "$BOX"
+          npm pack --pack-destination "$BOX"
+          TGZ="$BOX/usedesign-$PKG.tgz"
           mkdir -p /tmp/boxtest && cd /tmp/boxtest
           npm init -y >/dev/null
-          npm install /tmp/usedesign-*.tgz --no-audit --no-fund
+          npm install "$TGZ" --no-audit --no-fund
           SAID="$(npx usedesign --version)"
           echo "коробка о себе: $SAID · package.json: $PKG"
           case "$SAID" in
@@ -86,52 +106,17 @@ jobs:
             *) echo "::error::коробка называет себя «$SAID», а версия пакета $PKG"; exit 1 ;;
           esac
           npx usedesign validate "$GITHUB_WORKSPACE/examples/library/"
+          SHA="$(sha256sum "$TGZ" | cut -d' ' -f1)"
+          echo "архив usedesign-$PKG.tgz · sha256 $SHA"
+          echo "version=$PKG" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
 
-      # Trusted publishing требует npm 11.5.1 или новее, а Node 22 приносит npm 10. Шаг идёт и в
-      # холостом прогоне — так workflow_dispatch с dry_run проверяет его до настоящего тега.
-      # Барьер на версию: если npm окажется старше, публиковать он будет уже без ключа и упадёт
-      # на последнем шаге — пусть лучше остановится здесь и скажет почему.
-      - name: npm, который входит в реестр по OIDC
-        run: |
-          set -euo pipefail
-          npm install -g npm@11 --no-audit --no-fund
-          V="$(npm --version)"
-          echo "npm: $V · node: $(node --version)"
-          if ! node -e 'const [a, b, c] = process.argv[1].split(".").map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)' "$V"; then
-            echo "::error::npm $V — для trusted publishing нужен 11.5.1 или новее"
-            exit 1
-          fi
-
-      # Ключа нет: npm берёт OIDC-токен этой работы и меняет его в реестре на разовый. Если на
-      # npmjs у пакета не настроен доверенный издатель (nistoc/usedesign, publish.yml), реестр
-      # откажет здесь, и версия не выйдет.
-      - name: Опубликовать
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
-        run: npm publish --access public --provenance
-
-      # «Опубликовано» ещё не значит «доступно»: реестр обрабатывает пакет минуты, и ОБА его лица
-      # отстают по-разному — 0.12.0: метаданные сразу, архив через ~6 мин; 0.13.0: и метаданные,
-      # и архив через ~8 мин. Зелёный прогон обязан значить «коробка ставится и отвечает у
-      # постороннего ИЗ РЕЕСТРА», иначе тот, кто поднимает пин по зелёному, получает 404.
-      - name: Коробка доступна из реестра
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
-        run: |
-          set -uo pipefail
-          PKG="$(node -p "require('./package.json').version")"
-          mkdir -p /tmp/regprobe && cd /tmp/regprobe
-          START=$(date +%s)
-          for i in $(seq 1 45); do
-            SAID="$(npx --yes "usedesign@$PKG" --version 2>/dev/null || true)"
-            case "$SAID" in
-              *"$PKG"*)
-                echo "коробка usedesign@$PKG отвечает из реестра через $(( $(date +%s) - START )) с: $SAID"
-                echo "- доступна из реестра через $(( $(date +%s) - START )) с" >> "$GITHUB_STEP_SUMMARY"
-                exit 0 ;;
-            esac
-            sleep 20
-          done
-          echo "::error::usedesign@$PKG опубликована, но за 15 минут так и не стала доступна из реестра — пин по этому прогону поднимать НЕЛЬЗЯ"
-          exit 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: box
+          path: ${{ runner.temp }}/box/usedesign-${{ steps.box.outputs.version }}.tgz
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Сводка
         if: always()
@@ -140,5 +125,96 @@ jobs:
             echo "## usedesign — публикация"
             echo
             echo "- версия пакета: \`$(node -p "require('./package.json').version")\`"
+            echo "- архив: sha256 \`${{ steps.box.outputs.sha256 }}\`"
             echo "- ссылка: https://www.npmjs.com/package/usedesign"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # вход в npm по OIDC (trusted publishing) и подпись --provenance
+    env:
+      PKG: ${{ needs.build.outputs.version }}
+      SHA: ${{ needs.build.outputs.sha256 }}
+    steps:
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5.0.0
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing требует npm 11.5.1 или новее, а Node 22 приносит npm 10. Версия точная:
+      # эта npm публикует с правом издателя, и брать в день тега ту 11.x, которую никто не видел,
+      # незачем. Барьер остаётся: если npm окажется старше, без ключа она упадёт на последнем
+      # шаге — пусть лучше остановится здесь и скажет почему. Работа идёт и в холостом прогоне,
+      # так что workflow_dispatch с dry_run проверяет и этот шаг.
+      - name: npm, который входит в реестр по OIDC
+        run: |
+          set -euo pipefail
+          npm install -g npm@11.21.1 --no-audit --no-fund
+          V="$(npm --version)"
+          echo "npm: $V · node: $(node --version)"
+          if ! node -e 'const [a, b, c] = process.argv[1].split(".").map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)' "$V"; then
+            echo "::error::npm $V — для trusted publishing нужен 11.5.1 или новее"
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: box
+          path: box
+
+      - name: Архив — тот, что проверен
+        run: |
+          set -euo pipefail
+          ls -l box
+          if [ "$(ls box)" != "usedesign-$PKG.tgz" ]; then
+            echo "::error::в box ждали один usedesign-$PKG.tgz, а там: $(ls box | tr '\n' ' ')"
+            exit 1
+          fi
+          GOT="$(sha256sum "box/usedesign-$PKG.tgz" | cut -d' ' -f1)"
+          echo "sha256 в build: $SHA · здесь: $GOT"
+          if [ "$GOT" != "$SHA" ]; then
+            echo "::error::архив не тот, что проверила работа build"
+            exit 1
+          fi
+
+      # Ключа нет: npm берёт OIDC-токен этой работы и меняет его в реестре на разовый. Если на
+      # npmjs у пакета не настроен доверенный издатель (nistoc/usedesign, publish.yml), реестр
+      # откажет здесь, и версия не выйдет.
+      - name: Опубликовать
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
+        run: npm publish "box/usedesign-$PKG.tgz" --access public --provenance
+
+  # «Опубликовано» ещё не значит «доступно»: реестр обрабатывает пакет минуты, и ОБА его лица
+  # отстают по-разному — 0.12.0: метаданные сразу, архив через ~6 мин; 0.13.0: и метаданные,
+  # и архив через ~8 мин. Зелёный прогон обязан значить «коробка ставится и отвечает у
+  # постороннего ИЗ РЕЕСТРА», иначе тот, кто поднимает пин по зелёному, получает 404.
+  registry:
+    needs: [build, publish]
+    if: ${{ startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
+    runs-on: ubuntu-latest
+    env:
+      PKG: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Коробка доступна из реестра
+        run: |
+          set -uo pipefail
+          mkdir -p /tmp/regprobe && cd /tmp/regprobe
+          START=$(date +%s)
+          for i in $(seq 1 45); do
+            SAID="$(npx --yes "usedesign@$PKG" --version 2>/dev/null || true)"
+            case "$SAID" in
+              *"$PKG"*)
+                echo "коробка usedesign@$PKG отвечает из реестра через $(( $(date +%s) - START )) с: $SAID"
+                echo "- usedesign@$PKG доступна из реестра через $(( $(date +%s) - START )) с" >> "$GITHUB_STEP_SUMMARY"
+                exit 0 ;;
+            esac
+            sleep 20
+          done
+          echo "::error::usedesign@$PKG опубликована, но за 15 минут так и не стала доступна из реестра — пин по этому прогону поднимать НЕЛЬЗЯ"
+          exit 1
