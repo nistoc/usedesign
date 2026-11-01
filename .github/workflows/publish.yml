@@ -10,6 +10,11 @@
 #
 # Пакет подписывается происхождением (--provenance): реестр сохраняет доказательство, что эта
 # версия собрана из этого репозитория и этого коммита, а не собрана кем-то у себя на машине.
+#
+# В реестр работа входит без ключа — trusted publishing: npm сверяет OIDC-токен GitHub Actions
+# с доверенным издателем пакета на npmjs (nistoc/usedesign, publish.yml). Раньше здесь был ключ
+# в secret, но ключ на запись живёт не дольше 90 дней: прежний, от 10.08.2026, истекал 08.11.2026,
+# и с истёкшим ключом выпуск падал бы на последнем шаге. Без ключа истекать нечему.
 
 name: publish
 
@@ -25,7 +30,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write   # нужно для --provenance
+  id-token: write   # вход в npm по OIDC (trusted publishing) и подпись --provenance
 
 jobs:
   publish:
@@ -82,11 +87,27 @@ jobs:
           esac
           npx usedesign validate "$GITHUB_WORKSPACE/examples/library/"
 
+      # Trusted publishing требует npm 11.5.1 или новее, а Node 22 приносит npm 10. Шаг идёт и в
+      # холостом прогоне — так workflow_dispatch с dry_run проверяет его до настоящего тега.
+      # Барьер на версию: если npm окажется старше, публиковать он будет уже без ключа и упадёт
+      # на последнем шаге — пусть лучше остановится здесь и скажет почему.
+      - name: npm, который входит в реестр по OIDC
+        run: |
+          set -euo pipefail
+          npm install -g npm@11 --no-audit --no-fund
+          V="$(npm --version)"
+          echo "npm: $V · node: $(node --version)"
+          if ! node -e 'const [a, b, c] = process.argv[1].split(".").map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)' "$V"; then
+            echo "::error::npm $V — для trusted publishing нужен 11.5.1 или новее"
+            exit 1
+          fi
+
+      # Ключа нет: npm берёт OIDC-токен этой работы и меняет его в реестре на разовый. Если на
+      # npmjs у пакета не настроен доверенный издатель (nistoc/usedesign, publish.yml), реестр
+      # откажет здесь, и версия не выйдет.
       - name: Опубликовать
         if: ${{ startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
         run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPMJS_USEDESIGN_PACKAGES_TOKEN }}
 
       # «Опубликовано» ещё не значит «доступно»: реестр обрабатывает пакет минуты, и ОБА его лица
       # отстают по-разному — 0.12.0: метаданные сразу, архив через ~6 мин; 0.13.0: и метаданные,
