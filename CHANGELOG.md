@@ -13,7 +13,7 @@ a day.
 
 ## 1.8.1
 
-*unpublished · the release changes, the tools and the format do not (SPEC v1.8)*
+*2026-11-03 · the release changes, the tools and the format do not (SPEC v1.8)*
 
 1.8.0 is tagged in this repository but never reached npm: its release handed npm the archive as
 `box/usedesign-1.8.0.tgz`, without `./`, and npm read that as a GitHub repository `box/…` and went
