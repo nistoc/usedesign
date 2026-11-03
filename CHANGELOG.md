@@ -18,7 +18,8 @@ a day.
 The list of steps is the order of the usual path, and nothing in it could say "the call can end
 here, and then these steps do not run". A pilot's 24 writes on behalf of a user replay a stored
 answer by `Idempotency-Key`: the target and the consent are checked again, and the precondition,
-the domain steps, the commit and the audit do not run. The cards said it in prose; one of them
+the domain steps and the commit do not run; the audit line is written only when the re-check
+refuses. The cards said it in prose; one of them
 listed its If-Match check before the replay for seven weeks, with a passing test on every step
 (SPEC §5.3, round 32).
 
