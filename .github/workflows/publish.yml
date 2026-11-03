@@ -137,6 +137,10 @@ jobs:
     env:
       PKG: ${{ needs.build.outputs.version }}
       SHA: ${{ needs.build.outputs.sha256 }}
+      # Путь к архиву — с `./`: без него npm читает `box/usedesign-X.tgz` как GitHub-репозиторий
+      # «box/…» и идёт за ним по git. Путь один на все шаги, чтобы холостой вызов ниже проверял
+      # ровно тот аргумент, с которым публикуют.
+      TGZ: ./box/usedesign-${{ needs.build.outputs.version }}.tgz
     steps:
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444  # v5.0.0
         with:
@@ -172,19 +176,27 @@ jobs:
             echo "::error::в box ждали один usedesign-$PKG.tgz, а там: $(ls box | tr '\n' ' ')"
             exit 1
           fi
-          GOT="$(sha256sum "box/usedesign-$PKG.tgz" | cut -d' ' -f1)"
+          GOT="$(sha256sum "$TGZ" | cut -d' ' -f1)"
           echo "sha256 в build: $SHA · здесь: $GOT"
           if [ "$GOT" != "$SHA" ]; then
             echo "::error::архив не тот, что проверила работа build"
             exit 1
           fi
 
+      # Тот же вызов, что в «Опубликовать», с --dry-run: npm разбирает аргумент и собирает
+      # публикацию, но не отправляет её. «Опубликовать» в холостом прогоне не выполняется, и без
+      # этого шага его вызов впервые исполнялся бы в день тега. Так вышло с 1.8.0: путь без `./`
+      # npm принял за GitHub-репозиторий, пошёл за ним по git и упал, и версия не вышла, хотя
+      # холостые прогоны перед тем прошли.
+      - name: Опубликовать вхолостую — тот же вызов
+        run: npm publish "$TGZ" --access public --provenance --dry-run
+
       # Ключа нет: npm берёт OIDC-токен этой работы и меняет его в реестре на разовый. Если на
       # npmjs у пакета не настроен доверенный издатель (nistoc/usedesign, publish.yml), реестр
       # откажет здесь, и версия не выйдет.
       - name: Опубликовать
         if: ${{ startsWith(github.ref, 'refs/tags/v') && inputs.dry_run != true }}
-        run: npm publish "box/usedesign-$PKG.tgz" --access public --provenance
+        run: npm publish "$TGZ" --access public --provenance
 
   # «Опубликовано» ещё не значит «доступно»: реестр обрабатывает пакет минуты, и ОБА его лица
   # отстают по-разному — 0.12.0: метаданные сразу, архив через ~6 мин; 0.13.0: и метаданные,

@@ -11,9 +11,24 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## 1.8.1
+
+*unpublished · the release changes, the tools and the format do not (SPEC v1.8)*
+
+1.8.0 is tagged in this repository but never reached npm: its release handed npm the archive as
+`box/usedesign-1.8.0.tgz`, without `./`, and npm read that as a GitHub repository `box/…` and went
+to fetch it with git. The publishing step runs only on a tag, so no dry run had ever executed it.
+1.8.1 is 1.8.0 with the release fixed — the same tools, the same SPEC v1.8; what 1.8.0 adds is
+below.
+
+- The release passes npm the archive as `./box/…`, one path for every step that uses it.
+- A dry run now makes the same publishing call with `npm publish --dry-run`, so an argument npm
+  does not read as a file stops the dry run instead of the release.
+
 ## 1.8.0
 
-*unpublished · SPEC v1.8 — round 32: a step where the call ends early*
+*not published — the release failed, and these changes ship as 1.8.1 · SPEC v1.8 — round 32: a
+step where the call ends early*
 
 The list of steps is the order of the usual path, and nothing in it could say "the call can end
 here, and then these steps do not run". A pilot's 24 writes on behalf of a user replay a stored
