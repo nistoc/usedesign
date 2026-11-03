@@ -681,6 +681,46 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
                 err("variant_shared_not_implemented",
                     f"`variant_of.shared` `{shared}` is not in this card's `maturity_evidence.implemented`")
 
+    # ── a step where the call can end early (SPEC 5.3, round 32) ────────────────────────────────
+    # The list of steps is the order of the usual path. A step with `short_circuit` says the call
+    # may end there: on that path only the later steps named in `runs_again` run. The card cannot
+    # show which steps the code skips — only that what it says is about its own later steps, and
+    # that a request part the short path does not bind is answered for. See the TypeScript twin.
+    for index, step in enumerate(steps):
+        fields = _map(step)
+        if "short_circuit" not in fields:
+            continue
+        sid = _text(fields.get("id")) or ""
+        short = fields["short_circuit"]
+        if not isinstance(short, dict):
+            err("short_circuit_malformed",
+                f"step `{sid}`: `short_circuit` is not a map of `when`, `returns` and the later steps that still run")
+            continue
+        for key in ("when", "returns"):
+            if not _text(short.get(key)):
+                err("short_circuit_malformed",
+                    f"step `{sid}`: `short_circuit.{key}` is absent — a short path says when it is taken and what it answers")
+        for key in ("runs_again", "binds", "unbound"):
+            if key in short and not isinstance(short[key], list):
+                err("short_circuit_malformed", f"step `{sid}`: `short_circuit.{key}` is not a list")
+        later = {_text(_map(following).get("id")) or "" for following in steps[index + 1:]}
+        for again in _list(short.get("runs_again")):
+            if not isinstance(again, str):
+                continue
+            if again not in step_ids:
+                err("short_circuit_unknown_step",
+                    f"step `{sid}`: `short_circuit.runs_again` names `{again}`, which is not one of this card's steps")
+            elif again not in later:
+                err("short_circuit_step_not_after",
+                    f"step `{sid}`: `short_circuit.runs_again` names `{again}`, which does not stand after it — "
+                    "on the short path only later steps can run")
+        unbound = [part for part in _list(short.get("unbound")) if isinstance(part, str)]
+        if unbound and not _text(short.get("on_unbound")):
+            warn("guard_bypassable",
+                 f"step `{sid}`: the short path does not bind {', '.join(f'`{part}`' for part in unbound)}, and "
+                 "`on_unbound` does not say what a call that differs there receives — a guard that reads it is "
+                 "answered with another call's response")
+
     for sid in step_ids:
         if sid not in covered and sid not in gaps and sid not in inherited_steps:
             warn("step_unproven", f"step `{sid}` has no test and no declared gap")
