@@ -188,8 +188,32 @@ jobs:
       # этого шага его вызов впервые исполнялся бы в день тега. Так вышло с 1.8.0: путь без `./`
       # npm принял за GitHub-репозиторий, пошёл за ним по git и упал, и версия не вышла, хотя
       # холостые прогоны перед тем прошли.
+      #
+      # Вход по OIDC npm делает и здесь, но о неудаче молчит: пишет о ней только в подробном
+      # журнале и идёт дальше с заглушкой ключа из setup-node. Так холостые прогоны перед 1.8.1
+      # прошли, а сам выпуск упал на отправке с 404: доверенный издатель на npmjs не сходился с
+      # этой работой. Поэтому шаг ведёт подробный журнал (уровень задан переменной, вызов тот же),
+      # печатает обычный вывод и строки об OIDC и падает, если строки об удачном входе нет.
+      # Строку пишет npm 11.21.1, закреплённая выше; поднимая npm, сверь, что строка та же.
       - name: Опубликовать вхолостую — тот же вызов
-        run: npm publish "$TGZ" --access public --provenance --dry-run
+        env:
+          npm_config_loglevel: verbose
+        run: |
+          set -u
+          LOG="$RUNNER_TEMP/dry-run.log"
+          rc=0
+          npm publish "$TGZ" --access public --provenance --dry-run > "$LOG" 2>&1 || rc=$?
+          grep -Ev '^npm (verbose|http|timing|info|silly) ' "$LOG" || true
+          echo "--- вход по OIDC:"
+          grep -i 'oidc' "$LOG" || echo "(в журнале нет ни одной строки об OIDC)"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::холостой вызов npm publish упал с кодом $rc"
+            exit "$rc"
+          fi
+          if ! grep -q '^npm verbose oidc Successfully retrieved and set token' "$LOG"; then
+            echo "::error::вход в npm по OIDC не прошёл — выпуск с тега упадёт на отправке. Сверь доверенного издателя пакета на npmjs: nistoc/usedesign, publish.yml, без окружения"
+            exit 1
+          fi
 
       # Ключа нет: npm берёт OIDC-токен этой работы и меняет его в реестре на разовый. Если на
       # npmjs у пакета не настроен доверенный издатель (nistoc/usedesign, publish.yml), реестр
