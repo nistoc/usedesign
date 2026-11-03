@@ -11,6 +11,36 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## 1.8.0
+
+*unpublished · SPEC v1.8 — round 32: a step where the call ends early*
+
+The list of steps is the order of the usual path, and nothing in it could say "the call can end
+here, and then these steps do not run". A pilot's 24 writes on behalf of a user replay a stored
+answer by `Idempotency-Key`: the target and the consent are checked again, and the precondition,
+the domain steps, the commit and the audit do not run. The cards said it in prose; one of them
+listed its If-Match check before the replay for seven weeks, with a passing test on every step
+(SPEC §5.3, round 32).
+
+- A new optional field on a step, `short_circuit`: `when` the short path is taken, what the call
+  `returns` on it, and `runs_again` — the later steps that still run there. Every other later step
+  does not; the skipped steps are not written, so a step added to the list later is skipped on the
+  short path until someone names it — the usual shape of the code, where the handler is not called.
+- `binds` and `unbound` name the request parts the short path is and is not keyed on (`body`,
+  `header:<name>`, `query`); `on_unbound` says what a call that differs in an unbound part receives.
+- Three errors on the new field, in both implementations, with and without the schema:
+  - `short_circuit_unknown_step` — `runs_again` names an id that is not one of the card's steps;
+  - `short_circuit_step_not_after` — it names a step that stands before the step with the field,
+    which has already run on every path;
+  - `short_circuit_malformed` — not a map, no `when` or no `returns`, or a list written as one value.
+- One warning, `guard_bypassable`: `unbound` is not empty and `on_unbound` is absent — a guard that
+  reads an unbound part is passed with another call's answer, and the card does not say what a call
+  that differs there receives.
+- Left out on purpose: whether `unbound` is complete (the checker does not read code), and a line
+  per card counting the skipped steps (`validate` prints findings, not a summary of what is fine).
+- No change for a card without the field: a card with zero errors under 1.7.5 has zero errors and
+  the same warnings under 1.8.0. The card corpus has eight new cases, `short-circuit*`.
+
 ## 1.7.5
 
 *2026-10-31 · the tools change, the format does not (SPEC v1.7)*

@@ -749,6 +749,49 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     }
   }
 
+  // ── a step where the call can end early (§5.3, round 32) ────────────────────────────────────
+  //
+  // The list of steps is the order of the usual path. A step with `short_circuit` says the call
+  // may end there: on that path only the later steps named in `runs_again` run, every other later
+  // step does not. The card cannot show which steps the code skips — only that what it says is
+  // about its own later steps, and that a request part the short path does not bind is answered for.
+  for (const [index, step] of steps.entries()) {
+    const fields = map(step);
+    if (!("short_circuit" in fields)) continue;
+    const sid: string = text(fields.id) ?? "";
+    const short = fields.short_circuit;
+    if (!isMap(short)) {
+      err("short_circuit_malformed", `step \`${sid}\`: \`short_circuit\` is not a map of \`when\`, \`returns\` and the later steps that still run`);
+      continue;
+    }
+    for (const key of ["when", "returns"]) {
+      if (!text(short[key])) {
+        err("short_circuit_malformed", `step \`${sid}\`: \`short_circuit.${key}\` is absent — a short path says when it is taken and what it answers`);
+      }
+    }
+    for (const key of ["runs_again", "binds", "unbound"]) {
+      if (key in short && !Array.isArray(short[key])) {
+        err("short_circuit_malformed", `step \`${sid}\`: \`short_circuit.${key}\` is not a list`);
+      }
+    }
+    const later = new Set<string>(steps.slice(index + 1).map((next) => text(map(next).id) ?? ""));
+    for (const again of list(short.runs_again)) {
+      if (typeof again !== "string") continue;
+      if (!stepIds.has(again)) {
+        err("short_circuit_unknown_step", `step \`${sid}\`: \`short_circuit.runs_again\` names \`${again}\`, which is not one of this card's steps`);
+      } else if (!later.has(again)) {
+        err("short_circuit_step_not_after", `step \`${sid}\`: \`short_circuit.runs_again\` names \`${again}\`, which does not stand after it — on the short path only later steps can run`);
+      }
+    }
+    const unbound = list(short.unbound).filter((part): part is string => typeof part === "string");
+    if (unbound.length > 0 && !text(short.on_unbound)) {
+      warn(
+        "guard_bypassable",
+        `step \`${sid}\`: the short path does not bind ${unbound.map((part) => `\`${part}\``).join(", ")}, and \`on_unbound\` does not say what a call that differs there receives — a guard that reads it is answered with another call's response`,
+      );
+    }
+  }
+
   for (const sid of stepIds) {
     if (!covered.has(sid) && !gaps.has(sid) && !inheritedSteps.has(sid)) {
       warn("step_unproven", `step \`${sid}\` has no test and no declared gap`);

@@ -721,3 +721,62 @@ cases:
     note: >-
       A status code where the line belongs. The schema always refused it; without the schema layer
       1.4 skipped the value without a word.
+
+  # ── Round 32: a step where the call ends early (§5.3) ─────────────────────────────────────────
+  # `short_circuit` on a step: the later steps `runs_again` does not name do not run on the short
+  # path. On the published 1.7 box every case here is a schema_violation.
+  - file: valid/short-circuit.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [guard_bypassable]
+    note: >-
+      A renewal replayed by Idempotency-Key: the member's card is checked again, the period, the
+      reservation and the commit do not run. The body is unbound and `on_unbound` says what a
+      different body receives, so the warning stays quiet.
+  - file: valid/short-circuit-ends-the-call.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [guard_bypassable]
+    note: >-
+      "Already done — answer, write nothing": no `runs_again`, so no later step runs on the short
+      path, and no `unbound`, so there is nothing to warn about.
+  - file: valid/short-circuit-guard-bypassable.op.md
+    expect: valid
+    codes: []
+    warnings: [guard_bypassable]
+    warning_messages: ["does not bind `body`, `header:If-Match`"]
+    note: >-
+      The short path is not keyed on the body or If-Match, and the card does not say what a call
+      that differs there receives: a call a later guard would refuse gets the first call's 200. A
+      warning, not an error — the card stays valid and the gap stays in view.
+  - file: invalid/short-circuit-unknown-step.op.md
+    expect: invalid
+    codes: [short_circuit_unknown_step]
+    note: >-
+      `runs_again` names a step the card does not have. What the short path still runs has to be
+      one of the card's own steps, or the field says nothing anyone can check.
+  - file: invalid/short-circuit-step-not-after.op.md
+    expect: invalid
+    codes: [short_circuit_step_not_after]
+    note: >-
+      `runs_again` names If-Match, listed before the replay. A step before the field has already
+      run on every path; naming it contradicts the order of the list. The later step it also names
+      is not reported.
+  - file: invalid/short-circuit-malformed.op.md
+    expect: invalid
+    codes: [short_circuit_malformed]
+    note: >-
+      No `when`: nothing says when the short path is taken. Named without the schema too, so the
+      corpus holds under `--no-schema`. Each slip of form has a case of its own, so a rule that
+      stops naming any one of them fails a case.
+  - file: invalid/short-circuit-not-a-list.op.md
+    expect: invalid
+    codes: [short_circuit_malformed]
+    note: >-
+      `runs_again` written as one id instead of a list.
+  - file: invalid/short-circuit-not-a-map.op.md
+    expect: invalid
+    codes: [short_circuit_malformed]
+    note: >-
+      `short_circuit` written as a sentence: the rule says so instead of reading fields out of a
+      string.

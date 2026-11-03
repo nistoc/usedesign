@@ -1,6 +1,6 @@
-# Operation Card — Specification v1.7
+# Operation Card — Specification v1.8
 
-> **Status:** v1.7 — v1.0 declared 2026-09-13, rounds 26–31 added to it without breaking it, and
+> **Status:** v1.8 — v1.0 declared 2026-09-13, rounds 26–32 added to it without breaking it, and
 > v1.6 wrote down how its text is read (§6); §8 says what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
@@ -358,6 +358,13 @@ steps:
     emits_notice: <code>           # ⬜ a side effect reported on success, not a violation
     rationale: <why it works this way>   # ⬜ required when non-obvious
     source: <path>[:line | #Symbol]   # 🔶 when asserting a fact about code (§5.7)
+    short_circuit:                 # ⬜ the call can end at this step (below)
+      when: <when the short path is taken>
+      returns: <what the call answers on it>
+      runs_again: [<later step id>, …]   # ⬜ the later steps that still run; no other later step does
+      binds: [<request part>, …]   # ⬜ what the short path is keyed on
+      unbound: [<request part>, …] # ⬜ what it is not keyed on: body, header:<name>, query
+      on_unbound: <…>              # 🔶 when `unbound` is not empty
 ```
 
 `on_violation` describes a refusal; `emits_notice` describes something the operation *did* and
@@ -371,6 +378,43 @@ correct. **Ids are identifiers, not positions**; the order of the list is the or
 This rule looks fussy until it is broken. Renumbering to keep the list tidy silently moves every
 external reference — a test that covered `s6-audit` now claims to cover whatever took that
 number. The tidiness is visible; the damage is not.
+
+**A step where the call can end early (round 32).** The list is the order of the usual path. Some
+steps end the call before the list does: a replay by idempotency key sends a stored answer back; an
+operation already done answers with what stands. `short_circuit` on such a step says when the short
+path is taken (`when`), what the call answers on it (`returns`), and which later steps still run on
+it (`runs_again`). **Every other later step does not run on the short path.** That default is the
+usual shape of the code — the handler is not called — so a step added to the list later is skipped
+on the short path until someone names it, and the skipped steps are never written down: they are
+the later steps `runs_again` does not name. The steps before the field run on both paths.
+
+Validation holds the field to the card's own list:
+
+| Code | When |
+|---|---|
+| `short_circuit_unknown_step` | `runs_again` names an id that is not one of this card's steps |
+| `short_circuit_step_not_after` | `runs_again` names a step that does not stand after the step with the field — it has already run on every path, and naming it contradicts the order of the list |
+| `short_circuit_malformed` | `short_circuit` is not a map, has no `when` or no `returns`, or writes `runs_again`, `binds` or `unbound` as one value instead of a list |
+| `guard_bypassable` (warning) | `unbound` is not empty and `on_unbound` does not say what a call that differs there receives |
+
+`binds` and `unbound` name the parts of the request the short path is and is not keyed on — the
+sender, the method and the path; the body, `header:<name>`, `query`. A part in `unbound` may differ
+from the call whose answer is sent back, and a guard that reads it is then passed with another
+call's answer: a body the guard would refuse receives the first call's success. `on_unbound` says
+what such a call receives, in words, as `on_duplicate` does for a duplicate (§5.4); the warning
+keeps the gap in view until it does. ⚠️ **Whether `unbound` is complete, the checker cannot see**:
+it does not read code, and a header the author forgot draws no warning. The field makes the claim
+checkable in its form and visible in every run, not true.
+
+**Why the field exists.** Round 32 measured a pilot's 24 writes "on behalf of" a user. A replay by
+`Idempotency-Key` checks the target user and their consent again, then sends the stored answer;
+the precondition, every domain step, the commit and the audit line do not run. The cards said so
+in prose, and the list of steps could not: one card listed its If-Match check before the replay
+for seven weeks, every step with a passing test, until the code was read again. The same reading
+found that the key binds neither the body nor the headers — the same key with another body receives
+the first 2xx, and the new body is never checked. Neither form of the field would have caught the
+misplaced If-Match by itself; a field the checker can hold to the list is still more than prose
+nothing reads.
 
 ### 5.4 Concurrency
 
@@ -941,7 +985,9 @@ check 5 is §7.5, and §7.6 says which of them a repository runs. The first thre
    report nobody reads.
 2. **No unproven steps** — every step is covered by at least one test that **exists, ran, passed
    and was not skipped**, or appears in `coverage_gaps`. A step a variant inherits (§5.2e) is
-   covered by the original's own passing tests, and only once the variant is wired.
+   covered by the original's own passing tests, and only once the variant is wired. A step with
+   `short_circuit` (§5.3) is proven as any step is, by a test of its own — the one that takes the
+   short path.
    A card naming a test proves nothing on its own: the test may have been renamed last spring, or
    skipped since it started flaking. The checker consumes a **JUnit XML report** from the run being
    checked — the format already exists, so unlike the route inventory nothing new is invented, and
@@ -1329,6 +1375,7 @@ where the format broke:
 | 29 | **Protection the caller never sees, and a contract read only after its screen** — a pilot's request queue guards five writes with a conditional write on a revision the server keeps to itself, and the vocabulary offered only `none_by_design`, a label that said the opposite of the code; a contract written ahead of its screen had its `calls` read by nothing until the screen rendered (issue #13); `validate` pointed at a config, an empty directory or plain Markdown printed `0 error(s)` over nothing, and a card with a line above its front matter dropped out of the count in silence (issue #14) | One value of an existing field: `concurrency.mode: server_read_version` (§5.4) — a widening, as in round 28: every card 1.3 read with zero errors still has none. Check 5 reads the `calls` of a `designed` contract before its screen renders, `form_calls_undescribed` and `shown_when_conflicts_transition` there as warnings (§7.5); `validate` reads `calls` against the cards of the same run, a warning (§7.5). A path with nothing to validate is refused with exit 2, and a collected file whose front matter cannot be read is counted as `missing_required_field` — it carries none of the frozen required keys, so 1.3 skipping it unread was a validator accepting what this document already forbade, fixed (§6). No new code |
 | 30 | **The line among the quotes** — a pilot catalogue's refusals told a whole screen story each, what flickers, what is reread, which footer comes back, with the one line that differs quoted among buttons and statuses; and a refusal the screen cannot reach said "the same banner as unauthorized" in prose, which nothing compares | One spelling of an optional field: a `covers_outcomes` value may be a pair `{shows, where, note}`, or a list of two or more pairs (§5.7); `outcomes_indistinguishable` compares the lines of `shows`, with no floor, beside the quoted spans of text values, and never `where`. On its cards, 220 refusals rewritten as pairs turn 129 outcomes in groups into 161, no group lost. The one new error, `malformed_outcome_pair`, is about the new spelling only |
 | 31 | **The card names the screen that calls it** — a pilot's backend author broke one card on purpose — its screen by a letter, and a control's name — to prove a check they were about to rely on, ran `validate` over the cards together with the frontend's contracts and read no finding: nothing compared a card's `screen` and `control` with the contract calling it. On the pilot's catalogue 11 of the 12 links from a contract's control to a card held as written; the twelfth was a card not yet brought to its screen, and its author brought it there the same day | No new field. Two warnings over fields 1.0 already had, `form_screen_not_in_card` and `form_control_not_in_card` (§7.5): a card that describes screens names the screen of every contract whose control calls it, and the control as a word of its own. A card that describes no screen is not held to it, so the pilot's catalogue and this repository's corpus pass as they did. No new error. Tools 1.7.1 kept the screen half to slips — another letter case, two letters off or fewer — once a second product, naming its screens one way in cards and another in contracts, drew 113 warnings from 1.7.0, none a mistake |
+| 32 | **A step where the call ends early** — a pilot's 24 writes on behalf of a user replay a stored answer by `Idempotency-Key`: the target and the consent are checked again, and the precondition, the domain steps, the commit and the audit do not run. The cards said it in prose; one of them listed its If-Match check before the replay for seven weeks, with a passing test on every step. The key binds neither the body nor the headers, and nothing in the format could say so | One, optional: `short_circuit { when, returns, runs_again, binds, unbound, on_unbound }` on a step (§5.3) — the later steps it does not name in `runs_again` do not run on the short path. Three errors on the new field, `short_circuit_unknown_step`, `short_circuit_step_not_after` and `short_circuit_malformed`, and one warning, `guard_bypassable`: a request part the short path does not bind, with nothing said about what a call that differs there receives. A card without the field validates as it did under 1.7 |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
