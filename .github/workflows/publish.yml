@@ -195,6 +195,13 @@ jobs:
       # этой работой. Поэтому шаг ведёт подробный журнал (уровень задан переменной, вызов тот же),
       # печатает обычный вывод и строки об OIDC и падает, если строки об удачном входе нет.
       # Строку пишет npm 11.21.1, закреплённая выше; поднимая npm, сверь, что строка та же.
+      #
+      # Холостой вызов спрашивает реестр, нет ли там уже этой версии, и после выпуска падает:
+      # «You cannot publish over the previously published versions». Между выпусками так падал бы
+      # любой холостой прогон, и вход по OIDC им было бы не проверить. Поэтому не с тега этот отказ —
+      # предупреждение, и шаг идёт дальше к проверке входа; вход npm делает раньше этого отказа. С тега
+      # отказ остаётся падением: версия в реестре, выпуска не будет. Забытый подъём версии остановит
+      # и барьер «тег = package.json» в работе build. Текст отказа — тоже npm 11.21.1.
       - name: Опубликовать вхолостую — тот же вызов
         env:
           npm_config_loglevel: verbose
@@ -207,8 +214,16 @@ jobs:
           echo "--- вход по OIDC:"
           grep -i 'oidc' "$LOG" || echo "(в журнале нет ни одной строки об OIDC)"
           if [ "$rc" -ne 0 ]; then
-            echo "::error::холостой вызов npm publish упал с кодом $rc"
-            exit "$rc"
+            case "$GITHUB_REF" in
+              refs/tags/v*) published_ok=no ;;
+              *) published_ok=yes ;;
+            esac
+            if [ "$published_ok" = yes ] && grep -q '^npm error You cannot publish over the previously published versions' "$LOG"; then
+              echo "::warning::версия $PKG уже в реестре — с этого коммита выпуска не будет, пока не поднята версия. Вход по OIDC проверяю дальше"
+            else
+              echo "::error::холостой вызов npm publish упал с кодом $rc"
+              exit "$rc"
+            fi
           fi
           if ! grep -q '^npm verbose oidc Successfully retrieved and set token' "$LOG"; then
             echo "::error::вход в npm по OIDC не прошёл — выпуск с тега упадёт на отправке. Сверь доверенного издателя пакета на npmjs: nistoc/usedesign, publish.yml, без окружения"
