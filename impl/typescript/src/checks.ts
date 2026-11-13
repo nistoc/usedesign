@@ -954,6 +954,102 @@ function judgeCalls(
   }
 }
 
+/**
+ * Round 33: what pressing a control SENT, recorded by the inventory — per state, control → the
+ * operations in the order they went out, reads included. Until now a contract's `calls` was
+ * compared with the cards only, never with the code: a pilot's frontend reordered the chain behind
+ * its «start» button on purpose — `[start, publish]` for `[replace, publish, start]` — and every
+ * check passed, because the inventory recorded presence and nothing that was sent. The field is
+ * optional, as `within` was in round 15: an inventory without it is NOT COMPARED, never failed.
+ */
+function recordedCalls(state: any, location: string, screen: string, findings: Finding[]): Map<string, string[]> | null {
+  const raw = state?.calls;
+  if (raw === undefined || raw === null) return null;
+  const where = `${location}: \`${screen}\`, state \`${state?.state}\``;
+  if (!isMap(raw)) {
+    findings.push(new Finding("form_inventory_malformed", `${where}: \`calls\` is not a map of control → operations`));
+    return null;
+  }
+  const calls = new Map<string, string[]>();
+  for (const [control, ops] of Object.entries(raw)) {
+    if (Array.isArray(ops) && ops.every((op) => typeof op === "string" && op)) calls.set(control, ops.map(String));
+    else findings.push(new Finding("form_inventory_malformed", `${where}: \`calls\` of \`${control}\` is not a list of operation ids`));
+  }
+  return calls;
+}
+
+/**
+ * An operation that changes no domain data: no transition and no `mutates` (§5.8). A list reread
+ * after a write is such an operation, and it is not part of the chain the contract names. An audit
+ * entry (`records_only`) does not make it a write here — a reread is a reread whether or not the
+ * server records who asked.
+ */
+function isRead(card: Card): boolean {
+  return (card["data_transition"] === null || card["data_transition"] === undefined) && list(card["mutates"]).length === 0;
+}
+
+/**
+ * Compare, state by state, what pressing the control sent with its `calls`: the same operations in
+ * the same order — strictly, since a chain whose step is conditional is pressed in the state where
+ * the step runs. A read the contract does not name is left out of what was sent; a read it names
+ * stays, so a chain of reads is compared too. `calls: null` with a write sent is the same finding.
+ * An operation sent that no card describes cannot be told a read from a write: it is named on its
+ * own and left out. A warning, as every new check over a field 1.x already had (§8). Returns
+ * whether any state recorded the control.
+ */
+function judgeRecordedCalls(
+  contractId: string,
+  name: string,
+  control: any,
+  states: Map<string, { calls: Map<string, string[]> | null }>,
+  cardById: Map<string, Card>,
+  findings: Finding[],
+): boolean {
+  const raw = control?.calls;
+  const stated: string[] =
+    typeof raw === "string" && raw
+      ? [raw]
+      : Array.isArray(raw)
+        ? raw.filter((entry: unknown) => typeof entry === "string" && entry).map(String)
+        : [];
+  let compared = false;
+  for (const [state, rendered] of states) {
+    const recorded = rendered.calls?.get(name);
+    if (recorded === undefined) continue;
+    compared = true;
+    const sent: string[] = [];
+    const unknown: string[] = [];
+    for (const op of recorded) {
+      if (stated.includes(op)) {
+        sent.push(op);
+        continue;
+      }
+      const card = cardById.get(op);
+      if (!card) {
+        if (!unknown.includes(op)) {
+          unknown.push(op);
+          findings.push(
+            new Finding(
+              "form_recorded_call_undescribed",
+              `${contractId}: control \`${name}\`, pressed in state \`${state}\`, sent \`${op}\`, which no card describes — a read cannot be told from a write`,
+              "warning",
+            ),
+          );
+        }
+      } else if (!isRead(card)) {
+        sent.push(op);
+      }
+    }
+    if (sent.length !== stated.length || sent.some((op, i) => op !== stated[i])) {
+      const said = stated.length > 0 ? `[${stated.join(", ")}]` : "null";
+      findings.push(
+        new Finding("form_calls_mismatch", `${contractId}: control \`${name}\`, pressed in state \`${state}\`, sent [${sent.join(", ")}]; its \`calls\` says ${said}`, "warning"),
+      );
+    }
+  }
+  return compared;
+}
+
 /** A list of state names, or undefined when the field is not a list (1.5.1: a name that is not a string is absent). */
 function statesOf(value: unknown): string[] | undefined {
   return Array.isArray(value) ? texts(value) : undefined;
@@ -993,7 +1089,12 @@ export function checkForm(config: Config, base: string): CheckResult {
   }
   if (!data.produced_by) findings.push(new Finding("form_inventory_malformed", `${location}: missing \`produced_by\``));
 
-  type RenderedState = { fields: Set<string>; controls: Set<string>; within: Map<string, Set<string>> | null };
+  type RenderedState = {
+    fields: Set<string>;
+    controls: Set<string>;
+    within: Map<string, Set<string>> | null;
+    calls: Map<string, string[]> | null;
+  };
   const byScreen = new Map<string, Map<string, RenderedState>>();
   for (const form of data.forms ?? []) {
     const states = new Map<string, RenderedState>();
@@ -1003,7 +1104,12 @@ export function checkForm(config: Config, base: string): CheckResult {
       const within = s.within && typeof s.within === "object"
         ? new Map<string, Set<string>>(Object.entries(s.within).map(([k, v]) => [k, new Set((v as any[]).map(String))]))
         : null;
-      states.set(String(s.state), { fields: new Set((s.fields ?? []).map(String)), controls: new Set((s.controls ?? []).map(String)), within });
+      states.set(String(s.state), {
+        fields: new Set((s.fields ?? []).map(String)),
+        controls: new Set((s.controls ?? []).map(String)),
+        within,
+        calls: recordedCalls(s, location, String(form.screen), findings),
+      });
     }
     byScreen.set(String(form.screen), states);
   }
@@ -1037,6 +1143,8 @@ export function checkForm(config: Config, base: string): CheckResult {
   type Claimed = { fields: Set<string>; controls: Set<string>; fieldFamilies: RegExp[]; controlFamilies: RegExp[] };
   const claimed = new Map<string, Claimed>();
   let designedAhead = 0;
+  let callsStated = 0;
+  let callsCompared = 0;
 
   for (const [contractId, fm] of contracts) {
     const screen = text(fm["screen"]) ?? "";
@@ -1175,6 +1283,14 @@ export function checkForm(config: Config, base: string): CheckResult {
       }
 
       judgeCalls(contractId, screen, name, control, shownWhen, dataOf, cardById, findings, "error");
+
+      // Round 33: a control named as one anchor whose contract says what it calls, against what
+      // pressing it sent. Only with cards: without them a read cannot be told from a write, and the
+      // summary says NOT COMPARED. A family has no one name to press.
+      if (!regex && Object.prototype.hasOwnProperty.call(control, "calls")) {
+        callsStated += 1;
+        if (cardById.size > 0 && judgeRecordedCalls(contractId, name, control, states, cardById, findings)) callsCompared += 1;
+      }
     }
 
     for (const entry of maps(fm["removed"])) {
@@ -1271,7 +1387,15 @@ export function checkForm(config: Config, base: string): CheckResult {
 
   return {
     findings,
-    summary: { contracts: contracts.length, screens: byScreen.size, designed_ahead: designedAhead, produced_by: data.produced_by ?? "" },
+    summary: {
+      contracts: contracts.length,
+      screens: byScreen.size,
+      designed_ahead: designedAhead,
+      calls_stated: callsStated,
+      calls_compared: callsCompared,
+      calls_comparable: cardById.size > 0,
+      produced_by: data.produced_by ?? "",
+    },
   };
 }
 

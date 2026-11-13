@@ -91,7 +91,7 @@ export function runChecksCorpus(): CorpusResult {
   for (const testCase of manifest.cases) {
     const { config, base } = loadConfig(join(CHECKS_CORPUS, "cases", testCase.dir, "usedesign.config.yaml"));
     const runner = CHECKS[testCase.check ?? 1]!;
-    const { findings } = runner(config, base);
+    const { findings, summary } = runner(config, base);
 
     const failing = errors(findings);
     const verdict = failing.length > 0 ? "fail" : "pass";
@@ -109,6 +109,11 @@ export function runChecksCorpus(): CorpusResult {
     // Round 29, as the card corpus did in round 28: a check that must stay quiet is pinned too.
     for (const code of testCase.absent_warnings ?? []) {
       if (warned.includes(code)) problems.push(`unexpected warning \`${code}\``);
+    }
+    // Round 33: a count the run prints is pinned too — "compared for N of M" is the line that makes
+    // an unpressed control visible, and a code alone cannot hold it.
+    for (const [key, value] of Object.entries((testCase.summary ?? {}) as Record<string, unknown>)) {
+      if (summary[key] !== value) problems.push(`summary \`${key}\`: expected ${String(value)}, got ${String(summary[key] ?? null)}`);
     }
 
     report(testCase.dir, problems, [...codes, ...warned]);

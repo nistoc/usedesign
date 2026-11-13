@@ -1,0 +1,35 @@
+{
+  "usedesign_form_inventory": 1,
+  "produced_by": "runtime dump — components rendered per state by a test; each control with `calls` pressed once in `draft`, the API client mocked and recorded",
+  "forms": [
+    {
+      "screen": "DraftEditor",
+      "states": [
+        {
+          "state": "draft",
+          "fields": [
+            "draft-name"
+          ],
+          "controls": [
+            "close",
+            "refresh",
+            "rename",
+            "save-as-plan",
+            "start-now",
+            "tag-a"
+          ]
+        },
+        {
+          "state": "published",
+          "fields": [
+            "draft-name"
+          ],
+          "controls": [
+            "close",
+            "refresh"
+          ]
+        }
+      ]
+    }
+  ]
+}

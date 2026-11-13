@@ -11,6 +11,38 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## 1.9.0
+
+*unpublished · SPEC v1.9 — round 33: what a button sends against what its contract says*
+
+A form contract's `calls` says what a control runs, and nothing compared it with the code: check 5
+read it against the cards only. A pilot's frontend role reordered the chain behind its «start»
+button on purpose and read no finding — the form inventory recorded which controls a state
+renders, not what pressing one sends (SPEC §7.5, round 33).
+
+- A new optional key in a state of the form inventory, `calls`: for each control the producer
+  pressed there, the operations the press sent, in the order they went out, reads included —
+  recorded through the producer's own mocks of the API client.
+- Check 5 compares it with the contract's `calls` — an id, a chain or `null` — for every control
+  named as one anchor, in both implementations. A read the contract does not name is left out (no
+  `data_transition`, no `mutates`; an audit entry does not make a reread a write); the rest must
+  equal `calls`, the same operations in the same order.
+- Two warnings, a new check over a field 1.x already had:
+  - `form_calls_mismatch` — other operations, or another order; `calls: null` with a write sent;
+  - `form_recorded_call_undescribed` — an operation sent that no card describes, left out of the
+    comparison because a read cannot be told from a write.
+- One error about the new key only: `form_inventory_malformed` when `calls` is not a map of
+  control → list of ids.
+- A new summary line in check 5, `calls: compared for N of M control(s) whose contract states
+  calls`, so a control the inventory never pressed is a visible silence; without cards it says NOT
+  COMPARED. The checks corpus may pin it: a case's `summary:` names the counts it must print.
+- Left out on purpose: a family (`control_pattern`), a chain cut short by a refusal, a guest's
+  shorter chain unless it is a screen state of its own, a call past the producer's mocks, reads
+  when a screen opens.
+- No change for an inventory without `calls`: the same findings as under 1.8.1, and the one new
+  line in the summary. The checks corpus has eleven new cases, `form-calls-recorded*` and
+  `form-calls-not-recorded`.
+
 ## 1.8.1
 
 *2026-11-03 · the release changes, the tools and the format do not (SPEC v1.8)*

@@ -31,6 +31,11 @@
                   "description": "For each anchor, the containers it renders inside — the full ancestor chain of data-section / data-panel-head / data-control anchors, all instances merged. Optional: an inventory without it predates container recording, and group membership is then not judged rather than failed.",
                   "type": "object",
                   "additionalProperties": { "type": "array", "items": { "type": "string" } }
+                },
+                "calls": {
+                  "description": "For a control (data-action) the producer pressed in this state, the operations the press sent, in the order they went out — reads included, recorded through the producer's own mocks of the API client, not parsed from source. Optional (round 33): an inventory without it predates call recording, and check 5 then does NOT compare the contract's `calls` with the code rather than fail it. Check 5 leaves out a read the contract does not name and compares the rest with the contract's `calls`, strictly.",
+                  "type": "object",
+                  "additionalProperties": { "type": "array", "items": { "type": "string", "minLength": 1 } }
                 }
               }
             }

@@ -41,7 +41,10 @@ checks/cases/<name>/   a config plus what the check consumes: a route
 ```
 
 Each case says which check it exercises (`check: 1` to `check: 5`) and is run through that one
-only, so a missing inventory is not held against a coverage case.
+only, so a missing inventory is not held against a coverage case. It carries `expect` (`pass` or
+`fail`), `codes`, `warnings` and `absent_warnings` as a card case does (below), and since round 33
+may carry `summary`: counts the check must return, compared by value and type — `{ calls_stated:
+5, calls_compared: 0 }` pins the line that makes an unpressed control visible, which no code can.
 
 A card case in `manifest.yaml` carries:
 
