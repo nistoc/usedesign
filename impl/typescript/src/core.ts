@@ -128,7 +128,7 @@ export function readDocument(path: string): Card | null {
 const CONFIG_KEYS = new Set([
   "usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
   "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory",
-  "uncontracted_screens",
+  "uncontracted_screens", "calls_mismatch",
 ]);
 
 /**
@@ -148,6 +148,7 @@ const CONFIG_TYPES: [string, string, (value: unknown) => boolean][] = [
   ["form_inventory", "a string", (v) => typeof v === "string"],
   ["storage_inventory", "a string", (v) => typeof v === "string"],
   ["uncontracted_screens", "a string", (v) => typeof v === "string"],
+  ["calls_mismatch", "a string", (v) => typeof v === "string"],
   ["evidence_horizon_days", "an integer", isInteger],
   [
     "exclude",
@@ -157,6 +158,9 @@ const CONFIG_TYPES: [string, string, (value: unknown) => boolean][] = [
       v.every((rule) => isMap(rule) && typeof rule["path"] === "string" && (rule["method"] == null || typeof rule["method"] === "string")),
   ],
 ];
+
+/** The keys that set how strict one finding is: `warning`, the default, or `error` (1.10.0). */
+const SEVERITY_KEYS = ["uncontracted_screens", "calls_mismatch"];
 
 export function loadConfig(path: string): { config: Config; base: string } {
   // A config nobody can open, or one that is not YAML, is named as such (1.5.1), in the words of
@@ -183,6 +187,14 @@ export function loadConfig(path: string): { config: Config; base: string } {
   for (const [key, need, holds] of CONFIG_TYPES) {
     if (config[key] != null && !holds(config[key])) {
       throw new Error(`${path}: \`${key}\` in the config must be ${need} — a value of another type silently changes what is checked`);
+    }
+  }
+  // A key that sets how strict a finding is reads one of two words (1.10.0). Checked by type alone,
+  // `Error` or `eror` passed and read as `warning`: the stricter setting a repository wrote was
+  // dropped without a word, and its gate stayed green.
+  for (const key of SEVERITY_KEYS) {
+    if (config[key] != null && config[key] !== "warning" && config[key] !== "error") {
+      throw new Error(`${path}: \`${key}\` in the config must be \`warning\` or \`error\` — another word would quietly keep it a warning`);
     }
   }
   return { config, base: dirname(resolve(path)) };

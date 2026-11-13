@@ -1004,6 +1004,10 @@ function judgeRecordedCalls(
   states: Map<string, { calls: Map<string, string[]> | null }>,
   cardById: Map<string, Card>,
   findings: Finding[],
+  // That of `form_calls_mismatch`: a warning unless the config says `calls_mismatch: error`
+  // (round 34). An operation no card describes stays a warning either way — it is about a card
+  // that is missing, not about the control.
+  severity: "warning" | "error",
 ): boolean {
   const raw = control?.calls;
   const stated: string[] =
@@ -1043,7 +1047,7 @@ function judgeRecordedCalls(
     if (sent.length !== stated.length || sent.some((op, i) => op !== stated[i])) {
       const said = stated.length > 0 ? `[${stated.join(", ")}]` : "null";
       findings.push(
-        new Finding("form_calls_mismatch", `${contractId}: control \`${name}\`, pressed in state \`${state}\`, sent [${sent.join(", ")}]; its \`calls\` says ${said}`, "warning"),
+        new Finding("form_calls_mismatch", `${contractId}: control \`${name}\`, pressed in state \`${state}\`, sent [${sent.join(", ")}]; its \`calls\` says ${said}`, severity),
       );
     }
   }
@@ -1145,6 +1149,9 @@ export function checkForm(config: Config, base: string): CheckResult {
   let designedAhead = 0;
   let callsStated = 0;
   let callsCompared = 0;
+  let callsNamedStated = 0;
+  let callsNamedCompared = 0;
+  const callsSeverity: "warning" | "error" = config.calls_mismatch === "error" ? "error" : "warning";
 
   for (const [contractId, fm] of contracts) {
     const screen = text(fm["screen"]) ?? "";
@@ -1288,8 +1295,19 @@ export function checkForm(config: Config, base: string): CheckResult {
       // pressing it sent. Only with cards: without them a read cannot be told from a write, and the
       // summary says NOT COMPARED. A family has no one name to press.
       if (!regex && Object.prototype.hasOwnProperty.call(control, "calls")) {
+        // Round 34: `calls: null` is a claim too and is compared, so it stays in M; the controls
+        // whose `calls` names an operation are counted apart, so that "4 of 265" does not read as
+        // 261 unpressed buttons that send a request.
+        const raw = control.calls;
+        const named =
+          (typeof raw === "string" && raw !== "") ||
+          (Array.isArray(raw) && raw.some((entry: unknown) => typeof entry === "string" && entry !== ""));
         callsStated += 1;
-        if (cardById.size > 0 && judgeRecordedCalls(contractId, name, control, states, cardById, findings)) callsCompared += 1;
+        if (named) callsNamedStated += 1;
+        if (cardById.size > 0 && judgeRecordedCalls(contractId, name, control, states, cardById, findings, callsSeverity)) {
+          callsCompared += 1;
+          if (named) callsNamedCompared += 1;
+        }
       }
     }
 
@@ -1393,6 +1411,8 @@ export function checkForm(config: Config, base: string): CheckResult {
       designed_ahead: designedAhead,
       calls_stated: callsStated,
       calls_compared: callsCompared,
+      calls_named_stated: callsNamedStated,
+      calls_named_compared: callsNamedCompared,
       calls_comparable: cardById.size > 0,
       produced_by: data.produced_by ?? "",
     },

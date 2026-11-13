@@ -72,7 +72,7 @@ def normalise(method: str, path: str) -> tuple[str, str]:
 # twin's order (1.5.1): sorted here, the refusal listed them otherwise.
 CONFIG_KEYS = ["usedesign_config", "checks", "cards", "inventory", "test_report", "code_root",
                "evidence_horizon_days", "exclude", "forms", "form_inventory", "storage_inventory",
-               "uncontracted_screens"]
+               "uncontracted_screens", "calls_mismatch"]
 
 
 # ── reading a field in its type (1.5.1) ──────────────────────────────────────
@@ -133,12 +133,16 @@ CONFIG_TYPES = [
     ("form_inventory", "a string", lambda v: isinstance(v, str)),
     ("storage_inventory", "a string", lambda v: isinstance(v, str)),
     ("uncontracted_screens", "a string", lambda v: isinstance(v, str)),
+    ("calls_mismatch", "a string", lambda v: isinstance(v, str)),
     ("evidence_horizon_days", "an integer", _is_integer),
     ("exclude", "a list of rules, each a map with `path` a string and `method`, if written, a string",
      lambda v: isinstance(v, list) and all(
          isinstance(rule, dict) and isinstance(rule.get("path"), str)
          and (rule.get("method") is None or isinstance(rule.get("method"), str)) for rule in v)),
 ]
+
+# The keys that set how strict one finding is: `warning`, the default, or `error` (1.10.0).
+SEVERITY_KEYS = ["uncontracted_screens", "calls_mismatch"]
 
 
 def family_regex(pattern: str) -> re.Pattern:
@@ -194,6 +198,13 @@ def load_config(path: str) -> tuple[dict, str]:
         if config.get(key) is not None and not holds(config[key]):
             raise CannotRead(f"{path}: `{key}` in the config must be {need} — a value of another "
                              "type silently changes what is checked")
+    # A key that sets how strict a finding is reads one of two words (1.10.0). Checked by type
+    # alone, `Error` or `eror` passed and read as `warning`: the stricter setting a repository wrote
+    # was dropped without a word, and its gate stayed green.
+    for key in SEVERITY_KEYS:
+        if config.get(key) is not None and config[key] not in ("warning", "error"):
+            raise CannotRead(f"{path}: `{key}` in the config must be `warning` or `error` — another "
+                             "word would quietly keep it a warning")
     return config, os.path.dirname(os.path.abspath(path))
 
 
@@ -1106,10 +1117,14 @@ def is_read(card: dict) -> bool:
 
 
 def judge_recorded_calls(contract_id: str, name: str, control: dict, states: dict,
-                         card_by_id: dict, findings: list) -> bool:
+                         card_by_id: dict, findings: list, severity: str) -> bool:
     """Compare, state by state, what pressing the control sent with its `calls`: the same
     operations in the same order. A read the contract does not name is left out of what was sent —
-    a list reloaded after a write is not part of the chain. True when any state recorded it."""
+    a list reloaded after a write is not part of the chain. True when any state recorded it.
+
+    `severity` is that of `form_calls_mismatch`: a warning unless the config says
+    `calls_mismatch: error` (round 34). An operation no card describes stays a warning either way —
+    it is about a card that is missing, not about the control."""
     raw = control.get("calls")
     if isinstance(raw, str) and raw:
         stated = [raw]
@@ -1143,7 +1158,7 @@ def judge_recorded_calls(contract_id: str, name: str, control: dict, states: dic
             said = f"[{', '.join(stated)}]" if stated else "null"
             findings.append(Finding("form_calls_mismatch",
                                     f"{contract_id}: control `{name}`, pressed in state `{state}`, "
-                                    f"sent [{', '.join(sent)}]; its `calls` says {said}", "warning"))
+                                    f"sent [{', '.join(sent)}]; its `calls` says {said}", severity))
     return compared
 
 
@@ -1237,6 +1252,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     claimed: dict[str, dict[str, Any]] = {}
     designed_ahead = 0
     calls_stated = calls_compared = 0
+    calls_named_stated = calls_named_compared = 0
+    calls_severity = "error" if config.get("calls_mismatch") == "error" else "warning"
 
     for contract_id, fm in contracts:
         screen = _text(fm.get("screen")) or ""
@@ -1381,10 +1398,18 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
             # what pressing it sent. Only with cards: without them a read cannot be told from a
             # write, and the summary says NOT COMPARED. A family has no one name to press.
             if regex is None and "calls" in control:
+                # Round 34: `calls: null` is a claim too and is compared, so it stays in M; the
+                # controls whose `calls` names an operation are counted apart, so that "4 of 265"
+                # does not read as 261 unpressed buttons that send a request.
+                raw = control.get("calls")
+                named = int((isinstance(raw, str) and raw != "") or (
+                    isinstance(raw, list) and any(isinstance(entry, str) and entry for entry in raw)))
                 calls_stated += 1
+                calls_named_stated += named
                 if card_by_id and judge_recorded_calls(contract_id, name, control, states,
-                                                       card_by_id, findings):
+                                                       card_by_id, findings, calls_severity):
                     calls_compared += 1
+                    calls_named_compared += named
 
         for entry in _maps(fm.get("removed")):
             name = _text(entry.get("control")) or ""
@@ -1480,6 +1505,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
     return findings, {"contracts": len(contracts), "screens": len(by_screen),
                       "designed_ahead": designed_ahead,
                       "calls_stated": calls_stated, "calls_compared": calls_compared,
+                      "calls_named_stated": calls_named_stated,
+                      "calls_named_compared": calls_named_compared,
                       "calls_comparable": bool(card_by_id),
                       "produced_by": data.get("produced_by", "")}
 
@@ -1567,9 +1594,11 @@ def main() -> int:
               + (f", produced by {form['produced_by']}" if form["produced_by"] else ""))
         # Round 33: the controls whose recorded calls were compared, out of those whose contract
         # says what they call — so that a control the inventory never pressed is a visible silence.
+        # Round 34: and apart, those whose `calls` names an operation — `calls: null` is in M too.
         if "calls_stated" in form:
             print(f"calls:      compared for {form['calls_compared']} of {form['calls_stated']} "
                   "control(s) whose contract states `calls`"
+                  f" ({form['calls_named_compared']} of {form['calls_named_stated']} that name an operation)"
                   + ("" if form["calls_comparable"]
                      else " — no cards to tell a read from a write, NOT COMPARED"))
         errors += report("check 5 (the form matches its contract)", form_findings)

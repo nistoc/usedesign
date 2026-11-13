@@ -886,13 +886,14 @@ cases:
   # leaves out a read the contract does not name and compares the rest with `calls`, strictly. One
   # contract (DraftEditor) and seven cards — writes with and without a transition, two reads and an
   # audited read — throughout; what varies is what was recorded or what the contract says.
-  # `summary:` pins the "compared for N of M" line.
+  # `summary:` pins the "compared for N of M" line; since round 34 also how many of the M name an
+  # operation (`close` says `calls: null`: 4 of the 5), and how many of those were compared.
   - dir: form-calls-recorded
     check: 5
     expect: pass
     codes: []
     absent_warnings: [form_calls_mismatch, form_recorded_call_undescribed]
-    summary: { calls_stated: 5, calls_compared: 5, calls_comparable: true }
+    summary: { calls_stated: 5, calls_compared: 5, calls_comparable: true, calls_named_stated: 4, calls_named_compared: 4 }
     note: >-
       The clean case, and the guards. Rereads the contract does not name are left out — after a
       chain, in the middle of one, and an audited read (`records_only`). `close` says `calls: null`
@@ -905,7 +906,7 @@ cases:
     expect: pass
     codes: []
     absent_warnings: [form_calls_mismatch, form_recorded_call_undescribed]
-    summary: { calls_stated: 5, calls_compared: 0, calls_comparable: true }
+    summary: { calls_stated: 5, calls_compared: 0, calls_comparable: true, calls_named_stated: 4, calls_named_compared: 0 }
     note: >-
       An inventory without `calls` — every inventory before round 33 — is not compared and not
       failed, as `within` in round 15. The summary says "compared for 0 of 5": the silence is visible.
@@ -915,7 +916,7 @@ cases:
     codes: []
     warnings: [form_calls_undescribed]
     absent_warnings: [form_calls_mismatch, form_recorded_call_undescribed]
-    summary: { calls_stated: 5, calls_compared: 0, calls_comparable: false }
+    summary: { calls_stated: 5, calls_compared: 0, calls_comparable: false, calls_named_stated: 4, calls_named_compared: 0 }
     note: >-
       No `cards:` in the config, and `start-now` recorded in another order. Without cards a read
       cannot be told from a write, so nothing is compared, and the summary says NOT COMPARED rather
@@ -925,7 +926,7 @@ cases:
     expect: pass
     codes: []
     warnings: [form_calls_mismatch]
-    summary: { calls_stated: 5, calls_compared: 5 }
+    summary: { calls_stated: 5, calls_compared: 5, calls_named_stated: 4, calls_named_compared: 4 }
     note: >-
       The break a pilot's frontend planted to prove the blind spot: the contract's chain dropped a
       step and moved the start first. The start departs from `none`, which switches the shown_when
@@ -985,8 +986,47 @@ cases:
     check: 5
     expect: fail
     codes: [form_inventory_malformed]
-    summary: { calls_stated: 5, calls_compared: 4 }
+    summary: { calls_stated: 5, calls_compared: 4, calls_named_stated: 4, calls_named_compared: 3 }
     note: >-
       `calls` written wrongly twice: one control maps to an id instead of a list, and one state's
       `calls` is a list instead of a map. An error, on the new field only; what is malformed is not
       compared, so 4 of 5 controls are.
+
+  # ── Round 34: a repository makes the mismatch fail (§7.5, §7.6) ───────────────────────────────
+  # `calls_mismatch: error` in the config, as `uncontracted_screens: error` since round 26. Each
+  # case is a round 33 case with that one line added to its config.
+  - dir: form-calls-recorded-strict
+    check: 5
+    expect: pass
+    codes: []
+    absent_warnings: [form_calls_mismatch, form_recorded_call_undescribed]
+    summary: { calls_stated: 5, calls_compared: 5, calls_named_stated: 4, calls_named_compared: 4 }
+    note: >-
+      The clean case under `calls_mismatch: error`: what was sent matches, so the stricter setting
+      fails nothing. An implementation reading the key as "every recorded call is an error" fails
+      here and must not.
+  - dir: form-calls-recorded-code-reordered-strict
+    check: 5
+    expect: fail
+    codes: [form_calls_mismatch]
+    note: >-
+      The code moved the start before the publish, and the config says `calls_mismatch: error`: the
+      same finding as a warning in round 33, an error here, so the run fails. A pilot's frontend gate
+      fails on the exit code; with the warning alone `check` exited 0 with the chain reordered.
+  - dir: form-calls-recorded-code-reordered-warning
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_mismatch]
+    note: >-
+      The same break with `calls_mismatch: warning` written out: the default, as without the key.
+  - dir: form-calls-recorded-undescribed-strict
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_recorded_call_undescribed]
+    absent_warnings: [form_calls_mismatch]
+    note: >-
+      An operation no card describes, under `calls_mismatch: error`: still a warning. It is about a
+      card that is missing, not about what the control sends; the key covers `form_calls_mismatch`
+      only.

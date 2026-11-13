@@ -44,7 +44,9 @@ Each case says which check it exercises (`check: 1` to `check: 5`) and is run th
 only, so a missing inventory is not held against a coverage case. It carries `expect` (`pass` or
 `fail`), `codes`, `warnings` and `absent_warnings` as a card case does (below), and since round 33
 may carry `summary`: counts the check must return, compared by value and type — `{ calls_stated:
-5, calls_compared: 0 }` pins the line that makes an unpressed control visible, which no code can.
+5, calls_compared: 0 }` pins the line that makes an unpressed control visible, which no code can;
+since round 34 `calls_named_stated` and `calls_named_compared` pin how many of those controls name
+an operation, and how many of them were compared.
 
 A card case in `manifest.yaml` carries:
 
