@@ -13,7 +13,7 @@ a day.
 
 ## 1.10.0
 
-*unpublished · SPEC v1.10 — round 34: a finding a repository can make fail, and a count that reads right*
+*2026-11-13 · SPEC v1.10 — round 34: a finding a repository can make fail, and a count that reads right*
 
 A pilot's frontend took round 33 into its gate and named two things. A reordered chain was
 `form_calls_mismatch`, a warning, and `check` exited 0 — a gate that fails on the exit code passes

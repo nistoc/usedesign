@@ -12,7 +12,7 @@
       "id": "format",
       "type": "database",
       "label": "The format",
-      "sublabel": "SPEC v1.9 · six JSON Schemas",
+      "sublabel": "SPEC v1.10 · six JSON Schemas",
       "pos": [
         385,
         56
@@ -55,7 +55,7 @@
       "id": "corpus",
       "type": "database",
       "label": "Conformance corpus",
-      "sublabel": "109 + 106 cases · a rotten fixture",
+      "sublabel": "109 + 110 cases · a rotten fixture",
       "pos": [
         395,
         176
@@ -83,7 +83,7 @@
       "id": "npm",
       "type": "cloud",
       "label": "npm registry",
-      "sublabel": "1.9.0 · build provenance",
+      "sublabel": "1.10.0 · build provenance",
       "pos": [
         640,
         330
@@ -352,7 +352,7 @@
       "dot": "emerald",
       "title": "Two readings, one corpus",
       "items": [
-        "TypeScript reference and Python prototype must report the same codes on 215 cases",
+        "TypeScript reference and Python prototype must report the same codes on 219 cases",
         "A deliberately rotten repository must still fail, and CI compares what both checkers report on it"
       ]
     },
