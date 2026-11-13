@@ -29,7 +29,8 @@ python validate.py ../../examples     # validate real cards
   [storage inventory](../../schema/storage-inventory.schema.json) the repository produces;
 - **check 5 — the form matches its contract**, against a
   [form inventory](../../schema/form-inventory.schema.json) recorded from the rendered screens —
-  and, since 1.9.0, what pressing a control sent, where the inventory records it.
+  and, since 1.9.0, what pressing a control sent, where the inventory records it — a mismatch
+  fails the run when the config says `calls_mismatch: error` (1.10.0).
 
 A config with `checks:` runs exactly the checks it names (SPEC §7.6). Without it, checks 1–4 run,
 and check 5 runs when the config declares `forms:` (SPEC §7.5).

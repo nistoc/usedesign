@@ -36,6 +36,12 @@
       "default": "warning",
       "description": "Check 5: how a rendered screen with no contract is reported (form_uncontracted_screen). Contracts are opt-in per screen, so the default is a warning; `error` is for a repository that has decided every screen must be described."
     },
+    "calls_mismatch": {
+      "type": "string",
+      "enum": ["warning", "error"],
+      "default": "warning",
+      "description": "Check 5: how a control whose press sent other operations than its contract's `calls`, or in another order, is reported (form_calls_mismatch). A new check over a field 1.x already had, so the default is a warning; `error` is for a repository that has decided a control must send what its contract says. An operation no card describes (form_recorded_call_undescribed) stays a warning."
+    },
     "storage_inventory": {
       "type": "string",
       "description": "Path to the storage inventory (schema/storage-inventory.schema.json), produced per run from the live store. Without it, check 4 cannot run and is NOT considered passed."

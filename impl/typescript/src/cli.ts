@@ -278,9 +278,11 @@ function commandCheck(configPath: string): number {
     );
     // Round 33: the controls whose recorded calls were compared, out of those whose contract says
     // what they call — so that a control the inventory never pressed is a visible silence.
+    // Round 34: and apart, those whose `calls` names an operation — `calls: null` is in M too.
     if (f["calls_stated"] !== undefined) {
       console.log(
         `calls:      compared for ${f["calls_compared"]} of ${f["calls_stated"]} control(s) whose contract states \`calls\`` +
+          ` (${f["calls_named_compared"]} of ${f["calls_named_stated"]} that name an operation)` +
           (f["calls_comparable"] ? "" : " — no cards to tell a read from a write, NOT COMPARED"),
       );
     }
@@ -361,7 +363,7 @@ function main(argv: string[]): number {
     return args.length === 0 ? 2 : 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.log(`usedesign ${version()} (SPEC v1.9)`);
+    console.log(`usedesign ${version()} (SPEC v1.10)`);
     return 0;
   }
 

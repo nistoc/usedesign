@@ -402,6 +402,12 @@ agree 2 horizon "$scratch/horizon.config.yaml"; says "\`evidence_horizon_days\` 
 agree 2 six "$scratch/six.config.yaml"; says "\`checks\` in the config must be a list of check numbers"
 agree 2 rules "$scratch/rules.config.yaml"; says "\`exclude\` in the config must be a list of rules"
 agree 2 typo "$scratch/typo.config.yaml"; says "\`chceks\` is not a config key"
+# A key that sets how strict a finding is reads `warning` or `error` (1.10.0): checked by type alone,
+# `Error` passed and read as `warning`, and the stricter setting a repository wrote was dropped.
+config sevword 'checks: [5]' 'uncontracted_screens: Error'
+config sevtypo 'checks: [5]' 'calls_mismatch: eror'
+agree 2 sevword "$scratch/sevword.config.yaml"; says "\`uncontracted_screens\` in the config must be \`warning\` or \`error\`"
+agree 2 sevtypo "$scratch/sevtypo.config.yaml"; says "\`calls_mismatch\` in the config must be \`warning\` or \`error\`"
 # Past Python's 4 300 digits an integer is Infinity, as JavaScript holds it, and nesting deeper than
 # 64 levels is not valid YAML: 1.5.0 Python ended both in a traceback with exit 1, and 1.5.1–1.5.2
 # refused the nesting only where each runtime's stack ran out (1.6.0 in the same words in both).

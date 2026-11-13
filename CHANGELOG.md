@@ -11,6 +11,33 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## 1.10.0
+
+*unpublished · SPEC v1.10 — round 34: a finding a repository can make fail, and a count that reads right*
+
+A pilot's frontend took round 33 into its gate and named two things. A reordered chain was
+`form_calls_mismatch`, a warning, and `check` exited 0 — a gate that fails on the exit code passes
+it. And
+"calls: compared for 4 of 265" read as 261 unpressed buttons that send a request, while M counts
+`calls: null` too (SPEC §7.5, round 34).
+
+- A new optional config key, `calls_mismatch`, `warning` by default. `error` makes
+  `form_calls_mismatch` an error, and `check` exits 1 on it — as `uncontracted_screens: error` does
+  for its finding since round 26. Without the key nothing changes. `form_recorded_call_undescribed`
+  stays a warning: it is about a card that is missing, not about the control.
+- The `calls:` summary line keeps its start, N and M, and adds `(n of K that name an operation)`:
+  K counts the controls whose `calls` names at least one operation, n those of them compared.
+  `calls: null` stays in M — it is a claim the check compares. Two new summary keys,
+  `calls_named_stated` and `calls_named_compared`, pinned in the round 33 cases.
+- A fix: `uncontracted_screens` was read by type alone, so `Error` or `eror` passed and meant
+  `warning`, and a repository that had asked for every screen to be described ran green. Both keys
+  that set how strict a finding is now refuse any word but `warning` or `error` at load, with exit 2
+  and the key's name — what `config.schema.json` already forbade (SPEC §8: a fix, not a rule change).
+- The checks corpus has four new cases: `form-calls-recorded-strict`,
+  `form-calls-recorded-code-reordered-strict`, `form-calls-recorded-code-reordered-warning` and
+  `form-calls-recorded-undescribed-strict`; the command-line tests refuse a misspelt word for both
+  keys, line for line in both implementations.
+
 ## 1.9.0
 
 *2026-11-13 · SPEC v1.9 — round 33: what a button sends against what its contract says*

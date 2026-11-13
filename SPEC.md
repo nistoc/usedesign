@@ -1,6 +1,6 @@
-# Operation Card — Specification v1.9
+# Operation Card — Specification v1.10
 
-> **Status:** v1.9 — v1.0 declared 2026-09-13, rounds 26–33 added to it without breaking it, and
+> **Status:** v1.10 — v1.0 declared 2026-09-13, rounds 26–34 added to it without breaking it, and
 > v1.6 wrote down how its text is read (§6); §8 says what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
@@ -1104,7 +1104,7 @@ removed:
 | `shown_when_conflicts_transition` | the contract shows a control in a state its operation (for a chain, its first) cannot depart from — the reference here is the **card**, so the form and the screen can drift together and still be caught |
 | `form_screen_not_in_card` (warning) | a card that describes screens describes none that a contract's control calls it from, and one of them reads as a slip for it — a screen misspelt on one side (round 31; tools 1.7.1) |
 | `form_control_not_in_card` (warning) | the card describes the screen, and no `control` there names the contract's control as a word of its own (round 31) |
-| `form_calls_mismatch` (warning) | pressing the control sent other operations than its `calls` names, or in another order — the reads it does not name left out; `calls: null` with a write sent too (round 33) |
+| `form_calls_mismatch` (warning) | pressing the control sent other operations than its `calls` names, or in another order — the reads it does not name left out; `calls: null` with a write sent too (round 33). `calls_mismatch: error` in the config makes it an error for a repository that has decided a control must send what its contract says (round 34) |
 | `form_recorded_call_undescribed` (warning) | pressing the control sent an operation no card describes — a read cannot be told from a write (round 33) |
 | `member_out_of_group` | the seating chart is wrong: a member renders outside its contracted group — judged only against an inventory that records containers |
 | `group_missing` | a group's anchor exists only in the contract; nothing renders it |
@@ -1266,10 +1266,17 @@ Check 5 compares what each state recorded for a control named as one anchor whos
 - `calls` that is not a map of control → list of ids is `form_inventory_malformed`, an error about
   the new key only; what is malformed is not compared.
 
-Both findings are warnings: a new check over a field 1.x already had (§8). The summary prints
-`calls: compared for N of M control(s) whose contract states calls` — M counts those contract lines
-on rendered screens, N the ones recorded in at least one state — so a control the inventory never
-pressed is a visible silence, not a pass. Without cards — no `cards:`, or a glob that matched
+Both findings are warnings: a new check over a field 1.x already had (§8). A repository that has
+decided a control must send what its contract says writes `calls_mismatch: error` in its config
+(round 34), as `uncontracted_screens: error` above: `form_calls_mismatch` is then an error, and the
+run fails on it. `form_recorded_call_undescribed` stays a warning — it is about a card that is
+missing, not about the control. The summary prints `calls: compared for N of M control(s) whose
+contract states calls (n of K that name an operation)` — M counts those contract lines on rendered
+screens, N the ones recorded in at least one state — so a control the inventory never pressed is a
+visible silence, not a pass. `calls: null` is a claim too, compared like any other, so it stays in
+M; K counts the lines whose `calls` names an operation and n those of them compared (round 34), so
+that "4 of 265" does not read as 261 buttons that send a request and were never pressed. Without
+cards — no `cards:`, or a glob that matched
 nothing — a read cannot be told from a write: nothing is compared, and the line says NOT COMPARED.
 An inventory without `calls`, as every inventory before round 33, is compared as it was under 1.8.
 What is left out is left out on purpose:
@@ -1384,7 +1391,10 @@ meant to skip failed pointing at a different cause (issue #4). Both implementati
 unknown key, naming it and the known set. A value of another type than the schema gives its key —
 `cards: 5`, an `exclude` rule that is not a map, `evidence_horizon_days: "30"` — is refused the same
 way (tools 1.5.1), naming the key and the type it needs; `null` is an absent key. So is `checks: []`
-and a number outside 1–5 there: it ran no check and passed. The config is read as YAML 1.2, a key
+and a number outside 1–5 there: it ran no check and passed. So are the two keys that set how strict
+a finding is, `uncontracted_screens` and `calls_mismatch`, holding a word other than `warning` or
+`error` (tools 1.10.0): read by type alone, `Error` passed and meant `warning`, and the stricter
+setting a repository wrote was dropped without a word. The config is read as YAML 1.2, a key
 written twice refused, as §6 reads front matter. A path in the config is read from the config's
 directory, and an absolute path is that path (tools 1.6.0: the 1.5 reference joined it under the
 directory). `code_root` is a directory: a file there is `code_root_missing`, as a path that does
@@ -1437,6 +1447,7 @@ where the format broke:
 | 31 | **The card names the screen that calls it** — a pilot's backend author broke one card on purpose — its screen by a letter, and a control's name — to prove a check they were about to rely on, ran `validate` over the cards together with the frontend's contracts and read no finding: nothing compared a card's `screen` and `control` with the contract calling it. On the pilot's catalogue 11 of the 12 links from a contract's control to a card held as written; the twelfth was a card not yet brought to its screen, and its author brought it there the same day | No new field. Two warnings over fields 1.0 already had, `form_screen_not_in_card` and `form_control_not_in_card` (§7.5): a card that describes screens names the screen of every contract whose control calls it, and the control as a word of its own. A card that describes no screen is not held to it, so the pilot's catalogue and this repository's corpus pass as they did. No new error. Tools 1.7.1 kept the screen half to slips — another letter case, two letters off or fewer — once a second product, naming its screens one way in cards and another in contracts, drew 113 warnings from 1.7.0, none a mistake |
 | 32 | **A step where the call ends early** — a pilot's 24 writes on behalf of a user replay a stored answer by `Idempotency-Key`: the target and the consent are checked again, and the precondition, the domain steps and the commit do not run; the audit line is written only when the re-check refuses. The cards said it in prose; one of them listed its If-Match check before the replay for seven weeks, with a passing test on every step. The key binds neither the body nor the headers, and nothing in the format could say so | One, optional: `short_circuit { when, returns, runs_again, binds, unbound, on_unbound }` on a step (§5.3) — the later steps it does not name in `runs_again` do not run on the short path. Three errors on the new field, `short_circuit_unknown_step`, `short_circuit_step_not_after` and `short_circuit_malformed`, and one warning, `guard_bypassable`: a request part the short path does not bind, with nothing said about what a call that differs there receives. A card without the field validates as it did under 1.7 |
 | 33 | **What a button sends against what its contract says** — a pilot's frontend role reordered the chain behind its «start» button on purpose and read no finding: `calls` was compared with the cards, never with the code, and the inventory recorded which controls a state renders, not what pressing one sends | One optional inventory key: `calls` in a state — control → the operations pressing it sent, in order (§7.5). Check 5 leaves out the reads a contract does not name and compares the rest with its `calls`, strictly; `calls: null` with a write sent is the same finding. Two warnings, `form_calls_mismatch` and `form_recorded_call_undescribed`: a new check over a field 1.x already had. A summary line counts the controls compared out of those whose contract states `calls`, and says NOT COMPARED without cards. The one new error, `form_inventory_malformed` on a malformed `calls`, is about the new key only; an inventory without it is compared as under 1.8 |
+| 34 | **A finding a repository can make fail, and a count that reads right** — a pilot's frontend took round 33 into its gate and named two things: a reordered chain was a warning and `check` exited 0, so a gate that fails on the exit code passes it; and "compared for 4 of 265" read as 261 unpressed buttons that send a request, while M counts `calls: null` too. Checking the precedent for the first, `uncontracted_screens: Error` turned out to pass and mean `warning` | One optional config key, `calls_mismatch`, `warning` by default: `error` makes `form_calls_mismatch` an error, as `uncontracted_screens: error` does for its finding; `form_recorded_call_undescribed` stays a warning. The summary line keeps N and M and adds how many of the controls whose `calls` names an operation were compared. Both keys that set how strict a finding is refuse a word other than `warning` or `error` at load — a validator that accepted what the schema already forbade, a fix and not a rule change |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all
