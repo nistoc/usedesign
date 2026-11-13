@@ -84,7 +84,7 @@ which is exactly why migrations end up orphaned everywhere else.
 
 ## Status
 
-**The format is SPEC v1.8; the tools are 1.8.1.** Since v1.0, declared 13 September 2026, the
+**The format is SPEC v1.9; the tools are 1.9.0.** Since v1.0, declared 13 September 2026, the
 format has been under one promise: the required keys of a card are frozen, so a card with zero
 errors under 1.0 has zero errors under every 1.x — the promise covers the keys a version defines
 ([SPEC §8](SPEC.md)). A round adds optional fields, optional artifact
@@ -97,15 +97,17 @@ error under 1.6 ([SPEC §8](SPEC.md)). v1.7 compares the screen and the control 
 the contract that calls it, and reports a misspelt screen or an unnamed control as a warning. v1.8
 lets a step say that the call can end early there and which later steps still run, and warns when
 that short path is not keyed on a part of the request and the card does not say what a call that
-differs there receives. The package is published to npm with build provenance.
+differs there receives. v1.9 compares what pressing a control sent, where the form inventory
+records it, with the operations its contract says the control runs, and warns where the two
+differ. The package is published to npm with build provenance.
 
-Thirty-two rounds of hardening stand behind it, nine of them driven by a pilot on a real product. The
+Thirty-three rounds of hardening stand behind it, ten of them driven by a pilot on a real product. The
 format was hardened by writing cards for real operations of production systems — each line from a
 measurement of the code, not from memory — and recording where it broke. The criterion for v1.0
 was never "no more breakage", because untouched ground always breaks something, but *a round that
 changes only optional fields, never required ones* — and it held from round 8 to round 24,
 seventeen consecutive rounds on three stacks. Round 25 changed nothing in the format; rounds
-26–32 ran under the promise. The
+26–33 ran under the promise. The
 round-by-round record is [SPEC §8](SPEC.md); what each release changed is in
 [CHANGELOG.md](CHANGELOG.md).
 
@@ -131,7 +133,7 @@ else. See [SPEC §8.0](SPEC.md).
 | [SPEC.md](SPEC.md) | The format: fields, rules, and why each exists |
 | [schema/](schema/) | Six JSON Schemas: the card's front matter, the form contract, the config file, and the three inventories a producer writes for checks 1, 4 and 5 |
 | [examples/](examples/) | Five cards over a fictional library system |
-| [tests/conformance/](tests/conformance/) | Shared corpus every implementation must pass — 109 card-and-contract cases and 95 repository cases |
+| [tests/conformance/](tests/conformance/) | Shared corpus every implementation must pass — 109 card-and-contract cases and 106 repository cases |
 | [tests/fixtures/](tests/fixtures/) | `library-service`, a deliberately rotten repository that `check` must keep failing on, and `validate-cli`, command-line cases both implementations must answer alike |
 | [design/](design/) | Design notes — questions worked out before they were specified |
 | [impl/](impl/) | Implementations, one directory each: the TypeScript reference and the Python prototype |
@@ -157,7 +159,7 @@ enshrining one tool's bugs.
 The reference implementation is [TypeScript](impl/typescript/), chosen for reasons set out in
 [impl/](impl/) rather than by default. It validates cards and form contracts against the schemas
 and the cross-card rules, runs the five checks, and passes both corpora — **109 / 109 card and
-contract cases and 95 / 95 repository cases**.
+contract cases and 106 / 106 repository cases**.
 
 ```bash
 npx usedesign check usedesign.config.yaml
@@ -178,7 +180,7 @@ CI runs both and diffs what they report about the same repository.
 
 - [x] Specification and schema
 - [x] Worked examples
-- [x] Conformance corpus — 109 card-and-contract cases and 95 repository cases, verdicts, codes
+- [x] Conformance corpus — 109 card-and-contract cases and 106 repository cases, verdicts, codes
       **and warnings**
 - [x] Check 1 designed and prototyped — [route inventory](schema/route-inventory.schema.json),
       path normalisation, exclusions that report what they hid
@@ -196,7 +198,7 @@ CI runs both and diffs what they report about the same repository.
       validated with named codes, grouping by purpose included, group membership verified
       against the rendered container chains; a contract may be written ahead of its screen,
       describe a family of elements by a pattern, and map screen states onto data states
-- [x] `usedesign check` — the five checks, holding the 95-case repository corpus; a repository
+- [x] `usedesign check` — the five checks, holding the 106-case repository corpus; a repository
       declares which checks apply to it (`checks: [5]`, SPEC §7.6)
 - [x] `usedesign scaffold` — a draft card per undescribed route, read from the application's own
       OpenAPI. Every draft fails validation on purpose, until a person fills it in: a shell that
