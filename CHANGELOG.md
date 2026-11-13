@@ -13,7 +13,7 @@ a day.
 
 ## 1.9.0
 
-*unpublished · SPEC v1.9 — round 33: what a button sends against what its contract says*
+*2026-11-13 · SPEC v1.9 — round 33: what a button sends against what its contract says*
 
 A form contract's `calls` says what a control runs, and nothing compared it with the code: check 5
 read it against the cards only. A pilot's frontend role reordered the chain behind its «start»
