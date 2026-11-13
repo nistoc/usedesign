@@ -423,7 +423,7 @@ def run_conformance() -> int:
         config, base = load_config(
             os.path.join(CORPUS, "cases", case["dir"], "usedesign.config.yaml"))
         runner = {1: check, 2: check_coverage, 3: check_maturity, 4: check_storage, 5: check_form}[case.get("check", 1)]
-        findings, _ = runner(config, base)
+        findings, summary = runner(config, base)
         errors = [f for f in findings if f.severity == "error"]
         verdict = "fail" if errors else "pass"
         codes = sorted({f.code for f in errors})
@@ -442,6 +442,12 @@ def run_conformance() -> int:
         for code in case.get("absent_warnings", []):
             if code in warnings:
                 problems.append(f"unexpected warning `{code}`")
+        # Round 33: a count the run prints is pinned too — "compared for N of M" is the line that
+        # makes an unpressed control visible, and a code alone cannot hold it.
+        for key, value in (case.get("summary") or {}).items():
+            if summary.get(key) != value or type(summary.get(key)) is not type(value):
+                problems.append(f"summary `{key}`: expected {json_schema.js_string(value)}, "
+                                f"got {json_schema.js_string(summary.get(key))}")
 
         if problems:
             failed += 1
@@ -1068,6 +1074,79 @@ def judge_calls(contract_id: str, screen: str, name: str, control: dict, shown_w
                 f"`{' | '.join(from_set)}`", conflict))
 
 
+# Round 33: what pressing a control SENT, recorded by the inventory, against the contract's `calls`.
+# Until now `calls` was compared with the cards only, never with the code: a pilot's frontend
+# reordered the chain of its «start» button on purpose and read no finding. See the TypeScript twin.
+def recorded_calls(state: dict, location: str, screen: str, findings: list):
+    """A state's `calls` — control → the operations pressing it sent, in order — or None when the
+    inventory did not record any: an inventory that predates round 33 is NOT COMPARED, never failed."""
+    raw = state.get("calls")
+    if raw is None:
+        return None
+    where = f"{location}: `{screen}`, state `{state.get('state')}`"
+    if not isinstance(raw, dict):
+        findings.append(Finding("form_inventory_malformed",
+                                f"{where}: `calls` is not a map of control → operations"))
+        return None
+    calls: dict[str, list[str]] = {}
+    for control, ops in raw.items():
+        if isinstance(ops, list) and all(isinstance(op, str) and op for op in ops):
+            calls[str(control)] = list(ops)
+        else:
+            findings.append(Finding("form_inventory_malformed",
+                                    f"{where}: `calls` of `{control}` is not a list of operation ids"))
+    return calls
+
+
+def is_read(card: dict) -> bool:
+    """An operation that changes no domain data: no transition and no `mutates` (§5.8). An audit
+    entry (`records_only`) does not make it a write here — a list reread after a write is a reread
+    whether or not the server records who asked."""
+    return card.get("data_transition") is None and not _list(card.get("mutates"))
+
+
+def judge_recorded_calls(contract_id: str, name: str, control: dict, states: dict,
+                         card_by_id: dict, findings: list) -> bool:
+    """Compare, state by state, what pressing the control sent with its `calls`: the same
+    operations in the same order. A read the contract does not name is left out of what was sent —
+    a list reloaded after a write is not part of the chain. True when any state recorded it."""
+    raw = control.get("calls")
+    if isinstance(raw, str) and raw:
+        stated = [raw]
+    elif isinstance(raw, list):
+        stated = [str(entry) for entry in raw if isinstance(entry, str) and entry]
+    else:
+        stated = []
+    compared = False
+    for state, rendered in states.items():
+        recorded = (rendered["calls"] or {}).get(name)
+        if recorded is None:
+            continue
+        compared = True
+        sent: list[str] = []
+        unknown: list[str] = []
+        for op in recorded:
+            if op in stated:
+                sent.append(op)
+                continue
+            card = card_by_id.get(op)
+            if card is None:
+                if op not in unknown:
+                    unknown.append(op)
+                    findings.append(Finding("form_recorded_call_undescribed",
+                                            f"{contract_id}: control `{name}`, pressed in state "
+                                            f"`{state}`, sent `{op}`, which no card describes — a "
+                                            "read cannot be told from a write", "warning"))
+            elif not is_read(card):
+                sent.append(op)
+        if sent != stated:
+            said = f"[{', '.join(stated)}]" if stated else "null"
+            findings.append(Finding("form_calls_mismatch",
+                                    f"{contract_id}: control `{name}`, pressed in state `{state}`, "
+                                    f"sent [{', '.join(sent)}]; its `calls` says {said}", "warning"))
+    return compared
+
+
 # ─────────────────────────── check 5 — the form matches its contract ────────────────────────────
 #
 # The one check whose reference is authored rather than measured: the contract says what the owner
@@ -1128,6 +1207,7 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
                 "controls": dict.fromkeys(str(x) for x in s.get("controls") or []),
                 "within": ({str(k): dict.fromkeys(str(c) for c in v or []) for k, v in raw_within.items()}
                            if isinstance(raw_within, dict) else None),
+                "calls": recorded_calls(s, location, str(form.get("screen")), findings),
             }
         by_screen[str(form.get("screen"))] = states
 
@@ -1156,6 +1236,7 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
 
     claimed: dict[str, dict[str, Any]] = {}
     designed_ahead = 0
+    calls_stated = calls_compared = 0
 
     for contract_id, fm in contracts:
         screen = _text(fm.get("screen")) or ""
@@ -1296,6 +1377,15 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
             judge_calls(contract_id, screen, name, control, shown_when, data_of, card_by_id,
                         findings, "error")
 
+            # Round 33: a control named as one anchor whose contract says what it calls, against
+            # what pressing it sent. Only with cards: without them a read cannot be told from a
+            # write, and the summary says NOT COMPARED. A family has no one name to press.
+            if regex is None and "calls" in control:
+                calls_stated += 1
+                if card_by_id and judge_recorded_calls(contract_id, name, control, states,
+                                                       card_by_id, findings):
+                    calls_compared += 1
+
         for entry in _maps(fm.get("removed")):
             name = _text(entry.get("control")) or ""
             mine["controls"].add(name)
@@ -1389,6 +1479,8 @@ def check_form(config: dict, base: str) -> tuple[list[Finding], dict]:
 
     return findings, {"contracts": len(contracts), "screens": len(by_screen),
                       "designed_ahead": designed_ahead,
+                      "calls_stated": calls_stated, "calls_compared": calls_compared,
+                      "calls_comparable": bool(card_by_id),
                       "produced_by": data.get("produced_by", "")}
 
 
@@ -1473,6 +1565,13 @@ def main() -> int:
         print(f"forms:      {form['contracts']} contract(s) against {form['screens']} rendered screen(s)"
               + (f", {form['designed_ahead']} designed ahead of the code" if form.get("designed_ahead") else "")
               + (f", produced by {form['produced_by']}" if form["produced_by"] else ""))
+        # Round 33: the controls whose recorded calls were compared, out of those whose contract
+        # says what they call — so that a control the inventory never pressed is a visible silence.
+        if "calls_stated" in form:
+            print(f"calls:      compared for {form['calls_compared']} of {form['calls_stated']} "
+                  "control(s) whose contract states `calls`"
+                  + ("" if form["calls_comparable"]
+                     else " — no cards to tell a read from a write, NOT COMPARED"))
         errors += report("check 5 (the form matches its contract)", form_findings)
 
     return 1 if errors else 0

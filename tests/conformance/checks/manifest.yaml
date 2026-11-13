@@ -880,3 +880,113 @@ cases:
       `SessionPanel` stands in the card all the same, on its `rest` interface, and only a `ui`
       interface describes a screen: an implementation that reads screens off every interface finds
       `SessionPanel` there with no control naming `finish`, and fails here.
+
+  # ── Round 33: what pressing a control sent, against its `calls` (§7.5) ────────────────────────
+  # The inventory may record, per state, the operations pressing a control sent, in order. Check 5
+  # leaves out a read the contract does not name and compares the rest with `calls`, strictly. One
+  # contract (DraftEditor) and seven cards — writes with and without a transition, two reads and an
+  # audited read — throughout; what varies is what was recorded or what the contract says.
+  # `summary:` pins the "compared for N of M" line.
+  - dir: form-calls-recorded
+    check: 5
+    expect: pass
+    codes: []
+    absent_warnings: [form_calls_mismatch, form_recorded_call_undescribed]
+    summary: { calls_stated: 5, calls_compared: 5, calls_comparable: true }
+    note: >-
+      The clean case, and the guards. Rereads the contract does not name are left out — after a
+      chain, in the middle of one, and an audited read (`records_only`). `close` says `calls: null`
+      and sent only a reread. `refresh` names two reads and they stay: an implementation leaving out
+      every read finds nothing sent there and warns. An implementation counting `records_only` as a
+      write warns on `save-as-plan`. A family (`tag-*`) is not compared and not counted: what `tag-a`
+      sent would differ.
+  - dir: form-calls-not-recorded
+    check: 5
+    expect: pass
+    codes: []
+    absent_warnings: [form_calls_mismatch, form_recorded_call_undescribed]
+    summary: { calls_stated: 5, calls_compared: 0, calls_comparable: true }
+    note: >-
+      An inventory without `calls` — every inventory before round 33 — is not compared and not
+      failed, as `within` in round 15. The summary says "compared for 0 of 5": the silence is visible.
+  - dir: form-calls-recorded-no-cards
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_undescribed]
+    absent_warnings: [form_calls_mismatch, form_recorded_call_undescribed]
+    summary: { calls_stated: 5, calls_compared: 0, calls_comparable: false }
+    note: >-
+      No `cards:` in the config, and `start-now` recorded in another order. Without cards a read
+      cannot be told from a write, so nothing is compared, and the summary says NOT COMPARED rather
+      than reporting every reread as a mismatch.
+  - dir: form-calls-recorded-contract-reordered
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_mismatch]
+    summary: { calls_stated: 5, calls_compared: 5 }
+    note: >-
+      The break a pilot's frontend planted to prove the blind spot: the contract's chain dropped a
+      step and moved the start first. The start departs from `none`, which switches the shown_when
+      rule off, so 1.8.1 read no finding. A warning — a new check over a field 1.x already had (§8).
+  - dir: form-calls-recorded-code-reordered
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_mismatch]
+    note: >-
+      The contract is right and the code moved the start before the publish. An implementation that
+      compares the chain as a set passes here and must not.
+  - dir: form-calls-recorded-step-missing
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_mismatch]
+    note: >-
+      The chain went out without its first step. Compared strictly: an implementation accepting what
+      was sent as a subsequence of the contract's chain, the last step equal, passes here and must not
+      — a conditional step is pressed in the state where it runs.
+  - dir: form-calls-recorded-foreign-op
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_mismatch]
+    note: >-
+      One operation, the wrong one: the contract's `rename` names the seal, pressing it renames. The
+      seal departs from the state `rename` is shown in, so every older rule agrees with the contract.
+  - dir: form-calls-recorded-null-writes
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_mismatch]
+    note: >-
+      `calls: null` and pressing it sent a write — one with no transition and a `mutates` list, which
+      is a write and not a read to leave out.
+  - dir: form-calls-recorded-read-missing
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_calls_mismatch]
+    note: >-
+      `refresh` names two reads and sent one. An implementation leaving reads out of both sides
+      compares nothing with nothing here and must not.
+  - dir: form-calls-recorded-undescribed
+    check: 5
+    expect: pass
+    codes: []
+    warnings: [form_recorded_call_undescribed]
+    absent_warnings: [form_calls_mismatch]
+    note: >-
+      Pressing `save-as-plan` sent an operation no card describes. It is named on its own and left
+      out of the comparison — without its card it is neither a read nor a write — so the rest of the
+      chain matches and no mismatch is reported over it.
+  - dir: form-calls-recorded-malformed
+    check: 5
+    expect: fail
+    codes: [form_inventory_malformed]
+    summary: { calls_stated: 5, calls_compared: 4 }
+    note: >-
+      `calls` written wrongly twice: one control maps to an id instead of a list, and one state's
+      `calls` is a list instead of a map. An error, on the new field only; what is malformed is not
+      compared, so 4 of 5 controls are.

@@ -276,6 +276,14 @@ function commandCheck(configPath: string): number {
         (f["designed_ahead"] ? `, ${f["designed_ahead"]} designed ahead of the code` : "") +
         (f["produced_by"] ? `, produced by ${f["produced_by"]}` : ""),
     );
+    // Round 33: the controls whose recorded calls were compared, out of those whose contract says
+    // what they call — so that a control the inventory never pressed is a visible silence.
+    if (f["calls_stated"] !== undefined) {
+      console.log(
+        `calls:      compared for ${f["calls_compared"]} of ${f["calls_stated"]} control(s) whose contract states \`calls\`` +
+          (f["calls_comparable"] ? "" : " — no cards to tell a read from a write, NOT COMPARED"),
+      );
+    }
     errorCount += summarise("check 5 (the form matches its contract)", form.findings);
   }
 
@@ -353,7 +361,7 @@ function main(argv: string[]): number {
     return args.length === 0 ? 2 : 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.log(`usedesign ${version()} (SPEC v1.8)`);
+    console.log(`usedesign ${version()} (SPEC v1.9)`);
     return 0;
   }
 
