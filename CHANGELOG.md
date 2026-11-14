@@ -13,7 +13,7 @@ a day.
 
 ## 1.11.0
 
-*unpublished · SPEC v1.11 — round 35: what a screen cannot reach, and what it shows alike on purpose*
+*2026-11-14 · SPEC v1.11 — round 35: what a screen cannot reach, and what it shows alike on purpose*
 
 A pilot's backend asked why its catalogue reported 53 groups of outcomes shown alike when the
 cards' prose called 69 of the 180 outcomes in them unreachable from their screen — 12 of the
