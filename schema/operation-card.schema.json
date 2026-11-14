@@ -576,7 +576,7 @@
             }
           },
           "covers_outcomes": {
-            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or per_item failure codes — never job states, which are the record's later life. `ok` names the default success of an operation that declares no success by name (no outcomes[], no data_transition.to). A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones. In a text value, the words the user reads go inside «…» or “…” and the rest is context; outcomes_indistinguishable compares those words — spans of two words of two letters or more, as a set; with none, the whole value (SPEC 5.7, round 28). A value may instead be a pair {shows, where, note?} — the line the user reads, the place it appears, and the rest — or a list of two or more pairs for an outcome that shows several lines; outcomes_indistinguishable compares the set of `shows` lines and never `where` (SPEC 5.7, round 30). An outcome this screen cannot reach is a pair {unreachable, shows?, where?, note?}: `unreachable` holds the reason, and the outcome is compared with nothing; validate counts these outcomes on its summary (SPEC 5.7, round 35).",
+            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or per_item failure codes — never job states, which are the record's later life. `ok` names the default success of an operation that declares no success by name (no outcomes[], no data_transition.to). A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones. In a text value, the words the user reads go inside «…» or “…” and the rest is context; outcomes_indistinguishable compares those words — spans of two words of two letters or more, as a set; with none, the whole value (SPEC 5.7, round 28). A value may instead be a pair {shows, where, note?} — the line the user reads, the place it appears, and the rest — or a list of two or more pairs for an outcome that shows several lines; outcomes_indistinguishable compares the set of `shows` lines and never `where` (SPEC 5.7, round 30). An outcome this screen cannot reach is a pair {unreachable, shows?, where?, note?}: `unreachable` holds the reason, and the outcome is compared with nothing; validate counts these outcomes on its summary (SPEC 5.7, round 35). An outcome that reaches this screen and is kept silent on purpose is a pair {silent, note?}: `silent` holds the reason, the outcome is compared with nothing and is not outcome_unshown, and validate counts it; a silence nobody has decided stays null (SPEC 5.7, round 36).",
             "type": "object",
             "minProperties": 1,
             "additionalProperties": {
@@ -606,6 +606,15 @@
                     "unreachable": { "type": "string", "minLength": 1 },
                     "shows": { "type": "string", "minLength": 1 },
                     "where": { "type": "string", "minLength": 1 },
+                    "note": { "type": "string", "minLength": 1 }
+                  }
+                },
+                {
+                  "type": "object",
+                  "required": ["silent"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "silent": { "type": "string", "minLength": 1 },
                     "note": { "type": "string", "minLength": 1 }
                   }
                 },

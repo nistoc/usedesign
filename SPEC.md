@@ -1,6 +1,6 @@
-# Operation Card — Specification v1.11
+# Operation Card — Specification v1.12
 
-> **Status:** v1.11 — v1.0 declared 2026-09-13, rounds 26–35 added to it without breaking it, and
+> **Status:** v1.12 — v1.0 declared 2026-09-13, rounds 26–36 added to it without breaking it, and
 > v1.6 wrote down how its text is read (§6); §8 says what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
@@ -555,7 +555,8 @@ step's `on_violation.error`, or a `per_item.failures[].code`; anything else is
 `covers_unknown_outcome`, the residue of a rename. Once the map exists, **every** declared
 outcome must appear in it: a missing one is `outcome_not_covered` (an error), while one
 explicitly mapped to null is `outcome_unshown` (a warning). The asymmetry is the point — the
-field forbids **silent** gaps, not honest ones.
+field forbids **silent** gaps, not honest ones. Since round 36 a silence someone chose can say
+why, and is then no warning (below); null stays the silence nobody has decided.
 
 **The default success has a name: `ok`.** Round 23 wrote two read cards whose screens could
 describe every refusal and not the one ending the user came for. A read has no
@@ -701,7 +702,7 @@ Text and null mean what they always meant, and one map may hold both spellings. 
 none of these — a pair without `shows` or `where`, either of them empty or not text, a key besides
 the three, a list of one pair or of something else, a number — is `malformed_outcome_pair`, an error
 about the new spelling only. Since round 35 a pair may hold a fourth key, `unreachable`, and then
-reads by the rules below.
+reads by the rules below; since round 36 it may hold `silent` instead of `shows` and `where`.
 
 The checker compares `shows` as it compares a quoted span — rules 1 and 3 — with one difference:
 every line counts, whatever its length. The floor of rule 4 exists to tell a message from a button
@@ -731,7 +732,8 @@ pointed at. Two limits stayed:
 - **An outcome that shows one line or another** — by the screen it was opened from, or by the
   server's reason — stays in prose: a list says every line is shown. 9 of the 243 refusals.
 - **An outcome with no line** — a panel that closes, a refusal swallowed, a button that is off —
-  has nothing for `shows`; prose or null says it. 14 of the 243.
+  has nothing for `shows`; prose or null said it, and since round 36 a pair says it (below). 14
+  of the 243.
 
 **What the screen cannot reach, and what it shows alike on purpose (round 35).** Two things a card
 can now say about its groups instead of leaving them to prose.
@@ -801,6 +803,43 @@ store, and the success label was rendered from a state field computed offline as
 no screen-card to write and no page→forms→api hierarchy to model — a screen is an *interface of an
 operation*, and a page with ten forms is ten cards each naming its own control. The page is an
 address, not an entity.
+
+**What the screen keeps silent about on purpose (round 36).** An outcome can reach the screen
+and the screen can show nothing about it: the refusal is swallowed, a row leaves a list that
+reloads, a panel closes on its own. Until this round the card could only write null and carry
+`outcome_unshown`, with the reason in prose beside it, where nothing reads it. A pair whose
+`silent` holds the reason says it where the warning was:
+
+```yaml
+covers_outcomes:
+  not_found:
+    silent: the row of an item that is gone leaves the list when it reloads
+    note: the list reloads after every archive, whatever the server answered   # optional
+```
+
+- `silent` is text and never empty. Beside it a pair may keep only `note`, text and never empty:
+  a screen that shows nothing has no line to quote, so `shows` or `where` beside `silent` is
+  `malformed_outcome_pair`, and so is any other key, `unreachable` among them: an outcome the
+  screen cannot reach and one it keeps silent about are two claims, and a pair makes one.
+- It is not `outcome_unshown`, and it is compared with nothing: two outcomes kept silent for one
+  reason are no group, since the reason is what the card records, not what the user reads.
+- An outcome is kept silent as a whole: `silent` on one line of a list is
+  `malformed_outcome_pair`. A `same_line` entry that names it is `malformed_same_line`, as for
+  null and `unreachable` — what the screen does not show it cannot show alike.
+- **A silence nobody has decided stays null.** `silent` is for a silence someone chose. An
+  outcome the screen says nothing about because nobody has asked yet keeps null, and its warning
+  is what remembers the question. The checker does not judge the reason, as it does not judge
+  `unreachable`'s.
+- The summary counts these outcomes. When a run keeps any silent, the `declared:` line ends with
+  `, K outcome(s) kept silent on purpose` and is printed for them alone too; a run without
+  `silent` prints what 1.11 printed.
+
+Round 36 measured the catalogue of round 35: 23 outcomes written as null, in 9 cards. 10 said in
+prose why the screen stays silent — 6 a refusal swallowed, 1 nothing to show, and 3 waiting for
+a decision nobody had made yet; 13 gave no reason the round could check, 9 of them no word at
+all, and of those 9, 3 cannot come and belong to `unreachable`. So `silent` fits 7 of the 23, the
+silences someone chose. The 3 that waited are why null stays as it is: written as `silent`, they
+would have answered a question for whoever had not answered it.
 
 **`responses[]` is every status the operation can return** — success, each outcome, and every
 code named by an `on_violation`. Not "the interesting ones": a list that is allowed to be partial
@@ -1512,6 +1551,7 @@ where the format broke:
 | 33 | **What a button sends against what its contract says** — a pilot's frontend role reordered the chain behind its «start» button on purpose and read no finding: `calls` was compared with the cards, never with the code, and the inventory recorded which controls a state renders, not what pressing one sends | One optional inventory key: `calls` in a state — control → the operations pressing it sent, in order (§7.5). Check 5 leaves out the reads a contract does not name and compares the rest with its `calls`, strictly; `calls: null` with a write sent is the same finding. Two warnings, `form_calls_mismatch` and `form_recorded_call_undescribed`: a new check over a field 1.x already had. A summary line counts the controls compared out of those whose contract states `calls`, and says NOT COMPARED without cards. The one new error, `form_inventory_malformed` on a malformed `calls`, is about the new key only; an inventory without it is compared as under 1.8 |
 | 34 | **A finding a repository can make fail, and a count that reads right** — a pilot's frontend took round 33 into its gate and named two things: a reordered chain was a warning and `check` exited 0, so a gate that fails on the exit code passes it; and "compared for 4 of 265" read as 261 unpressed buttons that send a request, while M counts `calls: null` too. Checking the precedent for the first, `uncontracted_screens: Error` turned out to pass and mean `warning` | One optional config key, `calls_mismatch`, `warning` by default: `error` makes `form_calls_mismatch` an error, as `uncontracted_screens: error` does for its finding; `form_recorded_call_undescribed` stays a warning. The summary line keeps N and M and adds how many of the controls whose `calls` names an operation were compared. Both keys that set how strict a finding is refuse a word other than `warning` or `error` at load — a validator that accepted what the schema already forbade, a fix and not a rule change |
 | 35 | **What a screen cannot reach, and what it shows alike on purpose** — after round 30 a pilot's backend author asked why its catalogue reported 53 groups of outcomes when the cards' prose called 69 of the 180 outcomes in them unreachable from their screen; 12 of the groups had at most one reachable outcome left. The same author asked for a way to say that a group is shown alike on purpose | Two optional spellings (§5.7): a `covers_outcomes` pair may hold `unreachable` — the reason — and keep `shows` and `where` for the reader, compared with nothing; `same_line` on an interface names whole groups shown alike on purpose, each with a reason, and accepts a group only when it names exactly its outcomes. One new error, `malformed_same_line`, about the new field only; one warning, `same_line_unmatched`, for an entry that no group matches any more. An `unreachable` that is empty, has a key besides `shows`, `where` and `note`, or stands on one line of a list is `malformed_outcome_pair`. `validate` counts both on a line of its own when either is declared; a card without them validates as under 1.10 |
+| 36 | **What a screen keeps silent about on purpose** — the catalogue of round 35 still wrote 23 outcomes as null, in 9 cards: 10 said in prose why the screen stays silent, 3 of them waiting for a decision nobody had made, and 13 gave no reason the round could check — a reason in prose beside a warning that cannot carry it | One optional spelling (§5.7): a `covers_outcomes` pair may hold `silent` — the reason the screen shows nothing — and beside it only `note`; such an outcome is not `outcome_unshown` and is compared with nothing, and null stays the silence nobody has decided, with its warning. No new code: a `silent` that is empty, has a key besides `note` — `unreachable` among them — or stands on one line of a list is `malformed_outcome_pair`, and a `same_line` entry naming it is `malformed_same_line`. `validate` adds the count to its declared line when a run keeps an outcome silent; a card without `silent` validates as under 1.11 |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

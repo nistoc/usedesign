@@ -11,6 +11,28 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## 1.12.0
+
+*unpublished · SPEC v1.12 — round 36: what a screen keeps silent about on purpose*
+
+The catalogue of round 35 still wrote 23 outcomes as null, in 9 cards; 10 said in prose why the
+screen stays silent, 3 of them waiting for a decision nobody had made, and 13 gave no reason
+the round could check (SPEC §5.7, round 36).
+
+- A `covers_outcomes` pair may hold `silent`: the reason the screen shows nothing about an
+  outcome that reaches it, text and never empty. Beside it a pair may keep only `note`. Such an
+  outcome is not `outcome_unshown` and is compared with nothing. `silent` that is empty, beside
+  `shows`, `where`, `unreachable` or any key but `note`, or on one line of a list is
+  `malformed_outcome_pair`; a `same_line` entry naming it is `malformed_same_line`.
+- A silence nobody has decided stays null, and keeps its warning: `silent` is for a silence
+  someone chose.
+- `validate` ends its `declared:` line with `, K outcome(s) kept silent on purpose` when a run
+  keeps any outcome silent, and prints the line for them alone too; a run without `silent`
+  prints what 1.11 printed.
+- The corpus has ten new card cases on `silent`, four valid and six invalid; the command-line
+  tests count silent outcomes on the summary, with the schema and without it, and check that a
+  run without them prints the line of 1.11.
+
 ## 1.11.0
 
 *2026-11-14 · SPEC v1.11 — round 35: what a screen cannot reach, and what it shows alike on purpose*

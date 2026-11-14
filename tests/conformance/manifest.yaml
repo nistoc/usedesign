@@ -885,3 +885,72 @@ cases:
     note: >-
       An outcome named twice. An implementation that lets the second entry stand reads two groups
       where the screen has one.
+
+  # ── Round 36: what the screen keeps silent about on purpose (§5.7) ──────────────────────────────
+  # A pair may hold `silent` — the reason the screen shows nothing — and beside it only `note`.
+  # Such an outcome is not outcome_unshown and is compared with nothing; a silence nobody has
+  # decided stays null and keeps its warning. On the published 1.11 box every `silent` pair is
+  # malformed_outcome_pair.
+  - file: valid/outcomes-silent-leaves-unshown.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcome_unshown, outcomes_indistinguishable]
+    note: >-
+      An outcome kept silent on purpose, with its reason. An implementation that reads `silent` as
+      null says outcome_unshown; one that does not know the key reports malformed_outcome_pair.
+  - file: valid/outcomes-silent-with-note.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcome_unshown]
+    note: >-
+      `note` beside the reason. An implementation that allows `silent` alone reports
+      malformed_outcome_pair here.
+  - file: valid/outcomes-silent-alike.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable, outcome_unshown]
+    note: >-
+      Two outcomes kept silent for one reason. An implementation that compares the reasons as the
+      line the user reads reports the two as one group.
+  - file: valid/outcomes-silent-beside-null.op.md
+    expect: valid
+    codes: []
+    warnings: [outcome_unshown]
+    warning_messages: ["outcome `not_found` is declared not shown"]
+    note: >-
+      null keeps its warning beside a silent outcome: an undecided silence is still a question. An
+      implementation that quiets null once a card declares silence, or reads null as silent, fails
+      here.
+  - file: invalid/outcome-silent-empty.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      An empty reason. Read leniently, any outcome could leave its warning without a word.
+  - file: invalid/outcome-silent-note-empty.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      An empty `note` beside the reason, refused as in any other pair.
+  - file: invalid/outcome-silent-beside-shows.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      A silent pair that quotes a line. An implementation that lets `shows` stand beside `silent`
+      reads a line the card says the screen does not show.
+  - file: invalid/outcome-silent-beside-unreachable.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      Unreachable and silent are two claims about one outcome; a pair makes one of them.
+  - file: invalid/outcome-silent-in-a-list.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      An outcome is kept silent as a whole. An implementation that drops the silent line and
+      compares the rest reads a silence the card did not declare.
+  - file: invalid/same-line-names-silent.op.md
+    expect: invalid
+    codes: [malformed_same_line]
+    note: >-
+      Only outcomes the screen shows can be shown alike — null, unreachable and silent are refused
+      alike. On 1.11 the entry is read as a group that does not match, a warning and not this code.
