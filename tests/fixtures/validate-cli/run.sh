@@ -77,6 +77,11 @@ sed 's/^id: .*/id: sample.item.unreachable/' "$cases/valid/outcomes-unreachable-
 sed 's/^id: .*/id: sample.item.reasononly/' "$cases/valid/outcomes-unreachable-reason-only.op.md" > "$scratch/declared/b.op.md"
 sed 's/^id: .*/id: sample.item.alike/' "$cases/valid/outcomes-same-line-accepted.op.md" > "$scratch/declared/c.op.md"
 sed '/^        unreachable: /d' "$cases/valid/outcomes-unreachable-leaves-group.op.md" > "$scratch/stripped/a.op.md"
+# What the screen keeps silent about on purpose (1.12.0): only silent outcomes, so the line is printed
+# for them alone, and none of them is outcome_unshown.
+mkdir -p "$scratch/silent"
+sed 's/^id: .*/id: sample.item.silent/' "$cases/valid/outcomes-silent-leaves-unshown.op.md" > "$scratch/silent/a.op.md"
+sed 's/^id: .*/id: sample.item.silentalike/' "$cases/valid/outcomes-silent-alike.op.md" > "$scratch/silent/b.op.md"
 grin="$(printf '\360\237\230\200')"; tilde="$(printf '\357\275\236')"
 cp "$card" "$scratch/astral/$grin.op.md"
 as "$grin" > "$scratch/order/a.op.md"; as "$tilde" > "$scratch/order/b.op.md"
@@ -216,6 +221,11 @@ for impl in ts py; do
     expect 0 "${v[@]}" $flag "$scratch/declared"; says "3 card(s), 0 form contract(s): 0 error(s)"
     says "declared: 2 outcome(s) unreachable from their screen, 1 group(s) shown alike on purpose"
     grep -q outcomes_indistinguishable "$out" && fail "a declared outcome or group must not be reported${flag:+ under $flag}"
+    grep -q "kept silent" "$out" && fail "a run that keeps nothing silent must print the declared line of 1.11${flag:+ under $flag}"
+    # Silent outcomes (1.12.0) are counted after the rest, and the line is printed for them alone.
+    expect 0 "${v[@]}" $flag "$scratch/silent"; says "2 card(s), 0 form contract(s): 0 error(s)"
+    says "declared: 0 outcome(s) unreachable from their screen, 0 group(s) shown alike on purpose, 3 outcome(s) kept silent on purpose"
+    grep -q -e outcome_unshown -e outcomes_indistinguishable "$out" && fail "a silent outcome must not be reported${flag:+ under $flag}"
     expect 0 "${v[@]}" $flag "$scratch/stripped"; says "outcomes \`unauthorized\`, \`forbidden\` are shown identically"
     grep -q "^declared:" "$out" && fail "a run that declares nothing must not print the declared line${flag:+ under $flag}"
   done

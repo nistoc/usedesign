@@ -536,13 +536,23 @@ const PAIR_KEYS = new Set(["shows", "where", "note"]);
 const UNREACHABLE_KEYS = new Set(["unreachable", "shows", "where", "note"]);
 const SAME_LINE_KEYS = new Set(["outcomes", "reason"]);
 
-/** What cards declared on purpose, counted across a run (round 35): the summary prints both. */
+// Round 36 measured the same catalogue's 23 outcomes written as null, "not shown": 10 said in
+// prose why the screen stays silent — the client swallows the refusal, or there is nothing to
+// show — and 3 of those waited for a decision on what to show. Null had to carry both. `silent`
+// holds the reason for a silence that is decided; beside it a pair keeps only `note`, since a
+// screen that shows nothing has no line and no place for one. A silence nobody has decided stays
+// null, and its warning is what remembers the question.
+const SILENT_KEYS = new Set(["silent", "note"]);
+
+/** What cards declared on purpose, counted across a run (rounds 35 and 36): the summary prints them. */
 export interface Declared {
   unreachable: number;
   shownAlike: number;
+  silent: number;
 }
 
 const declaresUnreachable = (value: unknown): value is Record<string, any> => isMap(value) && has(value, "unreachable");
+const declaresSilent = (value: unknown): value is Record<string, any> => isMap(value) && has(value, "silent");
 
 /**
  * One line of a pair: rules 1 and 3, with no floor — `shows` is the line by declaration, and
@@ -571,6 +581,15 @@ function pairProblem(value: unknown): string | undefined {
     }
     return undefined;
   }
+  if (declaresSilent(value)) {
+    const extra = Object.keys(value).find((key) => !SILENT_KEYS.has(key));
+    if (extra !== undefined) {
+      return `declares \`silent\` beside \`${extra}\` — beside the reason a pair may keep only \`note\`: a screen that shows nothing has no line to quote`;
+    }
+    if (!text(value.silent)) return "has a `silent` that is empty or not text — the reason is what the field records";
+    if (has(value, "note") && !text(value.note)) return "declares `silent` with a `note` that is empty or not text";
+    return undefined;
+  }
   const pairs = Array.isArray(value) ? value : [value];
   if (!Array.isArray(value) && !isMap(value)) {
     return "is written as neither text, null, a pair {shows, where} nor a list of pairs";
@@ -582,6 +601,9 @@ function pairProblem(value: unknown): string | undefined {
     if (!isMap(pair)) return "is a list with an entry that is not a pair {shows, where}";
     if (has(pair, "unreachable")) {
       return "has `unreachable` on one of its lines — an outcome the screen cannot reach is one pair, not a line of a list";
+    }
+    if (has(pair, "silent")) {
+      return "has `silent` on one of its lines — an outcome the screen stays silent about is one pair, not a line of a list";
     }
     const extra = Object.keys(pair).find((key) => !PAIR_KEYS.has(key));
     if (extra !== undefined) return `has a pair with \`${extra}\` — a pair holds \`shows\`, \`where\` and \`note\``;
@@ -645,7 +667,7 @@ function sameLineProblem(entry: unknown, covers: Record<string, any>, named: Set
     seen.add(id);
     if (!has(covers, id)) return `\`same_line\` names \`${id}\`, which covers_outcomes does not hold`;
     const shown = covers[id];
-    if (shown === null || declaresUnreachable(shown)) {
+    if (shown === null || declaresUnreachable(shown) || declaresSilent(shown)) {
       return `\`same_line\` names \`${id}\`, which this screen does not show — only outcomes it shows can be shown alike`;
     }
     if (named.has(id)) return `\`same_line\` names \`${id}\` in two entries — an outcome is in one group`;
@@ -1019,6 +1041,7 @@ export function validate(
       const problem = pairProblem(shown);
       if (problem !== undefined) err("malformed_outcome_pair", `interface \`${name}\`: outcome \`${id}\` ${problem}`);
       else if (declaresUnreachable(shown) && tally) tally.unreachable += 1;
+      else if (declaresSilent(shown) && tally) tally.silent += 1;
     }
     for (const key of Object.keys(covers)) {
       if (key === "ok") {
@@ -1070,11 +1093,12 @@ export function validate(
     // malformed one is reported above and compared with nothing. Round 35: an outcome declared
     // unreachable is compared with nothing, and a group `same_line` names whole is accepted and
     // counted; a group that grew or split is reported again, and so is the entry that named it.
+    // Round 36: an outcome the screen stays silent about shows no line and is compared with nothing.
     const byText = new Map<string, string[]>();
     for (const [id, shown] of Object.entries<any>(covers)) {
       let key: string;
       if (typeof shown === "string") key = shownKey(shown);
-      else if (shown !== null && !declaresUnreachable(shown) && pairProblem(shown) === undefined) key = pairsKey(shown);
+      else if (shown !== null && !declaresUnreachable(shown) && !declaresSilent(shown) && pairProblem(shown) === undefined) key = pairsKey(shown);
       else continue;
       byText.set(key, [...(byText.get(key) ?? []), id]);
     }

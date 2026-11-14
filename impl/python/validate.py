@@ -479,18 +479,31 @@ PAIR_KEYS = ("shows", "where", "note")
 UNREACHABLE_KEYS = ("unreachable", "shows", "where", "note")
 SAME_LINE_KEYS = ("outcomes", "reason")
 
+# Round 36 measured the same catalogue's 23 outcomes written as null, "not shown": 10 said in
+# prose why the screen stays silent — the client swallows the refusal, or there is nothing to
+# show — and 3 of those waited for a decision on what to show. Null had to carry both. `silent`
+# holds the reason for a silence that is decided; beside it a pair keeps only `note`, since a
+# screen that shows nothing has no line and no place for one. A silence nobody has decided stays
+# null, and its warning is what remembers the question. The TypeScript twin is `SILENT_KEYS`.
+SILENT_KEYS = ("silent", "note")
+
 
 class Declared:
-    """What cards declared on purpose, counted across a run (round 35): the summary prints both."""
-    __slots__ = ("unreachable", "shown_alike")
+    """What cards declared on purpose, counted across a run (rounds 35 and 36): the summary prints them."""
+    __slots__ = ("unreachable", "shown_alike", "silent")
 
     def __init__(self):
         self.unreachable = 0
         self.shown_alike = 0
+        self.silent = 0
 
 
 def declares_unreachable(value) -> bool:
     return isinstance(value, dict) and "unreachable" in value
+
+
+def declares_silent(value) -> bool:
+    return isinstance(value, dict) and "silent" in value
 
 
 def line_key(shows: str) -> str:
@@ -516,6 +529,16 @@ def pair_problem(value) -> str | None:
             if key in value and not _text(value[key]):
                 return f"declares `unreachable` with a `{key}` that is empty or not text"
         return None
+    if declares_silent(value):
+        extra = next((key for key in value if key not in SILENT_KEYS), None)
+        if extra is not None:
+            return (f"declares `silent` beside `{extra}` — beside the reason a pair may keep only "
+                    "`note`: a screen that shows nothing has no line to quote")
+        if not _text(value["silent"]):
+            return "has a `silent` that is empty or not text — the reason is what the field records"
+        if "note" in value and not _text(value["note"]):
+            return "declares `silent` with a `note` that is empty or not text"
+        return None
     if not isinstance(value, (list, dict)):
         return "is written as neither text, null, a pair {shows, where} nor a list of pairs"
     if isinstance(value, list) and len(value) < 2:
@@ -525,6 +548,9 @@ def pair_problem(value) -> str | None:
             return "is a list with an entry that is not a pair {shows, where}"
         if "unreachable" in pair:
             return ("has `unreachable` on one of its lines — an outcome the screen cannot reach is "
+                    "one pair, not a line of a list")
+        if "silent" in pair:
+            return ("has `silent` on one of its lines — an outcome the screen stays silent about is "
                     "one pair, not a line of a list")
         extra = next((key for key in pair if key not in PAIR_KEYS), None)
         if extra is not None:
@@ -586,7 +612,7 @@ def _same_line_problem(entry, covers: dict, named: set[str]) -> str | None:
         if oid not in covers:
             return f"`same_line` names `{oid}`, which covers_outcomes does not hold"
         shown = covers[oid]
-        if shown is None or declares_unreachable(shown):
+        if shown is None or declares_unreachable(shown) or declares_silent(shown):
             return (f"`same_line` names `{oid}`, which this screen does not show — only outcomes "
                     "it shows can be shown alike")
         if oid in named:
@@ -932,6 +958,8 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None,
                 err("malformed_outcome_pair", f"interface `{name}`: outcome `{oid}` {problem}")
             elif declares_unreachable(shown) and tally is not None:
                 tally.unreachable += 1
+            elif declares_silent(shown) and tally is not None:
+                tally.silent += 1
         for key in covers:
             if key == "ok":
                 if not has_default_success:
@@ -971,12 +999,14 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None,
         # Round 30: a pair is compared by its lines (pairs_key); a malformed one is reported above
         # and compared with nothing. Round 35: an outcome declared unreachable is compared with
         # nothing, and a group `same_line` names whole is accepted and counted; a group that grew
-        # or split is reported again, and so is the entry that named it.
+        # or split is reported again, and so is the entry that named it. Round 36: an outcome the
+        # screen stays silent about shows no line and is compared with nothing.
         by_text: dict[tuple, list[str]] = {}
         for oid, shown in covers.items():
             if isinstance(shown, str):
                 key = shown_key(shown)
-            elif shown is not None and not declares_unreachable(shown) and pair_problem(shown) is None:
+            elif (shown is not None and not declares_unreachable(shown) and not declares_silent(shown)
+                  and pair_problem(shown) is None):
                 key = pairs_key(shown)
             else:
                 continue
@@ -1531,7 +1561,8 @@ def run_files(paths: list[str], with_schema: bool = True) -> int:
     # What the cards silenced on purpose (round 35): outcomes declared unreachable and groups
     # declared shown alike are compared with nothing, so they are counted here — a number, not
     # prose. The line is printed only when there is something to count, so a run without them
-    # prints what 1.10 did.
+    # prints what 1.10 did. Round 36 adds the outcomes a screen stays silent about on purpose, as a
+    # third number printed only when it is not zero, so a run without `silent` prints what 1.11 did.
     declared = Declared()
     for path, problem in unreadable:
         show(path, [Finding("missing_required_field", problem)])
@@ -1542,9 +1573,10 @@ def run_files(paths: list[str], with_schema: bool = True) -> int:
         show(path, (schema_findings(path, form=True) if with_schema else [])
              + validate_form(fm, os.path.basename(path), known_forms, known if cards else None,
                              cards_by_id if cards else None))
-    if declared.unreachable or declared.shown_alike:
+    if declared.unreachable or declared.shown_alike or declared.silent:
+        silent = f", {declared.silent} outcome(s) kept silent on purpose" if declared.silent else ""
         print(f"\ndeclared: {declared.unreachable} outcome(s) unreachable from their screen, "
-              f"{declared.shown_alike} group(s) shown alike on purpose")
+              f"{declared.shown_alike} group(s) shown alike on purpose{silent}")
     print(f"\n{len(cards) + len(unreadable) - unreadable_forms} card(s), "
           f"{len(forms) + unreadable_forms} form contract(s): {errors} error(s), {warnings} warning(s)")
     return 1 if errors else 0

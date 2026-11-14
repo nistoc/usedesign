@@ -196,17 +196,20 @@ function commandValidate(paths: string[], withSchema: boolean): number {
   // What the cards silenced on purpose (round 35): outcomes declared unreachable and groups declared
   // shown alike are compared with nothing, so they are counted here — a number, not prose. The line
   // is printed only when there is something to count, so a run without them prints what 1.10 did.
-  const declared: Declared = { unreachable: 0, shownAlike: 0 };
+  // Round 36 adds the outcomes a screen stays silent about on purpose, as a third number printed only
+  // when it is not zero, so a run without `silent` prints what 1.11 did.
+  const declared: Declared = { unreachable: 0, shownAlike: 0, silent: 0 };
   for (const { path, fm } of inOrder(cards)) {
     show(path, [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known, declared)]);
   }
   for (const { path, fm } of inOrder(forms)) {
     show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms, cards.length > 0 ? known : null, cards.length > 0 ? cardsById : null)]);
   }
-  if (declared.unreachable > 0 || declared.shownAlike > 0) {
+  if (declared.unreachable > 0 || declared.shownAlike > 0 || declared.silent > 0) {
     console.log(
       `\ndeclared: ${declared.unreachable} outcome(s) unreachable from their screen, ` +
-        `${declared.shownAlike} group(s) shown alike on purpose`,
+        `${declared.shownAlike} group(s) shown alike on purpose` +
+        (declared.silent > 0 ? `, ${declared.silent} outcome(s) kept silent on purpose` : ""),
     );
   }
   console.log(
@@ -373,7 +376,7 @@ function main(argv: string[]): number {
     return args.length === 0 ? 2 : 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.log(`usedesign ${version()} (SPEC v1.11)`);
+    console.log(`usedesign ${version()} (SPEC v1.12)`);
     return 0;
   }
 
