@@ -13,7 +13,7 @@ a day.
 
 ## 1.12.0
 
-*unpublished · SPEC v1.12 — round 36: what a screen keeps silent about on purpose*
+*2026-11-14 · SPEC v1.12 — round 36: what a screen keeps silent about on purpose*
 
 The catalogue of round 35 still wrote 23 outcomes as null, in 9 cards; 10 said in prose why the
 screen stays silent, 3 of them waiting for a decision nobody had made, and 13 gave no reason
