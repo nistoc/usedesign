@@ -70,6 +70,13 @@ cases="$root/tests/conformance/cases"
 sed 's/^id: .*/id: sample.item.listed/' "$cases/valid/outcomes-pair-list.op.md" > "$scratch/pairs/a.op.md"
 sed 's/^id: .*/id: sample.item.misspelt/' "$cases/invalid/outcome-pair-unknown-key.op.md" > "$scratch/pairs/b.op.md"
 sed 's/^id: .*/id: sample.item.number/' "$cases/invalid/outcome-shown-as-a-number.op.md" > "$scratch/pairs/c.op.md"
+# What the screen cannot reach, and what it shows alike on purpose (1.11.0): the summary counts both;
+# the same pair with its `unreachable` taken out is compared again.
+mkdir -p "$scratch/declared" "$scratch/stripped"
+sed 's/^id: .*/id: sample.item.unreachable/' "$cases/valid/outcomes-unreachable-leaves-group.op.md" > "$scratch/declared/a.op.md"
+sed 's/^id: .*/id: sample.item.reasononly/' "$cases/valid/outcomes-unreachable-reason-only.op.md" > "$scratch/declared/b.op.md"
+sed 's/^id: .*/id: sample.item.alike/' "$cases/valid/outcomes-same-line-accepted.op.md" > "$scratch/declared/c.op.md"
+sed '/^        unreachable: /d' "$cases/valid/outcomes-unreachable-leaves-group.op.md" > "$scratch/stripped/a.op.md"
 grin="$(printf '\360\237\230\200')"; tilde="$(printf '\357\275\236')"
 cp "$card" "$scratch/astral/$grin.op.md"
 as "$grin" > "$scratch/order/a.op.md"; as "$tilde" > "$scratch/order/b.op.md"
@@ -202,6 +209,15 @@ for impl in ts py; do
     expect 1 "${v[@]}" $flag "$scratch/pairs"; says "3 card(s), 0 form contract(s)"
     says "outcomes \`unauthorized\`, \`not_found\` are shown identically"
     [ "$(grep -c "malformed_outcome_pair" "$out")" -eq 2 ] || fail "both malformed values must be named${flag:+ under $flag}"
+  done
+  # What a card declares on purpose is counted on the summary (1.11.0), with the schema and without
+  # it; a run that declares nothing prints no such line, so the summary of 1.10 is unchanged there.
+  for flag in "" --no-schema; do
+    expect 0 "${v[@]}" $flag "$scratch/declared"; says "3 card(s), 0 form contract(s): 0 error(s)"
+    says "declared: 2 outcome(s) unreachable from their screen, 1 group(s) shown alike on purpose"
+    grep -q outcomes_indistinguishable "$out" && fail "a declared outcome or group must not be reported${flag:+ under $flag}"
+    expect 0 "${v[@]}" $flag "$scratch/stripped"; says "outcomes \`unauthorized\`, \`forbidden\` are shown identically"
+    grep -q "^declared:" "$out" && fail "a run that declares nothing must not print the declared line${flag:+ under $flag}"
   done
   # `?` is one character, one outside the BMP too (1.4.3); the reference took one UTF-16 code unit.
   expect 0 "${c[@]}" "$scratch/astral.config.yaml"; says "1 card(s), 0 evidence path(s)"

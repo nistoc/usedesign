@@ -576,7 +576,7 @@
             }
           },
           "covers_outcomes": {
-            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or per_item failure codes — never job states, which are the record's later life. `ok` names the default success of an operation that declares no success by name (no outcomes[], no data_transition.to). A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones. In a text value, the words the user reads go inside «…» or “…” and the rest is context; outcomes_indistinguishable compares those words — spans of two words of two letters or more, as a set; with none, the whole value (SPEC 5.7, round 28). A value may instead be a pair {shows, where, note?} — the line the user reads, the place it appears, and the rest — or a list of two or more pairs for an outcome that shows several lines; outcomes_indistinguishable compares the set of `shows` lines and never `where` (SPEC 5.7, round 30).",
+            "description": "What the user of THIS interface sees for each declared outcome. Keys must name declared outcomes: outcomes[].id, data_transition.to values, step violation errors, or per_item failure codes — never job states, which are the record's later life. `ok` names the default success of an operation that declares no success by name (no outcomes[], no data_transition.to). A null value is the explicit claim that the outcome is NOT shown — declared, not forgotten. Once the map exists, every outcome must appear in it: the field forbids silent gaps, not honest ones. In a text value, the words the user reads go inside «…» or “…” and the rest is context; outcomes_indistinguishable compares those words — spans of two words of two letters or more, as a set; with none, the whole value (SPEC 5.7, round 28). A value may instead be a pair {shows, where, note?} — the line the user reads, the place it appears, and the rest — or a list of two or more pairs for an outcome that shows several lines; outcomes_indistinguishable compares the set of `shows` lines and never `where` (SPEC 5.7, round 30). An outcome this screen cannot reach is a pair {unreachable, shows?, where?, note?}: `unreachable` holds the reason, and the outcome is compared with nothing; validate counts these outcomes on its summary (SPEC 5.7, round 35).",
             "type": "object",
             "minProperties": 1,
             "additionalProperties": {
@@ -599,6 +599,17 @@
                   }
                 },
                 {
+                  "type": "object",
+                  "required": ["unreachable"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "unreachable": { "type": "string", "minLength": 1 },
+                    "shows": { "type": "string", "minLength": 1 },
+                    "where": { "type": "string", "minLength": 1 },
+                    "note": { "type": "string", "minLength": 1 }
+                  }
+                },
+                {
                   "type": "array",
                   "minItems": 2,
                   "items": {
@@ -613,6 +624,25 @@
                   }
                 }
               ]
+            }
+          },
+          "same_line": {
+            "description": "Groups of outcomes this screen shows alike on purpose. Each entry names one whole group of covers_outcomes — outcomes the screen shows — and why; outcomes_indistinguishable is then silent on that group, and validate counts it on its summary. A group that grows or splits is reported again, and so is the entry that named it (same_line_unmatched). An entry that names an outcome not shown, absent from the map, or already named in another entry is malformed_same_line (SPEC 5.7, round 35).",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["outcomes", "reason"],
+              "additionalProperties": false,
+              "properties": {
+                "outcomes": {
+                  "type": "array",
+                  "minItems": 2,
+                  "uniqueItems": true,
+                  "items": { "type": "string", "minLength": 1 }
+                },
+                "reason": { "type": "string", "minLength": 1 }
+              }
             }
           },
           "quota": {

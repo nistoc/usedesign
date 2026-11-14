@@ -780,3 +780,108 @@ cases:
     note: >-
       `short_circuit` written as a sentence: the rule says so instead of reading fields out of a
       string.
+
+  # ── Round 35: what the screen cannot reach, and what it shows alike on purpose (§5.7) ──────────
+  # A pair may hold `unreachable` — the reason — and keep `shows` and `where` for the reader;
+  # such an outcome is compared with nothing. `same_line` beside `covers_outcomes` names whole
+  # groups shown alike on purpose, each with a reason. On the published 1.10 box every
+  # `unreachable` pair is malformed_outcome_pair and `same_line` is ignored.
+  - file: valid/outcomes-unreachable-leaves-group.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable, outcome_unshown]
+    note: >-
+      An outcome declared unreachable, with the line it would show, leaves the group it would have
+      made. An implementation that compares `shows` of an unreachable pair warns here; one that
+      reads it as not shown says outcome_unshown.
+  - file: valid/outcomes-unreachable-rest-of-group.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable]
+    warning_messages: ["outcomes `unauthorized`, `not_found` are shown identically"]
+    note: >-
+      The unreachable outcome leaves the group and the rest of it stays. An implementation that
+      drops the whole group stays silent; one that keeps the unreachable outcome in it names three.
+  - file: valid/outcomes-unreachable-reason-only.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcome_unshown, outcomes_indistinguishable]
+    note: >-
+      `unreachable` without `shows` and `where`. An implementation that still requires the two keys
+      of a pair reports malformed_outcome_pair; one that reads it as null says outcome_unshown.
+  - file: valid/outcomes-unreachable-beside-null.op.md
+    expect: valid
+    codes: []
+    warnings: [outcome_unshown]
+    warning_messages: ["outcome `not_found` is declared not shown"]
+    note: >-
+      null keeps its warning beside an unreachable outcome. An implementation that silences null
+      with the new field, or reads one as the other, fails here.
+  - file: invalid/outcome-unreachable-empty.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      An empty reason. Read leniently, any outcome could leave its group without a word.
+  - file: invalid/outcome-unreachable-extra-key.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      A misspelt key beside `unreachable`, as round 30 refuses it beside `shows`.
+  - file: invalid/outcome-unreachable-in-a-list.op.md
+    expect: invalid
+    codes: [malformed_outcome_pair]
+    note: >-
+      An outcome is reachable or not as a whole. An implementation that drops one line of the list
+      and compares the rest reads a reach the card did not declare.
+  - file: valid/outcomes-same-line-accepted.op.md
+    expect: valid
+    codes: []
+    absent_warnings: [outcomes_indistinguishable, same_line_unmatched]
+    note: >-
+      A group named whole, in another order. An implementation that compares in order warns twice
+      here; one that ignores `same_line` warns once.
+  - file: valid/outcomes-same-line-group-grew.op.md
+    expect: valid
+    codes: []
+    warnings: [outcomes_indistinguishable, same_line_unmatched]
+    warning_messages:
+      - "outcomes `unauthorized`, `forbidden`, `not_found` are shown identically"
+      - "same_line names `unauthorized`, `forbidden`, which are not one group"
+    note: >-
+      A grown group. An implementation that accepts a group containing the entry stays silent about
+      the outcome that joined it — the silence the field must not buy.
+  - file: valid/outcomes-same-line-split.op.md
+    expect: valid
+    codes: []
+    warnings: [same_line_unmatched]
+    absent_warnings: [outcomes_indistinguishable]
+    note: >-
+      A split group leaves its entry behind. An implementation that reads the entry only when a group
+      matches stays silent about a declaration that is no longer true.
+  - file: invalid/same-line-unknown-outcome.op.md
+    expect: invalid
+    codes: [malformed_same_line]
+    note: >-
+      An entry names an outcome the map does not hold; it names no group.
+  - file: invalid/same-line-names-unreachable.op.md
+    expect: invalid
+    codes: [malformed_same_line]
+    note: >-
+      Only outcomes the screen shows can be shown alike — null and unreachable are refused alike.
+  - file: invalid/same-line-without-reason.op.md
+    expect: invalid
+    codes: [malformed_same_line]
+    note: >-
+      The reason is required. Read leniently, `same_line` is a switch for any warning of the kind.
+  - file: invalid/same-line-not-a-list.op.md
+    expect: invalid
+    codes: [malformed_same_line]
+    note: >-
+      A sentence instead of entries. Named without the schema too, so the corpus holds under
+      `--no-schema`.
+  - file: invalid/same-line-twice.op.md
+    expect: invalid
+    codes: [malformed_same_line]
+    note: >-
+      An outcome named twice. An implementation that lets the second entry stand reads two groups
+      where the screen has one.

@@ -1,6 +1,6 @@
-# Operation Card — Specification v1.10
+# Operation Card — Specification v1.11
 
-> **Status:** v1.10 — v1.0 declared 2026-09-13, rounds 26–34 added to it without breaking it, and
+> **Status:** v1.11 — v1.0 declared 2026-09-13, rounds 26–35 added to it without breaking it, and
 > v1.6 wrote down how its text is read (§6); §8 says what the number promises. This document
 > defines the Operation Card format: a single description of one operation that several
 > consumers — UI, data model, external contracts, service-to-service contracts, tests and
@@ -647,8 +647,8 @@ being reported, in silence. The rule has known limits:
   in two values joins them although their lines differ. Quote only the line the user reads; name a
   button or a record without quotes — or write the outcome as a pair (below), whose `shows` holds
   the line and nothing else.
-- **An outcome this screen cannot reach** is compared too when its value quotes what it would show.
-  A structured spelling for "unreachable from this screen" is a candidate for a later round.
+- **An outcome this screen cannot reach** is compared too when its value quotes what it would show,
+  unless it is written as a pair that declares it unreachable (round 35, below).
 - **The checker never guesses sameness from prose.** "The same line as above" is not a reference —
   in the round's catalogue, phrases meaning "the same" pointed at the same screen line in 30 of 75
   values. Quote the line instead, or write the pair.
@@ -700,7 +700,8 @@ covers_outcomes:
 Text and null mean what they always meant, and one map may hold both spellings. A value that is
 none of these — a pair without `shows` or `where`, either of them empty or not text, a key besides
 the three, a list of one pair or of something else, a number — is `malformed_outcome_pair`, an error
-about the new spelling only.
+about the new spelling only. Since round 35 a pair may hold a fourth key, `unreachable`, and then
+reads by the rules below.
 
 The checker compares `shows` as it compares a quoted span — rules 1 and 3 — with one difference:
 every line counts, whatever its length. The floor of rule 4 exists to tell a message from a button
@@ -731,6 +732,68 @@ pointed at. Two limits stayed:
   server's reason — stays in prose: a list says every line is shown. 9 of the 243 refusals.
 - **An outcome with no line** — a panel that closes, a refusal swallowed, a button that is off —
   has nothing for `shows`; prose or null says it. 14 of the 243.
+
+**What the screen cannot reach, and what it shows alike on purpose (round 35).** Two things a card
+can now say about its groups instead of leaving them to prose.
+
+An outcome **this screen cannot reach** — the screen is shown only to those the server would let
+through, the control is off whenever the outcome could come — is a pair whose `unreachable` holds
+the reason:
+
+```yaml
+covers_outcomes:
+  forbidden:
+    unreachable: the list is shown only to editors, by the same claim the server checks
+    shows: Could not archive the item — try again   # optional: what the screen would show
+    where: "[data-field=list-error]"               # optional
+    note: the guard and the claim it reads
+```
+
+- `unreachable` is text and never empty. Beside it a pair may keep `shows`, `where` and `note`,
+  each text and never empty, and nothing else; anything more, or less, is `malformed_outcome_pair`.
+- `shows` and `where` are optional here: they tell the reader what the screen would show if the
+  outcome came, and they are not compared. Such an outcome is in no group; the outcomes that share
+  its line form their group without it.
+- It is not `outcome_unshown`. Null keeps what it meant — an outcome that can come and is not shown —
+  and its warning.
+- An outcome is reachable or not as a whole: `unreachable` on one line of a list is
+  `malformed_outcome_pair`.
+- An outcome reachable only by an address typed into the browser is reachable.
+- The checker does not judge the reason; the card is where the claim becomes visible. The summary
+  counts these outcomes, so the debt is a number, not prose.
+
+A **group shown alike on purpose** is named beside the map, on the interface, with its reason:
+
+```yaml
+ui:
+  covers_outcomes: { … }
+  same_line:
+    - outcomes: [unauthorized, forbidden]
+      reason: every refusal sends the editor back to the list, and the list says why on reload
+```
+
+- An entry names two or more outcomes of `covers_outcomes`, each once, and holds a reason that is
+  text and never empty. Only outcomes the screen shows can be shown alike. An entry that names a
+  null or an unreachable outcome, an outcome the map does not hold, or one another entry already
+  names is `malformed_same_line`; so is a `same_line` that is not a list of such entries, or one on
+  an interface with no `covers_outcomes` map. A malformed entry accepts nothing.
+- An entry accepts a group only when it names exactly the group's outcomes, in any order. A group
+  that has grown — a third outcome now shows the line — or split is reported again as
+  `outcomes_indistinguishable`, and the entry that no longer names a group is reported as
+  `same_line_unmatched`, a warning: the field silences the group it names, and no other.
+- The summary counts the groups accepted.
+
+`validate` prints one line before its summary when a run declares either —
+`declared: N outcome(s) unreachable from their screen, M group(s) shown alike on purpose` — and no
+line when it declares neither, so a run without the two fields reads as under 1.10.
+
+Round 35 measured a pilot catalogue of 114 cards: of 180 outcomes in 53 groups, 69 were called
+unreachable in prose, and 12 groups had at most one reachable outcome left — reported for nothing a
+user could see. The label for a group on purpose came with a caution of its own. Round 24 moved
+from an intent nobody measured, `none_by_design`, to a measured absence, `none_unexplained` (§5.4);
+and in 34 of the 41 groups left on that catalogue an expired sign-in shares its line with other
+refusals — a question for the screen, not for the card. The reason makes an entry reviewable; it
+does not make the group right.
 
 What the round rejected matters as much as what it added. The measurement showed outcome handling
 is not located in "the screen": the control sat in one component, the error policy in a shared
@@ -1448,6 +1511,7 @@ where the format broke:
 | 32 | **A step where the call ends early** — a pilot's 24 writes on behalf of a user replay a stored answer by `Idempotency-Key`: the target and the consent are checked again, and the precondition, the domain steps and the commit do not run; the audit line is written only when the re-check refuses. The cards said it in prose; one of them listed its If-Match check before the replay for seven weeks, with a passing test on every step. The key binds neither the body nor the headers, and nothing in the format could say so | One, optional: `short_circuit { when, returns, runs_again, binds, unbound, on_unbound }` on a step (§5.3) — the later steps it does not name in `runs_again` do not run on the short path. Three errors on the new field, `short_circuit_unknown_step`, `short_circuit_step_not_after` and `short_circuit_malformed`, and one warning, `guard_bypassable`: a request part the short path does not bind, with nothing said about what a call that differs there receives. A card without the field validates as it did under 1.7 |
 | 33 | **What a button sends against what its contract says** — a pilot's frontend role reordered the chain behind its «start» button on purpose and read no finding: `calls` was compared with the cards, never with the code, and the inventory recorded which controls a state renders, not what pressing one sends | One optional inventory key: `calls` in a state — control → the operations pressing it sent, in order (§7.5). Check 5 leaves out the reads a contract does not name and compares the rest with its `calls`, strictly; `calls: null` with a write sent is the same finding. Two warnings, `form_calls_mismatch` and `form_recorded_call_undescribed`: a new check over a field 1.x already had. A summary line counts the controls compared out of those whose contract states `calls`, and says NOT COMPARED without cards. The one new error, `form_inventory_malformed` on a malformed `calls`, is about the new key only; an inventory without it is compared as under 1.8 |
 | 34 | **A finding a repository can make fail, and a count that reads right** — a pilot's frontend took round 33 into its gate and named two things: a reordered chain was a warning and `check` exited 0, so a gate that fails on the exit code passes it; and "compared for 4 of 265" read as 261 unpressed buttons that send a request, while M counts `calls: null` too. Checking the precedent for the first, `uncontracted_screens: Error` turned out to pass and mean `warning` | One optional config key, `calls_mismatch`, `warning` by default: `error` makes `form_calls_mismatch` an error, as `uncontracted_screens: error` does for its finding; `form_recorded_call_undescribed` stays a warning. The summary line keeps N and M and adds how many of the controls whose `calls` names an operation were compared. Both keys that set how strict a finding is refuse a word other than `warning` or `error` at load — a validator that accepted what the schema already forbade, a fix and not a rule change |
+| 35 | **What a screen cannot reach, and what it shows alike on purpose** — after round 30 a pilot's backend author asked why its catalogue reported 53 groups of outcomes when the cards' prose called 69 of the 180 outcomes in them unreachable from their screen; 12 of the groups had at most one reachable outcome left. The same author asked for a way to say that a group is shown alike on purpose | Two optional spellings (§5.7): a `covers_outcomes` pair may hold `unreachable` — the reason — and keep `shows` and `where` for the reader, compared with nothing; `same_line` on an interface names whole groups shown alike on purpose, each with a reason, and accepts a group only when it names exactly its outcomes. One new error, `malformed_same_line`, about the new field only; one warning, `same_line_unmatched`, for an entry that no group matches any more. An `unreachable` that is empty, has a key besides `shows`, `where` and `note`, or stands on one line of a list is `malformed_outcome_pair`. `validate` counts both on a line of its own when either is declared; a card without them validates as under 1.10 |
 
 **Criterion for v1.0:** not "no more breakage" — untouched areas will always break something —
 but *a round that changes only optional fields, never required ones*. Rounds 9, 10 and 11 all

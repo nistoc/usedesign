@@ -468,6 +468,30 @@ def shown_key(value: str) -> tuple:
 
 PAIR_KEYS = ("shows", "where", "note")
 
+# Round 35 measured a pilot catalogue of 114 cards: of 180 outcomes in 53 groups, 69 were called
+# unreachable from their screen in prose, and 12 groups held no two outcomes a user could reach —
+# warnings about nothing anyone can see. `unreachable` says so in a field, with the reason; such an
+# outcome is compared with nothing. `shows` and `where` may stay, for the reader, and are not
+# compared. The same round gave a screen a way to say that outcomes it shows alike are shown alike
+# on purpose: `same_line` beside `covers_outcomes`, each entry naming one whole group and why.
+# Both are counted on the summary, so what a card silenced is a number and not prose. The
+# TypeScript twin is `UNREACHABLE_KEYS` / `readSameLine`; the two must agree.
+UNREACHABLE_KEYS = ("unreachable", "shows", "where", "note")
+SAME_LINE_KEYS = ("outcomes", "reason")
+
+
+class Declared:
+    """What cards declared on purpose, counted across a run (round 35): the summary prints both."""
+    __slots__ = ("unreachable", "shown_alike")
+
+    def __init__(self):
+        self.unreachable = 0
+        self.shown_alike = 0
+
+
+def declares_unreachable(value) -> bool:
+    return isinstance(value, dict) and "unreachable" in value
+
 
 def line_key(shows: str) -> str:
     """One line of a pair: rules 1 and 3, with no floor — `shows` is the line by declaration, and
@@ -481,6 +505,17 @@ def line_key(shows: str) -> str:
 def pair_problem(value) -> str | None:
     """What is wrong with a covers_outcomes value that is not text or null, or None when it is a
     pair {shows, where, note?} or a list of two or more of them."""
+    if declares_unreachable(value):
+        extra = next((key for key in value if key not in UNREACHABLE_KEYS), None)
+        if extra is not None:
+            return (f"declares `unreachable` beside `{extra}` — beside the reason a pair may keep "
+                    "`shows`, `where` and `note`")
+        if not _text(value["unreachable"]):
+            return "has an `unreachable` that is empty or not text — the reason is what the field records"
+        for key in ("shows", "where", "note"):
+            if key in value and not _text(value[key]):
+                return f"declares `unreachable` with a `{key}` that is empty or not text"
+        return None
     if not isinstance(value, (list, dict)):
         return "is written as neither text, null, a pair {shows, where} nor a list of pairs"
     if isinstance(value, list) and len(value) < 2:
@@ -488,6 +523,9 @@ def pair_problem(value) -> str | None:
     for pair in value if isinstance(value, list) else [value]:
         if not isinstance(pair, dict):
             return "is a list with an entry that is not a pair {shows, where}"
+        if "unreachable" in pair:
+            return ("has `unreachable` on one of its lines — an outcome the screen cannot reach is "
+                    "one pair, not a line of a list")
         extra = next((key for key in pair if key not in PAIR_KEYS), None)
         if extra is not None:
             return f"has a pair with `{extra}` — a pair holds `shows`, `where` and `note`"
@@ -507,7 +545,57 @@ def pairs_key(value) -> tuple:
     return ("quoted", frozenset(line_key(pair["shows"]) for pair in pairs))
 
 
-def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) -> list[Finding]:
+def read_same_line(value, covers: dict) -> tuple[list[list[str]], list[str]]:
+    """The groups an interface declares shown alike on purpose (round 35), each entry the names of
+    one whole group, and what is wrong with the entries that cannot be read. An entry that names an
+    outcome the map does not show — null, unreachable, absent — names no group, so it is malformed;
+    so is an outcome named in two entries, since an outcome sits in one group."""
+    entries: list[list[str]] = []
+    problems: list[str] = []
+    if not isinstance(value, list) or not value:
+        return entries, ["`same_line` is written as something other than a list of {outcomes, reason}"]
+    named: set[str] = set()
+    for entry in value:
+        problem = _same_line_problem(entry, covers, named)
+        if problem is not None:
+            problems.append(problem)
+            continue
+        ids = list(entry["outcomes"])
+        named.update(ids)
+        entries.append(ids)
+    return entries, problems
+
+
+def _same_line_problem(entry, covers: dict, named: set[str]) -> str | None:
+    if not isinstance(entry, dict):
+        return "`same_line` has an entry that is not {outcomes, reason}"
+    extra = next((key for key in entry if key not in SAME_LINE_KEYS), None)
+    if extra is not None:
+        return f"`same_line` has an entry with `{extra}` — an entry holds `outcomes` and `reason`"
+    ids = entry.get("outcomes")
+    if not isinstance(ids, list) or len(ids) < 2 or not all(_text(i) for i in ids):
+        return "`same_line` has an entry whose `outcomes` is not a list of two or more outcome names"
+    if not _text(entry.get("reason")):
+        return ("`same_line` has an entry whose `reason` is missing, empty or not text — the reason "
+                "is what the entry records")
+    seen: set[str] = set()
+    for oid in ids:
+        if oid in seen:
+            return f"`same_line` names `{oid}` twice in one entry"
+        seen.add(oid)
+        if oid not in covers:
+            return f"`same_line` names `{oid}`, which covers_outcomes does not hold"
+        shown = covers[oid]
+        if shown is None or declares_unreachable(shown):
+            return (f"`same_line` names `{oid}`, which this screen does not show — only outcomes "
+                    "it shows can be shown alike")
+        if oid in named:
+            return f"`same_line` names `{oid}` in two entries — an outcome is in one group"
+    return None
+
+
+def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None,
+             tally: Declared | None = None) -> list[Finding]:
     """Validate one card. `known_ids` enables cross-card reference warnings."""
     out: list[Finding] = []
 
@@ -831,6 +919,10 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
     for name, iface in interfaces.items():
         covers = _map(iface).get("covers_outcomes")
         if not isinstance(covers, dict):
+            if "same_line" in _map(iface):
+                err("malformed_same_line",
+                    f"interface `{name}`: `same_line` names outcomes, and the interface has no "
+                    "covers_outcomes map to name them from")
             continue
         for oid, shown in covers.items():
             if shown is None or isinstance(shown, str):
@@ -838,6 +930,8 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
             problem = pair_problem(shown)
             if problem is not None:
                 err("malformed_outcome_pair", f"interface `{name}`: outcome `{oid}` {problem}")
+            elif declares_unreachable(shown) and tally is not None:
+                tally.unreachable += 1
         for key in covers:
             if key == "ok":
                 if not has_default_success:
@@ -875,22 +969,46 @@ def validate(fm: dict, filename: str = "", known_ids: set[str] | None = None) ->
         # so the user who must give consent is told to retry, and retrying can never work.
         # Round 28: the words compared are the quoted ones, not the whole value (shown_key).
         # Round 30: a pair is compared by its lines (pairs_key); a malformed one is reported above
-        # and compared with nothing.
+        # and compared with nothing. Round 35: an outcome declared unreachable is compared with
+        # nothing, and a group `same_line` names whole is accepted and counted; a group that grew
+        # or split is reported again, and so is the entry that named it.
         by_text: dict[tuple, list[str]] = {}
         for oid, shown in covers.items():
             if isinstance(shown, str):
                 key = shown_key(shown)
-            elif shown is not None and pair_problem(shown) is None:
+            elif shown is not None and not declares_unreachable(shown) and pair_problem(shown) is None:
                 key = pairs_key(shown)
             else:
                 continue
             by_text.setdefault(key, []).append(oid)
+        if "same_line" in _map(iface):
+            entries, problems = read_same_line(_map(iface)["same_line"], covers)
+        else:
+            entries, problems = [], []
+        for problem in problems:
+            err("malformed_same_line", f"interface `{name}`: {problem}")
+        accepted: set[int] = set()
         for ids in by_text.values():
-            if len(ids) > 1:
-                shown_ids = ", ".join(f"`{i}`" for i in ids)
-                warn("outcomes_indistinguishable",
-                     f"interface `{name}`: outcomes {shown_ids} are shown identically — "
-                     "the user cannot tell them apart")
+            if len(ids) < 2:
+                continue
+            entry = next((index for index, names in enumerate(entries)
+                          if len(names) == len(ids) and all(i in ids for i in names)), -1)
+            if entry >= 0:
+                accepted.add(entry)
+                if tally is not None:
+                    tally.shown_alike += 1
+                continue
+            shown_ids = ", ".join(f"`{i}`" for i in ids)
+            warn("outcomes_indistinguishable",
+                 f"interface `{name}`: outcomes {shown_ids} are shown identically — "
+                 "the user cannot tell them apart")
+        for index, names in enumerate(entries):
+            if index in accepted:
+                continue
+            named_ids = ", ".join(f"`{i}`" for i in names)
+            warn("same_line_unmatched",
+                 f"interface `{name}`: same_line names {named_ids}, which are not one group shown "
+                 "alike — the group it accepted has grown, split or gone")
 
     for name, iface in interfaces.items():
         for parameter in map(_map, _list(_map(iface).get("parameters"))):
@@ -1410,14 +1528,23 @@ def run_files(paths: list[str], with_schema: bool = True) -> int:
             errors += finding.severity == "error"
             warnings += finding.severity == "warning"
 
+    # What the cards silenced on purpose (round 35): outcomes declared unreachable and groups
+    # declared shown alike are compared with nothing, so they are counted here — a number, not
+    # prose. The line is printed only when there is something to count, so a run without them
+    # prints what 1.10 did.
+    declared = Declared()
     for path, problem in unreadable:
         show(path, [Finding("missing_required_field", problem)])
     for path, fm in in_order(cards):
-        show(path, (schema_findings(path) if with_schema else []) + validate(fm, os.path.basename(path), known))
+        show(path, (schema_findings(path) if with_schema else [])
+             + validate(fm, os.path.basename(path), known, declared))
     for path, fm in in_order(forms):
         show(path, (schema_findings(path, form=True) if with_schema else [])
              + validate_form(fm, os.path.basename(path), known_forms, known if cards else None,
                              cards_by_id if cards else None))
+    if declared.unreachable or declared.shown_alike:
+        print(f"\ndeclared: {declared.unreachable} outcome(s) unreachable from their screen, "
+              f"{declared.shown_alike} group(s) shown alike on purpose")
     print(f"\n{len(cards) + len(unreadable) - unreadable_forms} card(s), "
           f"{len(forms) + unreadable_forms} form contract(s): {errors} error(s), {warnings} warning(s)")
     return 1 if errors else 0

@@ -526,6 +526,24 @@ export function shownKey(value: string): string {
 
 const PAIR_KEYS = new Set(["shows", "where", "note"]);
 
+// Round 35 measured a pilot catalogue of 114 cards: of 180 outcomes in 53 groups, 69 were called
+// unreachable from their screen in prose, and 12 groups held no two outcomes a user could reach —
+// warnings about nothing anyone can see. `unreachable` says so in a field, with the reason; such an
+// outcome is compared with nothing. `shows` and `where` may stay, for the reader, and are not
+// compared. The same round gave a screen a way to say that outcomes it shows alike are shown alike
+// on purpose: `same_line` beside `covers_outcomes`, each entry naming one whole group and why.
+// Both are counted on the summary, so what a card silenced is a number and not prose.
+const UNREACHABLE_KEYS = new Set(["unreachable", "shows", "where", "note"]);
+const SAME_LINE_KEYS = new Set(["outcomes", "reason"]);
+
+/** What cards declared on purpose, counted across a run (round 35): the summary prints both. */
+export interface Declared {
+  unreachable: number;
+  shownAlike: number;
+}
+
+const declaresUnreachable = (value: unknown): value is Record<string, any> => isMap(value) && has(value, "unreachable");
+
 /**
  * One line of a pair: rules 1 and 3, with no floor — `shows` is the line by declaration, and
  * the floor exists only to tell a message from a button quoted beside it. A line with no word
@@ -542,6 +560,17 @@ function lineKey(shows: string): string {
  * pair {shows, where, note?} or a list of two or more of them.
  */
 function pairProblem(value: unknown): string | undefined {
+  if (declaresUnreachable(value)) {
+    const extra = Object.keys(value).find((key) => !UNREACHABLE_KEYS.has(key));
+    if (extra !== undefined) {
+      return `declares \`unreachable\` beside \`${extra}\` — beside the reason a pair may keep \`shows\`, \`where\` and \`note\``;
+    }
+    if (!text(value.unreachable)) return "has an `unreachable` that is empty or not text — the reason is what the field records";
+    for (const key of ["shows", "where", "note"]) {
+      if (has(value, key) && !text(value[key])) return `declares \`unreachable\` with a \`${key}\` that is empty or not text`;
+    }
+    return undefined;
+  }
   const pairs = Array.isArray(value) ? value : [value];
   if (!Array.isArray(value) && !isMap(value)) {
     return "is written as neither text, null, a pair {shows, where} nor a list of pairs";
@@ -551,6 +580,9 @@ function pairProblem(value: unknown): string | undefined {
   }
   for (const pair of pairs) {
     if (!isMap(pair)) return "is a list with an entry that is not a pair {shows, where}";
+    if (has(pair, "unreachable")) {
+      return "has `unreachable` on one of its lines — an outcome the screen cannot reach is one pair, not a line of a list";
+    }
     const extra = Object.keys(pair).find((key) => !PAIR_KEYS.has(key));
     if (extra !== undefined) return `has a pair with \`${extra}\` — a pair holds \`shows\`, \`where\` and \`note\``;
     for (const key of ["shows", "where"]) {
@@ -573,11 +605,65 @@ function pairsKey(value: Record<string, any> | Record<string, any>[]): string {
 }
 
 /**
+ * The groups an interface declares shown alike on purpose (round 35), each entry the names of one
+ * whole group, and what is wrong with the entries that cannot be read. An entry that names an
+ * outcome the map does not show — null, unreachable, absent — names no group, so it is malformed;
+ * so is an outcome named in two entries, since an outcome sits in one group.
+ */
+function readSameLine(value: unknown, covers: Record<string, any>): { entries: string[][]; problems: string[] } {
+  const entries: string[][] = [];
+  const problems: string[] = [];
+  if (!Array.isArray(value) || value.length === 0) {
+    return { entries, problems: ["`same_line` is written as something other than a list of {outcomes, reason}"] };
+  }
+  const named = new Set<string>();
+  for (const entry of value) {
+    const problem = sameLineProblem(entry, covers, named);
+    if (problem !== undefined) {
+      problems.push(problem);
+      continue;
+    }
+    const ids = (entry.outcomes as string[]).slice();
+    for (const id of ids) named.add(id);
+    entries.push(ids);
+  }
+  return { entries, problems };
+}
+
+function sameLineProblem(entry: unknown, covers: Record<string, any>, named: Set<string>): string | undefined {
+  if (!isMap(entry)) return "`same_line` has an entry that is not {outcomes, reason}";
+  const extra = Object.keys(entry).find((key) => !SAME_LINE_KEYS.has(key));
+  if (extra !== undefined) return `\`same_line\` has an entry with \`${extra}\` — an entry holds \`outcomes\` and \`reason\``;
+  const ids = entry.outcomes;
+  if (!Array.isArray(ids) || ids.length < 2 || !ids.every((id) => text(id))) {
+    return "`same_line` has an entry whose `outcomes` is not a list of two or more outcome names";
+  }
+  if (!text(entry.reason)) return "`same_line` has an entry whose `reason` is missing, empty or not text — the reason is what the entry records";
+  const seen = new Set<string>();
+  for (const id of ids as string[]) {
+    if (seen.has(id)) return `\`same_line\` names \`${id}\` twice in one entry`;
+    seen.add(id);
+    if (!has(covers, id)) return `\`same_line\` names \`${id}\`, which covers_outcomes does not hold`;
+    const shown = covers[id];
+    if (shown === null || declaresUnreachable(shown)) {
+      return `\`same_line\` names \`${id}\`, which this screen does not show — only outcomes it shows can be shown alike`;
+    }
+    if (named.has(id)) return `\`same_line\` names \`${id}\` in two entries — an outcome is in one group`;
+  }
+  return undefined;
+}
+
+/**
  * Validate one card's *meaning*. `knownIds` enables the cross-card reference warnings; pass null
  * when validating a card on its own, so that pointing at a card outside the set is not reported
  * as if it were missing.
  */
-export function validate(fm: Card, filename = "", knownIds: Set<string> | null = null): Finding[] {
+export function validate(
+  fm: Card,
+  filename = "",
+  knownIds: Set<string> | null = null,
+  tally: Declared | null = null,
+): Finding[] {
   const out: Finding[] = [];
   const err = (code: string, detail: string) => out.push(new Finding(code, detail));
   const warn = (code: string, detail: string) => out.push(new Finding(code, detail, "warning"));
@@ -922,11 +1008,17 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
   const hasDefaultSuccess = namedSuccesses.length === 0;
   for (const [name, iface] of Object.entries<any>(interfaces)) {
     const covers = map(iface).covers_outcomes;
-    if (!isMap(covers)) continue;
+    if (!isMap(covers)) {
+      if (has(map(iface), "same_line")) {
+        err("malformed_same_line", `interface \`${name}\`: \`same_line\` names outcomes, and the interface has no covers_outcomes map to name them from`);
+      }
+      continue;
+    }
     for (const [id, shown] of Object.entries<any>(covers)) {
       if (shown === null || typeof shown === "string") continue;
       const problem = pairProblem(shown);
       if (problem !== undefined) err("malformed_outcome_pair", `interface \`${name}\`: outcome \`${id}\` ${problem}`);
+      else if (declaresUnreachable(shown) && tally) tally.unreachable += 1;
     }
     for (const key of Object.keys(covers)) {
       if (key === "ok") {
@@ -975,23 +1067,40 @@ export function validate(fm: Card, filename = "", knownIds: Set<string> | null =
     // A warning: collapsing outcomes is sometimes a deliberate choice, and the card is the place
     // where that choice stops being invisible. Round 28: the words compared are the quoted ones,
     // not the whole value (shownKey). Round 30: a pair is compared by its lines (pairsKey); a
-    // malformed one is reported above and compared with nothing.
+    // malformed one is reported above and compared with nothing. Round 35: an outcome declared
+    // unreachable is compared with nothing, and a group `same_line` names whole is accepted and
+    // counted; a group that grew or split is reported again, and so is the entry that named it.
     const byText = new Map<string, string[]>();
     for (const [id, shown] of Object.entries<any>(covers)) {
       let key: string;
       if (typeof shown === "string") key = shownKey(shown);
-      else if (shown !== null && pairProblem(shown) === undefined) key = pairsKey(shown);
+      else if (shown !== null && !declaresUnreachable(shown) && pairProblem(shown) === undefined) key = pairsKey(shown);
       else continue;
       byText.set(key, [...(byText.get(key) ?? []), id]);
     }
+    const sameLine = has(map(iface), "same_line") ? readSameLine(map(iface).same_line, covers) : { entries: [], problems: [] };
+    for (const problem of sameLine.problems) err("malformed_same_line", `interface \`${name}\`: ${problem}`);
+    const accepted = new Set<number>();
     for (const [, ids] of byText) {
-      if (ids.length > 1) {
-        warn(
-          "outcomes_indistinguishable",
-          `interface \`${name}\`: outcomes ${ids.map((i) => `\`${i}\``).join(", ")} are shown identically — the user cannot tell them apart`,
-        );
+      if (ids.length < 2) continue;
+      const entry = sameLine.entries.findIndex((names) => names.length === ids.length && names.every((id) => ids.includes(id)));
+      if (entry >= 0) {
+        accepted.add(entry);
+        if (tally) tally.shownAlike += 1;
+        continue;
       }
+      warn(
+        "outcomes_indistinguishable",
+        `interface \`${name}\`: outcomes ${ids.map((i) => `\`${i}\``).join(", ")} are shown identically — the user cannot tell them apart`,
+      );
     }
+    sameLine.entries.forEach((names, index) => {
+      if (accepted.has(index)) return;
+      warn(
+        "same_line_unmatched",
+        `interface \`${name}\`: same_line names ${names.map((i) => `\`${i}\``).join(", ")}, which are not one group shown alike — the group it accepted has grown, split or gone`,
+      );
+    });
   }
 
   for (const [name, iface] of Object.entries<any>(interfaces)) {
