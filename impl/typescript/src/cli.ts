@@ -17,7 +17,7 @@ import { runCardCorpus, runChecksCorpus } from "./conformance.js";
 import { planScaffold, unaccountedRoutes, writeScaffold } from "./scaffold.js";
 import { commandGen } from "./gen.js";
 import { commandPreview } from "./preview.js";
-import { validate, validateForm, validateFormSchema, validateSchema } from "./validate.js";
+import { type Declared, validate, validateForm, validateFormSchema, validateSchema } from "./validate.js";
 
 /**
  * The version is read from package.json, never written here. It was written here once, and the
@@ -193,11 +193,21 @@ function commandValidate(paths: string[], withSchema: boolean): number {
     warningCount += warnings(findings).length;
   };
   for (const { path, problem } of unreadable) show(path, [new Finding("missing_required_field", problem)]);
+  // What the cards silenced on purpose (round 35): outcomes declared unreachable and groups declared
+  // shown alike are compared with nothing, so they are counted here — a number, not prose. The line
+  // is printed only when there is something to count, so a run without them prints what 1.10 did.
+  const declared: Declared = { unreachable: 0, shownAlike: 0 };
   for (const { path, fm } of inOrder(cards)) {
-    show(path, [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known)]);
+    show(path, [...(withSchema ? validateSchema(fm) : []), ...validate(fm, path, known, declared)]);
   }
   for (const { path, fm } of inOrder(forms)) {
     show(path, [...(withSchema ? validateFormSchema(fm) : []), ...validateForm(fm, path, knownForms, cards.length > 0 ? known : null, cards.length > 0 ? cardsById : null)]);
+  }
+  if (declared.unreachable > 0 || declared.shownAlike > 0) {
+    console.log(
+      `\ndeclared: ${declared.unreachable} outcome(s) unreachable from their screen, ` +
+        `${declared.shownAlike} group(s) shown alike on purpose`,
+    );
   }
   console.log(
     `\n${cards.length + unreadable.length - unreadableForms} card(s), ${forms.length + unreadableForms} form contract(s): ` +
@@ -363,7 +373,7 @@ function main(argv: string[]): number {
     return args.length === 0 ? 2 : 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    console.log(`usedesign ${version()} (SPEC v1.10)`);
+    console.log(`usedesign ${version()} (SPEC v1.11)`);
     return 0;
   }
 

@@ -11,6 +11,33 @@ in SPEC §8, where the round-by-round record is kept.
 Each date is the day the version reached npm, in UTC; the date of its tagged commit can differ by
 a day.
 
+## 1.11.0
+
+*unpublished · SPEC v1.11 — round 35: what a screen cannot reach, and what it shows alike on purpose*
+
+A pilot's backend asked why its catalogue reported 53 groups of outcomes shown alike when the
+cards' prose called 69 of the 180 outcomes in them unreachable from their screen — 12 of the
+groups had at most one reachable outcome left — and asked for a way to say that a group is shown
+alike on purpose (SPEC §5.7, round 35).
+
+- A `covers_outcomes` pair may hold `unreachable`: the reason the screen cannot reach the outcome,
+  text and never empty. `shows` and `where` become optional beside it and are not compared, so the
+  outcome leaves the group it would have made; it is not `outcome_unshown`, and null keeps its
+  warning. `unreachable` that is empty, beside a key other than `shows`, `where` and `note`, or on
+  one line of a list is `malformed_outcome_pair`.
+- A new optional interface field, `same_line`: a list of `{outcomes, reason}`, each naming two or
+  more outcomes the screen shows. An entry accepts a group only when it names exactly the group's
+  outcomes, in any order; a grown or split group is reported again, and the entry that no longer
+  matches is `same_line_unmatched`, a warning. A malformed entry — an outcome the map does not
+  hold, a null or unreachable outcome, an outcome in two entries, no reason, not a list, no
+  `covers_outcomes` map — is `malformed_same_line`, an error about the new field only.
+- `validate` prints `declared: N outcome(s) unreachable from their screen, M group(s) shown alike
+  on purpose` before its summary when a run declares either, and nothing when it declares neither:
+  a run without the new fields prints what 1.10 printed.
+- The corpus has fifteen new card cases, seven on `unreachable` and eight on `same_line`; the
+  command-line tests count both on the summary, with the schema and without it, and take the
+  `unreachable` out of a pair to see its group come back.
+
 ## 1.10.0
 
 *2026-11-13 · SPEC v1.10 — round 34: a finding a repository can make fail, and a count that reads right*
